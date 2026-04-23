@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BlackNote — Privacy Policy</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #1a1a1a;
+      background: #fafafa;
+      line-height: 1.7;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 16px;
+      padding: 48px 40px;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #111;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 32px;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 28px 0 12px;
+      color: #222;
+    }
+    p, li {
+      font-size: 15px;
+      color: #444;
+      margin-bottom: 12px;
+    }
+    ul {
+      padding-left: 20px;
+      margin-bottom: 12px;
+    }
+    li { margin-bottom: 6px; }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e5e5;
+      font-size: 13px;
+      color: #999;
+    }
+    @media (max-width: 600px) {
+      .container { padding: 28px 20px; }
+      h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Privacy Policy</h1>
+    <p class="subtitle">BlackNote — Chrome Extension &middot; Last updated: April 23, 2026</p>
+
+    <h2>1. Overview</h2>
+    <p>
+      BlackNote is a side-panel note-taking Chrome extension with an integrated AI writing assistant and optional cloud sync. We are committed to protecting your privacy and being transparent about the data we handle.
+    </p>
+
+    <h2>2. Data We Collect</h2>
+    <p>BlackNote collects and processes the following data:</p>
+    <ul>
+      <li><strong>Notes content:</strong> The text and media you create within the editor. Notes are stored locally in your browser (IndexedDB) by default. If you sign in, notes are also synced to our cloud database (Supabase) for cross-device access.</li>
+      <li><strong>Account information:</strong> If you choose to sign in with Google, we receive your email address, display name, and profile picture from Google. This is used solely for authentication and displaying your profile within the extension.</li>
+      <li><strong>AI prompts:</strong> When you use the AI writing assistant, the text you select or type is sent to our backend server for processing. We do not store or log the content of your AI prompts beyond what is needed to generate a response.</li>
+      <li><strong>Usage metadata:</strong> For users with AI credits, we log the number of credits consumed and the AI model used. This is strictly for billing and service monitoring purposes. No note content is included in these logs.</li>
+    </ul>
+
+    <h2>3. Data We Do NOT Collect</h2>
+    <ul>
+      <li>We do not collect browsing history or activity on other websites.</li>
+      <li>We do not track, profile, or sell your personal data.</li>
+      <li>We do not inject ads, affiliate links, or tracking scripts.</li>
+      <li>We do not read or access any data from other browser tabs or extensions.</li>
+    </ul>
+
+    <h2>4. How We Use Your Data</h2>
+    <ul>
+      <li><strong>Note storage & sync:</strong> To persist your notes locally and, if you opt in, synchronize them across devices via cloud storage.</li>
+      <li><strong>Authentication:</strong> To identify your account and associate your notes with your profile.</li>
+      <li><strong>AI processing:</strong> To send your selected text to the AI model and return the generated response.</li>
+      <li><strong>Credit management:</strong> To track AI usage credits for premium users.</li>
+    </ul>
+
+    <h2>5. Third-Party Services</h2>
+    <p>BlackNote uses the following third-party services:</p>
+    <ul>
+      <li><strong>Supabase</strong> — For user authentication (Google OAuth) and cloud database storage. <a href="https://supabase.com/privacy" target="_blank">Supabase Privacy Policy</a></li>
+      <li><strong>Google Cloud (Vertex AI / Gemini)</strong> — For AI text generation on our backend server. <a href="https://cloud.google.com/terms/cloud-privacy-notice" target="_blank">Google Cloud Privacy Notice</a></li>
+      <li><strong>Lemon Squeezy</strong> — For payment processing of AI credit purchases. We do not store your payment information; it is handled entirely by Lemon Squeezy. <a href="https://www.lemonsqueezy.com/privacy" target="_blank">Lemon Squeezy Privacy Policy</a></li>
+    </ul>
+
+    <h2>6. Data Storage & Security</h2>
+    <ul>
+      <li>Local notes are stored in your browser's IndexedDB and never leave your device unless you sign in for cloud sync.</li>
+      <li>Cloud data is stored in Supabase with Row Level Security (RLS) enabled — only you can access your own notes.</li>
+      <li>All network communication uses HTTPS encryption.</li>
+      <li>Our backend is protected with authentication middleware, rate limiting, and security headers (Helmet).</li>
+    </ul>
+
+    <h2>7. Your Rights</h2>
+    <ul>
+      <li><strong>Delete your data:</strong> You can delete individual notes within the extension. To delete all cloud data, sign out and contact us.</li>
+      <li><strong>Export your data:</strong> Your notes are stored in standard JSON format and can be accessed via your browser's developer tools.</li>
+      <li><strong>Revoke access:</strong> You can sign out at any time. You can also revoke Google access from your <a href="https://myaccount.google.com/permissions" target="_blank">Google Account settings</a>.</li>
+    </ul>
+
+    <h2>8. Permissions Explained</h2>
+    <ul>
+      <li><strong>sidePanel:</strong> Required to display the note-taking interface as a browser side panel.</li>
+      <li><strong>identity:</strong> Required for Google Sign-in to enable cloud sync functionality.</li>
+    </ul>
+
+    <h2>9. Changes to This Policy</h2>
+    <p>
+      We may update this Privacy Policy from time to time. Any changes will be reflected on this page with an updated date. Continued use of the extension after changes constitutes acceptance of the updated policy.
+    </p>
+
+    <h2>10. Contact</h2>
+    <p>
+      If you have any questions about this Privacy Policy or your data, please contact us at:
+      <br><a href="mailto:graphosai@gmail.com">graphosai@gmail.com</a>
+    </p>
+
+    <div class="footer">
+      &copy; 2026 GraphOS AI. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>
