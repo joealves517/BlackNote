@@ -1,5 +1,6 @@
 import { Check, TextQuote, Trash2 } from "lucide-react";
 import { useEditor } from "novel";
+import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
 
 interface AICompletionCommandsProps {
   completion: string;
@@ -12,19 +13,15 @@ export function AICompletionCommands({
 }: AICompletionCommandsProps) {
   const { editor } = useEditor();
 
-  // Convert markdown string to ProseMirror-compatible content
   const parseMarkdown = (md: string) => {
-    if (!editor) return md;
     try {
-      const parser = editor.storage.markdown?.parser;
-      if (parser) {
-        const parsed = parser.parse(md);
-        return parsed.content.toJSON() || md;
-      }
-    } catch {
-      // Fallback to raw string if parser unavailable
+      const jsonStr = markdownToProsemirror(md);
+      const json = JSON.parse(jsonStr);
+      return json.content || md;
+    } catch (err) {
+      console.error(err);
+      return md;
     }
-    return md;
   };
 
   return (

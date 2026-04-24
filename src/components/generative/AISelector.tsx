@@ -97,7 +97,7 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
           >
-            <GeminiIcon className="ai-loading-icon" style={{ color: "hsl(270 80% 65%)" }} />
+            <GeminiIcon className="ai-loading-icon" />
             <span>AI is thinking<ThinkingDots /></span>
           </motion.div>
         )}
@@ -120,7 +120,7 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
             {/* Streaming thinking indicator */}
             {isLoading && (
               <div className="ai-loading ai-loading-inline">
-                <GeminiIcon className="ai-loading-icon" style={{ color: "hsl(270 80% 65%)" }} />
+                <GeminiIcon className="ai-loading-icon" />
                 <span>Writing<ThinkingDots /></span>
               </div>
             )}

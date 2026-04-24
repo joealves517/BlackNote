@@ -417,16 +417,7 @@ export function Sidebar({
             </div>
 
           </div>
-        ) : (
-          /* Not logged in — Google sign-in button */
-          <button
-            onClick={onSignInWithGoogle}
-            className="google-signin-btn"
-          >
-            <GoogleIcon />
-            <span>Sign in with Google</span>
-          </button>
-        )}
+        ) : null}
       </div>
       {/* Fair Use Info Modal */}
       {showFairUseInfo && (

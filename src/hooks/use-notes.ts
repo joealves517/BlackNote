@@ -44,6 +44,20 @@ export function useNotes(userId: string | undefined) {
 
   const activeNote = notes.find((n) => n.id === activeNoteId) ?? null;
 
+  const isNoteEmpty = (note: Note | null | undefined): boolean => {
+    if (!note) return false;
+    if (note.title.trim() !== "" && note.title.trim() !== "Untitled") return false;
+    if (!note.content) return true;
+    try {
+      const parsed = JSON.parse(note.content);
+      if (!parsed || !parsed.content || parsed.content.length === 0) return true;
+      if (parsed.content.length === 1 && parsed.content[0].type === "paragraph" && !parsed.content[0].content) return true;
+      return false;
+    } catch {
+      return true;
+    }
+  };
+
   const filteredNotes = notes.filter((note) =>
     note.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -115,6 +129,11 @@ export function useNotes(userId: string | undefined) {
   }, [userId, loadFromLocal]);
 
   const createNote = useCallback(async () => {
+    const currentNote = notes.find((n) => n.id === activeNoteId);
+    if (isNoteEmpty(currentNote)) {
+      return; // Already on an empty note
+    }
+
     const now = Date.now();
     const newNote: LocalNote = {
       id: crypto.randomUUID(),
@@ -135,7 +154,7 @@ export function useNotes(userId: string | undefined) {
     if (userId) {
       pushNote(newNote, userId);
     }
-  }, [userId]);
+  }, [userId, notes, activeNoteId]);
 
   /** Create a note pre-filled with title and markdown content (used by Web Clipper) */
   const createNoteWithContent = useCallback(
@@ -221,6 +240,19 @@ export function useNotes(userId: string | undefined) {
     [activeNoteId, userId]
   );
 
+  const setActiveNoteIdWithCleanup = useCallback(
+    (newId: string | null) => {
+      if (activeNoteId && activeNoteId !== newId) {
+        const currentActive = notes.find((n) => n.id === activeNoteId);
+        if (isNoteEmpty(currentActive)) {
+          deleteNote(activeNoteId);
+        }
+      }
+      setActiveNoteId(newId);
+    },
+    [activeNoteId, notes, deleteNote]
+  );
+
   return {
     notes: filteredNotes,
     allNotes: notes,
@@ -229,7 +261,7 @@ export function useNotes(userId: string | undefined) {
     searchQuery,
     loading,
     syncProgress,
-    setActiveNoteId,
+    setActiveNoteId: setActiveNoteIdWithCleanup,
     setSearchQuery,
     createNote,
     createNoteWithContent,

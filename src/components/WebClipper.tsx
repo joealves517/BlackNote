@@ -168,10 +168,9 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
 
       {/* Extract error */}
       {status === "error" && (
-        <div className="web-clipper-error">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
-          <button className="web-clipper-retry" onClick={clip}>Retry</button>
+        <div className="web-clipper-loading">
+          <AlertCircle className="w-4 h-4 shrink-0" style={{ color: "hsl(var(--muted-foreground))" }} />
+          <span>Page not supported</span>
         </div>
       )}
 

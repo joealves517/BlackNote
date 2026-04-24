@@ -30,6 +30,10 @@ import {
   type SuggestionItem,
 } from "novel";
 import { Extension } from "@tiptap/core";
+import Table from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableHeader from "@tiptap/extension-table-header";
+import TableCell from "@tiptap/extension-table-cell";
 import {
   Bold,
   Italic,
@@ -235,6 +239,12 @@ const extensions = [
       HTMLAttributes: { class: "novel-code-block" },
     },
   }),
+  Table.configure({
+    resizable: true,
+  }),
+  TableRow,
+  TableHeader,
+  TableCell,
   HorizontalRule,
   TaskList,
   TaskItem.configure({ nested: true }),
@@ -314,13 +324,14 @@ export function NoteEditor({
   }, []);
 
   const getInitialContent = useCallback((): JSONContent | undefined => {
-    if (!note?.content) return undefined;
+    const emptyDoc = { type: "doc", content: [{ type: "paragraph" }] };
+    if (!note?.content) return emptyDoc;
     try {
       const parsed = JSON.parse(note.content);
       if (parsed && parsed.type === "doc") return parsed;
-      return undefined;
+      return emptyDoc;
     } catch {
-      return undefined;
+      return emptyDoc;
     }
   }, [note?.content]);
 
@@ -355,29 +366,30 @@ export function NoteEditor({
       className="flex-1 flex flex-col h-full overflow-hidden"
       style={{ backgroundColor: "hsl(var(--background))" }}
     >
-      {/* Title — auto-growing textarea */}
-      <div className="blacknote-title-area">
-        <textarea
-          ref={titleRef}
-          value={titleValue}
-          onChange={(e) => {
-            handleTitleChange(e.target.value);
-            autoResizeTitle();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-            }
-          }}
-          placeholder="Untitled"
-          rows={1}
-          className="blacknote-title-input"
-          style={{ color: "hsl(var(--foreground))" }}
-        />
-      </div>
-
-      {/* Novel Editor */}
+      {/* Scrollable Container for Title + Editor */}
       <div className="flex-1 overflow-y-auto novel-wrapper">
+        {/* Title — auto-growing textarea */}
+        <div className="blacknote-title-area">
+          <textarea
+            ref={titleRef}
+            value={titleValue}
+            onChange={(e) => {
+              handleTitleChange(e.target.value);
+              autoResizeTitle();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+              }
+            }}
+            placeholder="Untitled"
+            rows={1}
+            className="blacknote-title-input"
+            style={{ color: "hsl(var(--foreground))" }}
+          />
+        </div>
+
+        {/* Novel Editor */}
         <EditorRoot>
           <EditorContent
             key={editorKey}
@@ -388,8 +400,72 @@ export function NoteEditor({
               handleDOMEvents: {
                 keydown: (_view, event) => handleCommandNavigation(event),
               },
-              handlePaste: (view, event) => handleImagePaste(view, event, uploadFn),
-              handleDrop: (view, event, _slice, moved) => handleImageDrop(view, event, moved, uploadFn),
+              handlePaste: (view, event) => {
+                // Intercept raw image data from clipboard (e.g. screenshots)
+                if (event.clipboardData && event.clipboardData.items) {
+                  for (const item of Array.from(event.clipboardData.items)) {
+                    if (item.type.indexOf("image") === 0) {
+                      const file = item.getAsFile();
+                      if (file) {
+                        event.preventDefault();
+                        uploadFn(file).then((url) => {
+                          const { schema } = view.state;
+                          const node = schema.nodes.image.create({ src: url });
+                          const tr = view.state.tr.replaceSelectionWith(node);
+                          view.dispatch(tr);
+                        });
+                        return true;
+                      }
+                    }
+                  }
+                }
+                return handleImagePaste(view, event, uploadFn);
+              },
+              handleDrop: (view, event, _slice, moved) => {
+                if (!moved && event.dataTransfer) {
+                  // 1. Handle actual image files (e.g., dragged from desktop)
+                  if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+                    const file = event.dataTransfer.files[0];
+                    if (file.type.indexOf("image") === 0) {
+                      event.preventDefault();
+                      uploadFn(file).then((url) => {
+                        const { schema } = view.state;
+                        const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+                        const node = schema.nodes.image.create({ src: url });
+                        const tr = view.state.tr;
+                        if (coordinates) {
+                          tr.insert(coordinates.pos, node);
+                        } else {
+                          tr.replaceSelectionWith(node);
+                        }
+                        view.dispatch(tr);
+                      });
+                      return true;
+                    }
+                  }
+                  
+                  // 2. Handle image elements dragged from other websites
+                  const html = event.dataTransfer.getData("text/html");
+                  if (html) {
+                    const match = html.match(/<img.*?src=["'](.*?)["']/i);
+                    if (match && match[1]) {
+                       event.preventDefault();
+                       const { schema } = view.state;
+                       const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+                       const node = schema.nodes.image.create({ src: match[1] });
+                       const tr = view.state.tr;
+                       if (coordinates) {
+                         tr.insert(coordinates.pos, node);
+                       } else {
+                         tr.replaceSelectionWith(node);
+                       }
+                       view.dispatch(tr);
+                       return true;
+                    }
+                  }
+                }
+                return handleImageDrop(view, event, moved, uploadFn);
+              },
             }}
             onUpdate={({ editor }) => {
               if (!note) return;
