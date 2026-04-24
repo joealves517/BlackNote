@@ -7,6 +7,7 @@ import { useNotes } from "@/hooks/use-notes";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useCredits } from "@/hooks/use-credits";
+import { ArrowLeft } from "lucide-react";
 
 
 export function App() {
@@ -30,6 +31,38 @@ export function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [aiErrorVisible, setAiErrorVisible] = useState(false);
   const [aiErrorIsRefund, setAiErrorIsRefund] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Onboarding logic
+  useEffect(() => {
+    (window as any).resetOnboarding = () => {
+      localStorage.removeItem("blacknote_onboarding_v2");
+      setShowOnboarding(true);
+      console.log("Onboarding forcefully triggered for testing.");
+    };
+
+    const hasSeen = localStorage.getItem("blacknote_onboarding_v2");
+    console.log("Onboarding initialized, hasSeen:", hasSeen);
+    if (!hasSeen) {
+      const timer = setTimeout(() => {
+        const isInteracted = localStorage.getItem("blacknote_onboarding_v2");
+        console.log("Timeout triggered. isInteracted:", isInteracted);
+        if (!isInteracted) {
+          setShowOnboarding(true);
+          localStorage.setItem("blacknote_onboarding_v2", "true");
+          console.log("Setting showOnboarding to true");
+        }
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (sidebarOpen) {
+      setShowOnboarding(false);
+      localStorage.setItem("blacknote_onboarding_v2", "true");
+    }
+  }, [sidebarOpen]);
 
   // Listen for AI error events from the editor
   useEffect(() => {
@@ -154,11 +187,21 @@ export function App() {
 
       {/* Edge trigger — absolute overlay, doesn't push content */}
       {!sidebarOpen && (
-        <div
-          className="sidebar-edge-trigger"
-          onClick={handleToggleSidebar}
-          data-tooltip="Open notes"
-        />
+        <>
+          <div
+            className="sidebar-edge-trigger"
+            onClick={handleToggleSidebar}
+            data-tooltip="Open notes"
+          />
+          {showOnboarding && (
+            <div className="onboarding-tooltip">
+              <div className="onboarding-arrow">
+                <ArrowLeft size={20} />
+              </div>
+              <div className="onboarding-text">Open Notes</div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Main Content — full width */}

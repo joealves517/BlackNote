@@ -180,6 +180,51 @@ body {
   width: 6px;
 }
 
+/* ===== Onboarding Tooltip ===== */
+.onboarding-tooltip {
+  position: absolute;
+  top: 14px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 50;
+  pointer-events: none;
+  animation: fade-in 0.4s ease-out;
+}
+
+.onboarding-arrow {
+  color: hsl(var(--primary));
+  display: flex;
+  animation: bounce-left 1.5s infinite ease-in-out;
+}
+
+.onboarding-text {
+  background-color: hsl(var(--popover));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px hsl(var(--foreground) / 0.15);
+  white-space: nowrap;
+}
+
+@keyframes bounce-left {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-6px);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
 /* ===== BlackNote Title ===== */
 .blacknote-title-area {
   padding: 12px 16px 4px 16px;
