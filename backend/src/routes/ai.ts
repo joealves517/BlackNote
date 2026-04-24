@@ -8,7 +8,6 @@ import {
 } from "../services/firestore.js";
 import { streamWritingAI } from "../services/vertex-ai.js";
 import { streamFreeWritingAI } from "../services/gemini-free.js";
-import { reportUsage } from "../services/lemonsqueezy.js";
 
 const router = Router();
 
@@ -94,7 +93,7 @@ router.post(
         onDone: () => {
           res.end();
 
-          // Fire-and-forget: log usage
+          // Fire-and-forget: log usage internally
           logUsage({
             userId: authReq.userId,
             app: "blacknote",
@@ -102,12 +101,6 @@ router.post(
             model: "gemini-2.5-flash",
             timestamp: new Date(),
           }).catch(console.error);
-
-          if (user.lemonSqueezy?.subscriptionItemId) {
-            reportUsage(user.lemonSqueezy.subscriptionItemId, 1).catch(
-              console.error
-            );
-          }
         },
         onError: (error: Error) => {
           console.error("[AI Premium] Vertex AI error:", error.message);
@@ -115,7 +108,7 @@ router.post(
           // Refund credit on failure
           addCreditsByEmail(authReq.userEmail, 1).catch(console.error);
 
-          res.write("⚠️ AI is currently busy. Your credit has been refunded.");
+          res.write("⚠️ AI is currently busy. Please try again.");
           res.end();
         },
       },

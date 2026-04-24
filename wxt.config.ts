@@ -9,7 +9,7 @@ export default defineConfig({
   manifest: {
     name: 'BlackNote',
     description: 'Premium Notion-like side-panel note-taking app. Features built-in AI writing assistant, cloud sync, and instant access.',
-    permissions: ['sidePanel', 'identity'],
+    permissions: ['sidePanel', 'identity', 'activeTab', 'scripting'],
     icons: {
       16: '/icon/16.png',
       48: '/icon/48.png',

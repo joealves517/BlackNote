@@ -48,6 +48,7 @@ import {
   Plus,
   Pilcrow,
   Image as ImageIcon,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GenerativeMenuSwitch } from "@/components/generative/GenerativeMenuSwitch";
@@ -172,6 +173,16 @@ const suggestionItems = createSuggestionItems([
       editor.chain().focus().deleteRange(range).setHorizontalRule().run();
     },
   },
+  {
+    title: "Clip Page",
+    description: "Clip current page as Markdown",
+    searchTerms: ["clip", "web", "page", "capture", "save"],
+    icon: <Globe className="h-4 w-4" />,
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).run();
+      window.dispatchEvent(new CustomEvent("open-web-clipper"));
+    },
+  },
 ]);
 
 const compressImage = (file: File): Promise<string> => {
@@ -255,6 +266,30 @@ const extensions = [
     name: "imageUpload",
     addProseMirrorPlugins() {
       return [UploadImagesPlugin({ imageClass: "opacity-40 rounded-lg border max-w-full my-4" })];
+    },
+  }),
+  // Open links in new Chrome tab (extension side panel can't navigate directly)
+  Extension.create({
+    name: "linkClickHandler",
+    addGlobalAttributes() {
+      return [];
+    },
+    onCreate() {
+      const editorEl = this.editor.view.dom;
+      editorEl.addEventListener("click", (event: Event) => {
+        const e = event as MouseEvent;
+        const target = e.target as HTMLElement;
+        const link = target.closest("a");
+        if (link?.href) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof chrome !== "undefined" && chrome.tabs) {
+            chrome.tabs.create({ url: link.href });
+          } else {
+            window.open(link.href, "_blank");
+          }
+        }
+      });
     },
   }),
 ];

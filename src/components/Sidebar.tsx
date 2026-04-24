@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Search, Plus, Moon, Sun, FileText, Loader2, LogOut, Sparkles, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Plus, Moon, Sun, FileText, Loader2, LogOut, Sparkles, Globe, Info } from "lucide-react";
+import { WebClipper } from "@/components/WebClipper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -26,6 +27,7 @@ interface SidebarProps {
   onToggleTheme: () => void;
   onSignInWithGoogle: () => void;
   onSignOut: () => void;
+  onClipSaveAsNote?: (title: string, markdown: string) => void;
   onRefreshCredits?: () => void;
 }
 
@@ -94,9 +96,21 @@ export function Sidebar({
   onSignInWithGoogle,
   onSignOut,
   onRefreshCredits,
+  onClipSaveAsNote,
 }: SidebarProps) {
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
+  const [showClipper, setShowClipper] = useState(false);
+  const [showFairUseInfo, setShowFairUseInfo] = useState(false);
+
+  const isPremium = credits?.tier === "premium";
+  const isQuotaExhausted = isPremium && credits?.credits !== undefined && credits.credits <= 0;
+
+  // Listen for slash command trigger
+  useEffect(() => {
+    const handler = () => setShowClipper(true);
+    window.addEventListener("trigger-clipper", handler);
+    return () => window.removeEventListener("trigger-clipper", handler);
+  }, []);
 
   return (
     <div
@@ -138,6 +152,15 @@ export function Sidebar({
           <Button
             variant="ghost"
             size="icon"
+            onClick={() => setShowClipper(!showClipper)}
+            className="h-7 w-7"
+            data-tooltip="Clip page"
+          >
+            <Globe className={`h-3.5 w-3.5`} style={{ color: showClipper ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onCreateNote}
             className="h-7 w-7"
             data-tooltip="New note"
@@ -166,6 +189,14 @@ export function Sidebar({
           />
         </div>
       </div>
+
+      {/* Web Clipper */}
+      {showClipper && onClipSaveAsNote && (
+        <WebClipper
+          onSaveAsNote={onClipSaveAsNote}
+          onClose={() => setShowClipper(false)}
+        />
+      )}
 
       {/* Notes List */}
       <ScrollArea className="flex-1">
@@ -326,14 +357,46 @@ export function Sidebar({
                 )}
               </div>
               <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p
+                    className="text-xs font-semibold truncate"
+                    style={{ color: "hsl(var(--foreground))" }}
+                  >
+                    {getUserDisplayName(user)}
+                  </p>
+                  {isPremium ? (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span 
+                        className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-sm" 
+                        style={{ color: "hsl(var(--muted-foreground))", backgroundColor: "hsl(var(--muted) / 0.5)" }}
+                      >
+                        PRO
+                      </span>
+                      {isQuotaExhausted && (
+                        <button
+                          className="sidebar-info-btn"
+                          onClick={() => setShowFairUseInfo(true)}
+                          data-tooltip="Usage info"
+                        >
+                          <Info className="h-[11px] w-[11px]" />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        const url = `${CHECKOUT_BASE}?checkout[email]=${encodeURIComponent(user.email || "")}&checkout[custom][user_id]=${user.id}`;
+                        chrome.tabs.create({ url });
+                      }}
+                      className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-sm shrink-0 transition-opacity hover:opacity-80 active:scale-95" 
+                      style={{ color: "hsl(45 90% 55%)", backgroundColor: "hsl(45 90% 55% / 0.15)" }}
+                    >
+                      UPGRADE
+                    </button>
+                  )}
+                </div>
                 <p
-                  className="text-xs font-semibold truncate"
-                  style={{ color: "hsl(var(--foreground))" }}
-                >
-                  {getUserDisplayName(user)}
-                </p>
-                <p
-                  className="text-[10px] truncate"
+                  className="text-[10px] truncate mt-0.5"
                   style={{ color: "hsl(var(--muted-foreground))" }}
                 >
                   {user.email}
@@ -353,40 +416,6 @@ export function Sidebar({
               </Button>
             </div>
 
-            {/* Credits badge or Buy button with Refresh */}
-            <div className="flex items-center gap-1.5 w-full px-3 pb-3 pt-1">
-              {credits && credits.credits > 0 ? (
-                <div className="sidebar-credits-badge flex-1">
-                  <Sparkles className="h-3 w-3 text-yellow-500" />
-                  <span>{credits.credits} credits</span>
-                </div>
-              ) : (
-                <button
-                  className="sidebar-buy-btn flex-1"
-                  onClick={() => {
-                    const url = `${CHECKOUT_BASE}?checkout[email]=${encodeURIComponent(user.email || "")}&checkout[custom][user_id]=${user.id}`;
-                    chrome.tabs.create({ url });
-                  }}
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-yellow-500" />
-                  <span>Buy AI Credits</span>
-                </button>
-              )}
-              {onRefreshCredits && (
-                <button 
-                  className="sidebar-refresh-btn" 
-                  onClick={() => {
-                    if (isRefreshing) return;
-                    setIsRefreshing(true);
-                    onRefreshCredits();
-                    setTimeout(() => setIsRefreshing(false), 800);
-                  }}
-                  data-tooltip="Refresh Credits"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-                </button>
-              )}
-            </div>
           </div>
         ) : (
           /* Not logged in — Google sign-in button */
@@ -399,6 +428,35 @@ export function Sidebar({
           </button>
         )}
       </div>
+      {/* Fair Use Info Modal */}
+      {showFairUseInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowFairUseInfo(false)}>
+          <div
+            className="bg-background border rounded-[20px] p-5 shadow-lg max-w-[320px] w-full text-center flex flex-col gap-3"
+            style={{ backgroundColor: "hsl(var(--background))", borderColor: "hsl(var(--border))" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Sparkles className="h-4 w-4 text-yellow-500" />
+              <h3 className="text-[15px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>Fair Use Policy</h3>
+            </div>
+            <p className="text-xs leading-relaxed" style={{ color: "hsl(var(--muted-foreground))" }}>
+              You've reached your premium AI usage limit for this billing cycle.
+              You're now using standard AI until your next renewal.
+            </p>
+            <p className="text-[10px]" style={{ color: "hsl(var(--muted-foreground) / 0.6)" }}>
+              Your Pro status remains active.
+            </p>
+            <Button
+              variant="outline"
+              className="h-9 rounded-full text-xs font-medium w-full"
+              onClick={() => setShowFairUseInfo(false)}
+            >
+              Got it
+            </Button>
+          </div>
+        </div>
+      )}
       {/* Delete Note Confirmation Modal */}
       {noteToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">

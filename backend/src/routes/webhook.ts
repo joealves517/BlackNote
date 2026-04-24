@@ -12,7 +12,7 @@ import {
 const router = Router();
 
 // Credits granted per subscription creation/renewal
-const CREDITS_PER_CYCLE = 500;
+const CREDITS_PER_CYCLE = 1000;
 
 /**
  * POST /api/webhook/ls

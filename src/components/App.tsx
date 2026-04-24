@@ -24,6 +24,7 @@ export function App() {
     createNote,
     updateNote,
     deleteNote,
+    createNoteWithContent,
   } = useNotes(user?.id);
 
   const { theme, toggleTheme } = useTheme();
@@ -82,6 +83,19 @@ export function App() {
     };
   }, []);
 
+  // Listen for slash command "/clip" → open sidebar with WebClipper
+  useEffect(() => {
+    const handleOpenClipper = () => {
+      setSidebarOpen(true);
+      // Small delay to let sidebar render, then trigger clipper via custom event
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("trigger-clipper"));
+      }, 100);
+    };
+    window.addEventListener("open-web-clipper", handleOpenClipper);
+    return () => window.removeEventListener("open-web-clipper", handleOpenClipper);
+  }, []);
+
   // Clean up empty notes when switching away
   const cleanupEmptyNotes = useCallback(() => {
     notes.forEach((note) => {
@@ -121,6 +135,15 @@ export function App() {
     createNote();
     setSidebarOpen(false);
   };
+
+  const handleClipSaveAsNote = useCallback(
+    (title: string, markdown: string) => {
+      createNoteWithContent(title, markdown);
+      setSidebarOpen(false);
+    },
+    [createNoteWithContent]
+  );
+
 
   const handleSelectNote = (id: string) => {
     cleanupEmptyNotes();
@@ -180,6 +203,7 @@ export function App() {
               onSignInWithGoogle={signInWithGoogle}
               onSignOut={signOut}
               onRefreshCredits={refreshCredits}
+              onClipSaveAsNote={handleClipSaveAsNote}
             />
           </div>
         </>

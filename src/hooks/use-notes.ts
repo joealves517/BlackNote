@@ -6,6 +6,7 @@ import {
   deleteRemoteNote,
   type SyncProgress,
 } from "@/lib/sync-engine";
+import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
 
 export interface Note {
   id: string;
@@ -24,6 +25,7 @@ function localToNote(row: LocalNote): Note {
     updatedAt: new Date(row.updatedAt),
   };
 }
+
 
 export function useNotes(userId: string | undefined) {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -135,6 +137,35 @@ export function useNotes(userId: string | undefined) {
     }
   }, [userId]);
 
+  /** Create a note pre-filled with title and markdown content (used by Web Clipper) */
+  const createNoteWithContent = useCallback(
+    async (title: string, markdownContent: string) => {
+      const now = Date.now();
+      const prosemirrorDoc = markdownToProsemirror(markdownContent);
+
+      const newNote: LocalNote = {
+        id: crypto.randomUUID(),
+        title,
+        content: prosemirrorDoc,
+        createdAt: now,
+        updatedAt: now,
+        syncedAt: null,
+      };
+
+      await db.notes.add(newNote);
+      const mapped = localToNote(newNote);
+      setNotes((prev) => [mapped, ...prev]);
+      setActiveNoteId(mapped.id);
+
+      if (userId) {
+        pushNote(newNote, userId);
+      }
+
+      return mapped.id;
+    },
+    [userId]
+  );
+
   const updateNote = useCallback(
     (id: string, updates: Partial<Pick<Note, "title" | "content">>) => {
       const now = Date.now();
@@ -201,6 +232,7 @@ export function useNotes(userId: string | undefined) {
     setActiveNoteId,
     setSearchQuery,
     createNote,
+    createNoteWithContent,
     updateNote,
     deleteNote,
   };
