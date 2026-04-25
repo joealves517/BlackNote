@@ -69,6 +69,15 @@ export function useAuth() {
 
       if (sessionError) {
         console.error("Session error:", sessionError.message);
+      } else {
+        try {
+          const { AI_API_BASE } = await import("@/lib/constants");
+          await fetch(`${AI_API_BASE}/api/user`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+        } catch (e) {
+          console.error("Backend warmup failed:", e);
+        }
       }
     } catch (err) {
       console.error("Google login failed:", err);

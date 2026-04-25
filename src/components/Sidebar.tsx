@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Search, Plus, Moon, Sun, FileText, Loader2, LogOut, Sparkles, Globe, Info } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, Plus, Moon, Sun, FileText, Loader2, LogOut, Sparkles, Globe, Info, Check } from "lucide-react";
 import { WebClipper } from "@/components/WebClipper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,6 +101,17 @@ export function Sidebar({
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
   const [showClipper, setShowClipper] = useState(false);
   const [showFairUseInfo, setShowFairUseInfo] = useState(false);
+  const [showSyncSuccess, setShowSyncSuccess] = useState(false);
+  const prevSyncStatusRef = useRef(syncProgress.status);
+
+  useEffect(() => {
+    if (prevSyncStatusRef.current === "syncing" && syncProgress.status === "idle") {
+      setShowSyncSuccess(true);
+      const timer = setTimeout(() => setShowSyncSuccess(false), 2000);
+      return () => clearTimeout(timer);
+    }
+    prevSyncStatusRef.current = syncProgress.status;
+  }, [syncProgress.status]);
 
   const isPremium = credits?.tier === "premium";
   const isQuotaExhausted = isPremium && credits?.credits !== undefined && credits.credits <= 0;
@@ -355,6 +366,11 @@ export function Sidebar({
                     />
                   </svg>
                 )}
+                {showSyncSuccess && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-green-500/80 rounded-full animate-in fade-in zoom-in duration-200">
+                    <Check className="h-5 w-5 text-white" strokeWidth={3} />
+                  </div>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -364,7 +380,9 @@ export function Sidebar({
                   >
                     {getUserDisplayName(user)}
                   </p>
-                  {isPremium ? (
+                  {credits === null ? (
+                    <div className="w-12 h-3.5 rounded-sm animate-pulse shrink-0" style={{ backgroundColor: "hsl(var(--muted))" }} />
+                  ) : isPremium ? (
                     <div className="flex items-center gap-1 shrink-0">
                       <span 
                         className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-sm" 
