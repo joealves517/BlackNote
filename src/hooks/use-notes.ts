@@ -79,10 +79,81 @@ export function useNotes(userId: string | undefined) {
       // No notes at all → create one automatically
       if (mapped.length === 0) {
         const now = Date.now();
+        const welcomeDoc = {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "Here are some tips to get you started:" }]
+            },
+            {
+              type: "bulletList",
+              content: [
+                {
+                  type: "listItem",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [
+                        { type: "text", text: "Type " },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#fbbf24" } }, { type: "bold" }], text: "/" },
+                        { type: "text", text: " to open the command menu and access headings, lists, or Ask AI." }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: "listItem",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [
+                        { type: "text", text: "Highlight any text and press " },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#a855f7" } }, { type: "bold" }], text: "Ask AI" },
+                        { type: "text", text: " to instantly rewrite, summarize, or translate it." }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: "listItem",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [
+                        { type: "text", text: "Connect your Google account to sync notes seamlessly across all your devices." }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: "listItem",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [
+                        { type: "text", text: "Explore the " },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#3b82f6" } }, { type: "bold" }], text: "Web Clipper" },
+                        { type: "text", text: " to save web pages directly into your notes." }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              type: "paragraph",
+              content: [
+                { type: "text", marks: [{ type: "textStyle", attrs: { color: "#10b981" } }, { type: "bold" }], text: "Happy writing! 🚀" }
+              ]
+            }
+          ]
+        };
+        
         const firstNote: LocalNote = {
           id: crypto.randomUUID(),
-          title: "",
-          content: "",
+          title: "Welcome to BlackNote 👋",
+          content: JSON.stringify(welcomeDoc),
           createdAt: now,
           updatedAt: now,
           syncedAt: null,

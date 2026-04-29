@@ -1,7 +1,11 @@
+import { LoaderCircleIcon } from "@/components/icons/loader-circle";
+import { CircleHelpIcon } from "@/components/icons/circle-help";
+import { SparklesIcon } from "@/components/icons/sparkles";
+import { XIcon } from "@/components/icons/x";
+import { SendIcon } from "@/components/icons/send";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { checkAIAvailability, streamAI, destroyAISession } from "@/lib/ai";
 import { Button } from "@/components/ui/button";
-import { Sparkles, X, Send, Loader2, AlertCircle } from "lucide-react";
 
 interface AIAssistantProps {
   selectedText: string;
@@ -84,13 +88,13 @@ export function AIAssistant({ selectedText, onInsertText, onClose }: AIAssistant
       >
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4" style={{ color: "hsl(var(--muted-foreground))" }} />
+            <CircleHelpIcon className="h-4 w-4" style={{ color: "hsl(var(--muted-foreground))" }} />
             <span className="text-xs font-medium" style={{ color: "hsl(var(--muted-foreground))" }}>
               AI Unavailable
             </span>
           </div>
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
-            <X className="h-3 w-3" />
+            <XIcon className="h-3 w-3" />
           </Button>
         </div>
         <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
@@ -116,7 +120,7 @@ export function AIAssistant({ selectedText, onInsertText, onClose }: AIAssistant
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2">
         <div className="flex items-center gap-1.5">
-          <Sparkles className="h-3.5 w-3.5" style={{ color: "hsl(var(--foreground))" }} />
+          <SparklesIcon className="h-3.5 w-3.5" style={{ color: "hsl(var(--foreground))" }} />
           <span className="text-xs font-medium" style={{ color: "hsl(var(--foreground))" }}>
             AI Assistant
           </span>
@@ -128,7 +132,7 @@ export function AIAssistant({ selectedText, onInsertText, onClose }: AIAssistant
           </span>
         </div>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
-          <X className="h-3 w-3" />
+          <XIcon className="h-3 w-3" />
         </Button>
       </div>
 
@@ -172,7 +176,7 @@ export function AIAssistant({ selectedText, onInsertText, onClose }: AIAssistant
         >
           {response || (
             <span className="flex items-center gap-2" style={{ color: "hsl(var(--muted-foreground))" }}>
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <LoaderCircleIcon className="h-3 w-3 animate-spin" />
               Thinking...
             </span>
           )}
@@ -233,7 +237,7 @@ export function AIAssistant({ selectedText, onInsertText, onClose }: AIAssistant
           className="h-8 w-8 shrink-0"
           disabled={isStreaming || !customPrompt.trim()}
         >
-          <Send className="h-3.5 w-3.5" />
+          <SendIcon className="h-3.5 w-3.5" />
         </Button>
       </form>
     </div>

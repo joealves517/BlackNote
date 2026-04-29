@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/local-db";
 import type { User } from "@supabase/supabase-js";
+import { AI_API_BASE } from "@/lib/constants";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -71,7 +73,6 @@ export function useAuth() {
         console.error("Session error:", sessionError.message);
       } else {
         try {
-          const { AI_API_BASE } = await import("@/lib/constants");
           await fetch(`${AI_API_BASE}/api/user`, {
             headers: { Authorization: `Bearer ${accessToken}` },
           });
@@ -88,7 +89,10 @@ export function useAuth() {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-    setUser(null);
+    await db.notes.clear();
+    localStorage.clear();
+    await new Promise(r => setTimeout(r, 800)); // Allow time for loading overlay to be seen
+    window.location.reload();
   }, []);
 
   return {

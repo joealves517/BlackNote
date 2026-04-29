@@ -1,12 +1,20 @@
+import { EarthIcon } from "@/components/icons/earth";
+import { GripIcon } from "@/components/icons/grip";
+import { LoaderCircleIcon } from "@/components/icons/loader-circle";
+import { CircleHelpIcon } from "@/components/icons/circle-help";
+import { ClipboardCheckIcon } from "@/components/icons/clipboard-check";
+import { FileTextIcon } from "@/components/icons/file-text";
+import { SparklesIcon } from "@/components/icons/sparkles";
+import { BrainIcon } from "@/components/icons/brain";
+import { XIcon } from "@/components/icons/x";
+import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 /**
  * WebClipper — Sidebar component for clipping the current page.
  * ALL actions go through AI → auto-save to a NEW note.
  */
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
-import { useState } from "react";
-import {
-  Loader2, Globe, FileText, Sparkles, Brain, X, AlertCircle,
-} from "lucide-react";
 import { useWebClipper } from "@/hooks/use-web-clipper";
 import { prepareForAI } from "@/lib/page-reader";
 import { supabase } from "@/lib/supabase";
@@ -17,11 +25,24 @@ interface WebClipperProps {
   onClose: () => void;
 }
 
+function AnimatedDots() {
+  const [dots, setDots] = useState("");
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
+    }, 400);
+    return () => clearInterval(interval);
+  }, []);
+
+  return <span>{dots}</span>;
+}
+
 const PROCESSING_LABELS: Record<string, string> = {
-  clean_page: "Cleaning page...",
-  summarize_page: "Summarizing...",
-  mindmap: "Generating mindmap...",
-  extract_key_points: "Extracting key points...",
+  clean_page: "Cleaning page",
+  summarize_page: "Summarizing",
+  mindmap: "Generating mindmap",
+  extract_key_points: "Extracting key points",
 };
 
 const TITLE_PREFIXES: Record<string, string> = {
@@ -150,18 +171,23 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
       {/* Header */}
       <div className="web-clipper-header">
         <div className="web-clipper-header-left">
-          <Globe className="w-4 h-4" style={{ color: "hsl(var(--muted-foreground))" }} />
+          {content?.url ? (
+            <img
+              src={`https://www.google.com/s2/favicons?domain=${new URL(content.url).hostname}&sz=32`}
+              alt=""
+              className="w-4 h-4 rounded-[3px]"
+            />
+          ) : (
+            <EarthIcon className="w-4 h-4" style={{ color: "hsl(var(--muted-foreground))" }} />
+          )}
           <span className="web-clipper-title">Clip Page</span>
         </div>
-        <button className="web-clipper-close" onClick={handleClose} data-tooltip="Close">
-          <X className="w-3.5 h-3.5" />
-        </button>
       </div>
 
       {/* Extracting */}
       {status === "clipping" && (
         <div className="web-clipper-loading">
-          <Loader2 className="w-4 h-4 animate-spin" style={{ color: "hsl(var(--muted-foreground))" }} />
+          <LoaderCircleIcon className="w-4 h-4 animate-spin" style={{ color: "hsl(var(--muted-foreground))" }} />
           <span>Reading page...</span>
         </div>
       )}
@@ -169,23 +195,35 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
       {/* Extract error */}
       {status === "error" && (
         <div className="web-clipper-loading">
-          <AlertCircle className="w-4 h-4 shrink-0" style={{ color: "hsl(var(--muted-foreground))" }} />
+          <CircleHelpIcon className="w-4 h-4 shrink-0" style={{ color: "hsl(var(--muted-foreground))" }} />
           <span>Page not supported</span>
         </div>
       )}
 
       {/* AI processing */}
-      {processing && (
-        <div className="web-clipper-processing">
-          <span className="web-clipper-processing-dot" />
-          <span>{PROCESSING_LABELS[processing] || "Processing..."}</span>
-        </div>
-      )}
+      <AnimatePresence mode="wait">
+        {processing && (
+          <motion.div
+            key="processing"
+            className="ai-loading"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            <GripIcon loop className="ai-loading-icon" />
+            <span>
+              {PROCESSING_LABELS[processing] || "Processing"}
+              <AnimatedDots />
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Process error */}
       {processError && !processing && (
         <div className="web-clipper-error">
-          <AlertCircle className="w-4 h-4 shrink-0" />
+          <CircleHelpIcon className="w-4 h-4 shrink-0" />
           <span>{processError}</span>
         </div>
       )}
@@ -205,35 +243,76 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
             )}
           </div>
 
-          <div className="web-clipper-actions">
-            <button
-              className="web-clipper-action-btn web-clipper-action-primary"
-              onClick={() => handleAction("clean_page")}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              Save as Note
-            </button>
-            <button
-              className="web-clipper-action-btn"
-              onClick={() => handleAction("summarize_page")}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Summarize
-            </button>
-            <button
-              className="web-clipper-action-btn"
-              onClick={() => handleAction("mindmap")}
-            >
-              <Brain className="w-3.5 h-3.5" />
-              Mindmap
-            </button>
-            <button
-              className="web-clipper-action-btn"
-              onClick={() => handleAction("extract_key_points")}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Key Points
-            </button>
+          <div className="ai-cmd-groups" style={{ marginTop: "16px" }}>
+            <div className="ai-cmd-group">
+              <button
+                className="novel-slash-item w-full text-left"
+                onClick={() => handleAction("clean_page")}
+              >
+                <div className="novel-slash-icon">
+                  <AnimatedIcon animation="hover">
+                    <FileTextIcon className="w-4 h-4" />
+                  </AnimatedIcon>
+                </div>
+                <div>
+                  <p className="text-[13px] font-medium">Save as Note</p>
+                  <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    Extract readable text and images
+                  </p>
+                </div>
+              </button>
+              
+              <button
+                className="novel-slash-item w-full text-left"
+                onClick={() => handleAction("summarize_page")}
+              >
+                <div className="novel-slash-icon">
+                  <AnimatedIcon animation="hover">
+                    <SparklesIcon className="w-4 h-4" />
+                  </AnimatedIcon>
+                </div>
+                <div>
+                  <p className="text-[13px] font-medium">Summarize</p>
+                  <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    Generate a brief overview
+                  </p>
+                </div>
+              </button>
+
+              <button
+                className="novel-slash-item w-full text-left"
+                onClick={() => handleAction("mindmap")}
+              >
+                <div className="novel-slash-icon">
+                  <AnimatedIcon animation="hover">
+                    <BrainIcon className="w-4 h-4" />
+                  </AnimatedIcon>
+                </div>
+                <div>
+                  <p className="text-[13px] font-medium">Mindmap</p>
+                  <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    Visualize page structure
+                  </p>
+                </div>
+              </button>
+
+              <button
+                className="novel-slash-item w-full text-left"
+                onClick={() => handleAction("extract_key_points")}
+              >
+                <div className="novel-slash-icon">
+                  <AnimatedIcon animation="hover">
+                    <ClipboardCheckIcon className="w-4 h-4" />
+                  </AnimatedIcon>
+                </div>
+                <div>
+                  <p className="text-[13px] font-medium">Key Points</p>
+                  <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    Extract main ideas
+                  </p>
+                </div>
+              </button>
+            </div>
           </div>
         </>
       )}

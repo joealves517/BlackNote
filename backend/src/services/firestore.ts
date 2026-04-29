@@ -31,6 +31,9 @@ export interface UsageLog {
   creditsUsed: number;
   model: string;
   timestamp: Date;
+  inputTokens?: number;
+  outputTokens?: number;
+  [key: string]: unknown;
 }
 
 // ─── Users ──────────────────────────────────────────────────────────

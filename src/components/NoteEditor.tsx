@@ -1,3 +1,17 @@
+import { DeleteIcon } from "@/components/icons/delete";
+import { TerminalIcon } from "@/components/icons/terminal";
+import { BookTextIcon } from "@/components/icons/book-text";
+import { AlignLeftIcon } from "@/components/icons/align-left";
+import { CircleCheckIcon } from "@/components/icons/circle-check";
+import { MessageSquareIcon } from "@/components/icons/message-square";
+import { FrameIcon } from "@/components/icons/frame";
+import { EarthIcon } from "@/components/icons/earth";
+import { BoldIcon } from "@/components/icons/bold";
+import { ItalicIcon } from "@/components/icons/italic";
+import { UnderlineIcon } from "@/components/icons/underline";
+import { PlusIcon } from "@/components/icons/plus";
+import { SparklesIcon } from "@/components/icons/sparkles";
+import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   EditorRoot,
@@ -34,29 +48,35 @@ import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
-import {
-  Bold,
-  Italic,
-  Underline,
-  Strikethrough,
-  Code,
-  Heading1,
-  Heading2,
-  Heading3,
-  List,
-  ListOrdered,
-  CheckSquare,
-  Quote,
-  Minus,
-  CodeSquare,
-  Plus,
-  Pilcrow,
-  Image as ImageIcon,
-  Globe,
-} from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { GenerativeMenuSwitch } from "@/components/generative/GenerativeMenuSwitch";
+import { AISelector } from "@/components/generative/AISelector";
+import { supabase } from "@/lib/supabase";
 import type { Note } from "@/hooks/use-notes";
+
+/**
+ * Lightweight bridge: listens for 'open-ai-sheet' event
+ * and renders AISelector inside EditorContent context.
+ */
+function AISheetTrigger() {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setShow(true);
+    window.addEventListener("open-ai-sheet", handler);
+    return () => window.removeEventListener("open-ai-sheet", handler);
+  }, []);
+
+  useEffect(() => {
+    if (!show) {
+      window.dispatchEvent(new CustomEvent("ai-sheet-closed"));
+    }
+  }, [show]);
+
+  if (!show) return null;
+  return <AISelector open={show} onOpenChange={setShow} />;
+}
 
 interface NoteEditorProps {
   note: Note | null;
@@ -64,6 +84,7 @@ interface NoteEditorProps {
   onContentChange: (noteId: string, content: string) => void;
   onTitleChange: (noteId: string, title: string) => void;
   onCreateNote: () => void;
+  onScrollProgress?: (progress: number) => void;
 }
 
 // Slash command suggestions — block types only, AI moved to bubble menu
@@ -72,7 +93,7 @@ const suggestionItems = createSuggestionItems([
     title: "Text",
     description: "Plain text block",
     searchTerms: ["paragraph", "p", "text"],
-    icon: <Pilcrow className="h-4 w-4" />,
+    icon: <AlignLeftIcon className="h-4 w-4" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).setNode("paragraph").run();
     },
@@ -81,7 +102,7 @@ const suggestionItems = createSuggestionItems([
     title: "Heading 1",
     description: "Large heading",
     searchTerms: ["title", "h1", "heading"],
-    icon: <Heading1 className="h-4 w-4" />,
+    icon: <BookTextIcon className="h-4 w-4" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).setNode("heading", { level: 1 }).run();
     },
@@ -90,7 +111,7 @@ const suggestionItems = createSuggestionItems([
     title: "Heading 2",
     description: "Medium heading",
     searchTerms: ["subtitle", "h2"],
-    icon: <Heading2 className="h-4 w-4" />,
+    icon: <BookTextIcon className="h-4 w-4" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).setNode("heading", { level: 2 }).run();
     },
@@ -99,7 +120,7 @@ const suggestionItems = createSuggestionItems([
     title: "Heading 3",
     description: "Small heading",
     searchTerms: ["h3"],
-    icon: <Heading3 className="h-4 w-4" />,
+    icon: <BookTextIcon className="h-4 w-4" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).setNode("heading", { level: 3 }).run();
     },
@@ -108,7 +129,7 @@ const suggestionItems = createSuggestionItems([
     title: "Bullet List",
     description: "Unordered list",
     searchTerms: ["bullet", "unordered", "ul"],
-    icon: <List className="h-4 w-4" />,
+    icon: <AlignLeftIcon className="h-4 w-4" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).toggleBulletList().run();
     },
@@ -117,7 +138,7 @@ const suggestionItems = createSuggestionItems([
     title: "Numbered List",
     description: "Ordered list",
     searchTerms: ["ordered", "ol", "number"],
-    icon: <ListOrdered className="h-4 w-4" />,
+    icon: <AlignLeftIcon className="h-4 w-4" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).toggleOrderedList().run();
     },
@@ -126,7 +147,7 @@ const suggestionItems = createSuggestionItems([
     title: "To-do List",
     description: "Track tasks with checkboxes",
     searchTerms: ["todo", "task", "checkbox"],
-    icon: <CheckSquare className="h-4 w-4" />,
+    icon: <CircleCheckIcon className="h-4 w-4" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).toggleTaskList().run();
     },
@@ -135,7 +156,7 @@ const suggestionItems = createSuggestionItems([
     title: "Quote",
     description: "Block quote",
     searchTerms: ["blockquote", "quote"],
-    icon: <Quote className="h-4 w-4" />,
+    icon: <MessageSquareIcon className="h-4 w-4" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).toggleBlockquote().run();
     },
@@ -144,7 +165,7 @@ const suggestionItems = createSuggestionItems([
     title: "Code Block",
     description: "Capture a code snippet.",
     searchTerms: ["codeblock"],
-    icon: <CodeSquare size={18} />,
+    icon: <TerminalIcon className="w-[18px] h-[18px]" />,
     command: ({ editor, range }) =>
       editor.chain().focus().deleteRange(range).toggleCodeBlock().run(),
   },
@@ -152,7 +173,7 @@ const suggestionItems = createSuggestionItems([
     title: "Image",
     description: "Upload an image from your computer.",
     searchTerms: ["image", "picture", "photo"],
-    icon: <ImageIcon size={18} />,
+    icon: <FrameIcon className="w-[18px] h-[18px]" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).run();
       const input = document.createElement("input");
@@ -172,19 +193,19 @@ const suggestionItems = createSuggestionItems([
     title: "Divider",
     description: "Horizontal separator",
     searchTerms: ["hr", "divider", "separator", "line"],
-    icon: <Minus className="h-4 w-4" />,
+    icon: <DeleteIcon className="h-4 w-4" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).setHorizontalRule().run();
     },
   },
   {
-    title: "Clip Page",
-    description: "Clip current page as Markdown",
-    searchTerms: ["clip", "web", "page", "capture", "save"],
-    icon: <Globe className="h-4 w-4" />,
+    title: "Ask Note",
+    description: "Ask AI about this entire note",
+    searchTerms: ["ask", "ai", "note", "question", "summarize", "magic"],
+    icon: <SparklesIcon className="h-4 w-4 text-yellow-500" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).run();
-      window.dispatchEvent(new CustomEvent("open-web-clipper"));
+      window.dispatchEvent(new CustomEvent("open-ai-sheet"));
     },
   },
 ]);
@@ -228,7 +249,41 @@ const compressImage = (file: File): Promise<string> => {
 };
 
 const uploadFn = async (file: File): Promise<string> => {
-  return compressImage(file);
+  const compressedDataUrl = await compressImage(file);
+  
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      // Convert Data URL back to Blob for upload
+      const res = await fetch(compressedDataUrl);
+      const blob = await res.blob();
+      
+      const fileName = `${session.user.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}.webp`;
+      
+      const { error } = await supabase.storage
+        .from("images")
+        .upload(fileName, blob, {
+          contentType: "image/webp",
+          cacheControl: "3600000000",
+          upsert: false
+        });
+        
+      if (error) {
+        console.error("Supabase storage upload error:", error);
+        return compressedDataUrl; // Fallback
+      }
+      
+      const { data: urlData } = supabase.storage
+        .from("images")
+        .getPublicUrl(fileName);
+        
+      return urlData.publicUrl;
+    }
+  } catch (err) {
+    console.error("Failed to upload image to Supabase, falling back to local:", err);
+  }
+  
+  return compressedDataUrl;
 };
 
 // All extensions
@@ -310,6 +365,7 @@ export function NoteEditor({
   onContentChange,
   onTitleChange,
   onCreateNote,
+  onScrollProgress,
 }: NoteEditorProps) {
   const [titleValue, setTitleValue] = useState(note?.title ?? "");
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -339,9 +395,12 @@ export function NoteEditor({
     if (note) {
       setTitleValue(note.title);
       setEditorKey(note.id);
-      requestAnimationFrame(autoResizeTitle);
     }
-  }, [note?.id, autoResizeTitle]);
+  }, [note?.id]);
+
+  useEffect(() => {
+    autoResizeTitle();
+  }, [titleValue, autoResizeTitle]);
 
   const handleTitleChange = (value: string) => {
     setTitleValue(value);
@@ -367,7 +426,16 @@ export function NoteEditor({
       style={{ backgroundColor: "hsl(var(--background))" }}
     >
       {/* Scrollable Container for Title + Editor */}
-      <div className="flex-1 overflow-y-auto novel-wrapper">
+      <div 
+        className="flex-1 overflow-y-auto novel-wrapper" 
+        onScroll={(e) => {
+          if (onScrollProgress) {
+            const scrollY = e.currentTarget.scrollTop;
+            const progress = Math.min(scrollY / 50, 1);
+            onScrollProgress(progress);
+          }
+        }}
+      >
         {/* Title — auto-growing textarea */}
         <div className="blacknote-title-area">
           <textarea
@@ -479,27 +547,27 @@ export function NoteEditor({
               <EditorBubbleItem
                 onSelect={(editor) => editor.chain().focus().toggleBold().run()}
               >
-                <Bold className="h-3.5 w-3.5" />
+                <BoldIcon className="h-3.5 w-3.5" />
               </EditorBubbleItem>
               <EditorBubbleItem
                 onSelect={(editor) => editor.chain().focus().toggleItalic().run()}
               >
-                <Italic className="h-3.5 w-3.5" />
+                <ItalicIcon className="h-3.5 w-3.5" />
               </EditorBubbleItem>
               <EditorBubbleItem
                 onSelect={(editor) => editor.chain().focus().toggleUnderline().run()}
               >
-                <Underline className="h-3.5 w-3.5" />
+                <UnderlineIcon className="h-3.5 w-3.5" />
               </EditorBubbleItem>
               <EditorBubbleItem
                 onSelect={(editor) => editor.chain().focus().toggleStrike().run()}
               >
-                <Strikethrough className="h-3.5 w-3.5" />
+                <DeleteIcon className="h-3.5 w-3.5" />
               </EditorBubbleItem>
               <EditorBubbleItem
                 onSelect={(editor) => editor.chain().focus().toggleCode().run()}
               >
-                <Code className="h-3.5 w-3.5" />
+                <TerminalIcon className="h-3.5 w-3.5" />
               </EditorBubbleItem>
             </GenerativeMenuSwitch>
 
@@ -525,6 +593,9 @@ export function NoteEditor({
                 ))}
               </EditorCommandList>
             </EditorCommand>
+
+            {/* AI Bottom Sheet — inside EditorContent for useEditor() access */}
+            <AISheetTrigger />
           </EditorContent>
         </EditorRoot>
       </div>

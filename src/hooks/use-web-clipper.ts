@@ -4,7 +4,8 @@
  */
 
 import { useState, useCallback } from "react";
-import { extractPageContent, type PageContent } from "@/lib/page-reader";
+import { type PageContent } from "@/lib/page-reader";
+import { ErrorCode } from "@/lib/constants";
 
 type ClipStatus = "idle" | "clipping" | "done" | "error";
 
@@ -12,14 +13,14 @@ interface UseWebClipperReturn {
   clip: () => Promise<void>;
   status: ClipStatus;
   content: PageContent | null;
-  error: string | null;
+  error: { message: string; code?: ErrorCode } | null;
   reset: () => void;
 }
 
 export function useWebClipper(): UseWebClipperReturn {
   const [status, setStatus] = useState<ClipStatus>("idle");
   const [content, setContent] = useState<PageContent | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; code?: ErrorCode } | null>(null);
 
   const clip = useCallback(async () => {
     setStatus("clipping");
@@ -27,31 +28,25 @@ export function useWebClipper(): UseWebClipperReturn {
     setContent(null);
 
     try {
-      const response: { html?: string; url?: string; error?: string } =
+      const response: { parsed?: PageContent; error?: string; errorCode?: ErrorCode } =
         await browser.runtime.sendMessage({ type: "REQUEST_CLIP" });
 
       if (response.error) {
-        throw new Error(response.error);
+        // We throw an object that we will catch and parse
+        throw { message: response.error, code: response.errorCode };
       }
 
-      if (!response.html || !response.url) {
-        throw new Error("Could not capture page content");
+      if (!response.parsed) {
+        throw { message: "Could not capture page content", code: ErrorCode.NO_READABLE_CONTENT };
       }
 
-      const parsed = extractPageContent(response.html, response.url);
-
-      if (!parsed) {
-        throw new Error(
-          "Could not extract readable content from this page. " +
-            "The page may be behind a login wall or have minimal text content."
-        );
-      }
-
-      setContent(parsed);
+      setContent(response.parsed);
       setStatus("done");
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Clip failed";
-      setError(message);
+    } catch (err: any) {
+      setError({
+        message: err?.message || "Clip failed",
+        code: err?.code || ErrorCode.CLIP_FAILED,
+      });
       setStatus("error");
     }
   }, []);

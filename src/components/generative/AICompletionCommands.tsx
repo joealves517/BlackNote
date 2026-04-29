@@ -1,6 +1,10 @@
-import { Check, TextQuote, Trash2 } from "lucide-react";
+import { MessageSquareIcon } from "@/components/icons/message-square";
+import { DeleteIcon } from "@/components/icons/delete";
+import { CheckIcon } from "@/components/icons/check";
 import { useEditor } from "novel";
 import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
+
+import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 
 interface AICompletionCommandsProps {
   completion: string;
@@ -40,9 +44,10 @@ export function AICompletionCommands({
                 parseMarkdown(completion)
               )
               .run();
+            onDiscard();
           }}
         >
-          <Check className="ai-cmd-icon" />
+          <CheckIcon className="ai-cmd-icon" />
           Replace selection
         </button>
         <button
@@ -55,13 +60,14 @@ export function AICompletionCommands({
               .focus()
               .insertContentAt(selection.to + 1, parseMarkdown(completion))
               .run();
+            onDiscard();
           }}
         >
-          <TextQuote className="ai-cmd-icon" />
+          <MessageSquareIcon className="ai-cmd-icon" />
           Insert below
         </button>
         <button className="ai-cmd-item ai-cmd-discard" onClick={onDiscard}>
-          <Trash2 className="ai-cmd-icon" />
+          <DeleteIcon className="ai-cmd-icon" />
           Discard
         </button>
       </div>

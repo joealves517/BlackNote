@@ -3,11 +3,11 @@ import { requireAuth, AuthenticatedRequest } from "../middleware/auth.js";
 import {
   createOrUpdateUser,
   deductCreditsByEmail,
-  addCreditsByEmail,
   logUsage,
 } from "../services/firestore.js";
 import { streamWritingAI } from "../services/vertex-ai.js";
 import { streamFreeWritingAI } from "../services/gemini-free.js";
+import { calculateTokenCost } from "../services/token-cost.js";
 
 const router = Router();
 
@@ -20,7 +20,8 @@ interface AIRequestBody {
 /**
  * POST /api/ai
  * Premium endpoint — Vertex AI for writing assistance.
- * Requires authentication + credits > 0.
+ * If user has credits > 0, use Vertex AI and deduct based on actual token usage.
+ * Otherwise, gracefully fallback to free Gemini API.
  */
 router.post(
   "/",
@@ -34,7 +35,6 @@ router.post(
       return;
     }
 
-    // Ensure user exists in Firestore (shared with Ask This Page)
     const user = await createOrUpdateUser(authReq.userId, {
       email: authReq.userEmail,
       displayName: authReq.userName,
@@ -50,7 +50,7 @@ router.post(
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no");
 
-    // Fallback to FREE AI if no credits
+    // Fallback to free API when quota exhausted (same experience as free users)
     if (user.credits <= 0) {
       await streamFreeWritingAI(
         body.prompt,
@@ -74,15 +74,7 @@ router.post(
       return;
     }
 
-    // Deduct 1 credit atomically
-    const deducted = await deductCreditsByEmail(authReq.userEmail, 1);
-    if (!deducted) {
-      res.status(402).json({ error: "insufficient_credits" });
-      return;
-    }
-
-
-
+    // Premium path — deduct based on actual token usage after completion
     await streamWritingAI(
       body.prompt,
       option,
@@ -90,24 +82,25 @@ router.post(
         onToken: (token: string) => {
           res.write(token);
         },
-        onDone: () => {
+        onDone: (usage?: { inputTokens: number; outputTokens: number }) => {
           res.end();
 
-          // Fire-and-forget: log usage internally
+          const creditsUsed = usage ? calculateTokenCost(usage) : 1;
+
+          deductCreditsByEmail(authReq.userEmail, creditsUsed).catch(console.error);
+
           logUsage({
             userId: authReq.userId,
             app: "blacknote",
-            creditsUsed: 1,
+            creditsUsed,
             model: "gemini-2.5-flash",
             timestamp: new Date(),
+            ...(usage && { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens }),
           }).catch(console.error);
         },
         onError: (error: Error) => {
           console.error("[AI Premium] Vertex AI error:", error.message);
-
-          // Refund credit on failure
-          addCreditsByEmail(authReq.userEmail, 1).catch(console.error);
-
+          // No credits deducted on error — fair billing
           res.write("⚠️ AI is currently busy. Please try again.");
           res.end();
         },

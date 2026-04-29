@@ -1,23 +1,23 @@
-import {
-  ArrowDownWideNarrow,
-  CheckCheck,
-  RefreshCcwDot,
-  StepForward,
-  WrapText,
-  Languages,
-} from "lucide-react";
+import { AlignCenterIcon } from "@/components/icons/align-center";
+import { AlignLeftIcon } from "@/components/icons/align-left";
+import { ChevronRightIcon } from "@/components/icons/chevron-right";
+import { RefreshCCWDotIcon } from "@/components/icons/refresh-ccw-dot";
+import { CheckCheckIcon } from "@/components/icons/check-check";
+import { LanguagesIcon } from "@/components/icons/languages";
 import { getPrevText, useEditor } from "novel";
+
+import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 
 interface AISelectorCommandsProps {
   onSelect: (value: string, option: string) => void;
 }
 
 const editOptions = [
-  { value: "improve", label: "Improve writing", description: "Rewrite to enhance flow and clarity", icon: RefreshCcwDot },
-  { value: "fix", label: "Fix grammar", description: "Correct spelling and grammar errors", icon: CheckCheck },
-  { value: "shorter", label: "Make shorter", description: "Condense and summarize", icon: ArrowDownWideNarrow },
-  { value: "longer", label: "Make longer", description: "Expand and add more details", icon: WrapText },
-  { value: "translate", label: "Translate", description: "Translate text between languages", icon: Languages },
+  { value: "improve", label: "Improve writing", description: "Rewrite to enhance flow and clarity", icon: RefreshCCWDotIcon },
+  { value: "fix", label: "Fix grammar", description: "Correct spelling and grammar errors", icon: CheckCheckIcon },
+  { value: "shorter", label: "Make shorter", description: "Condense and summarize", icon: AlignCenterIcon },
+  { value: "longer", label: "Make longer", description: "Expand and add more details", icon: AlignLeftIcon },
+  { value: "translate", label: "Translate", description: "Translate text between languages", icon: LanguagesIcon },
 ];
 
 export function AISelectorCommands({ onSelect }: AISelectorCommandsProps) {
@@ -42,7 +42,9 @@ export function AISelectorCommands({ onSelect }: AISelectorCommandsProps) {
             onClick={() => onSelect(getSelectedText(), option.value)}
           >
             <div className="novel-slash-icon">
-              <option.icon className="h-4 w-4" strokeWidth={2} />
+              <AnimatedIcon animation="hover">
+                <option.icon className="h-4 w-4" />
+              </AnimatedIcon>
             </div>
             <div>
               <p className="text-[13px] font-medium">{option.label}</p>
@@ -62,7 +64,7 @@ export function AISelectorCommands({ onSelect }: AISelectorCommandsProps) {
           }}
         >
           <div className="novel-slash-icon">
-            <StepForward className="h-4 w-4" strokeWidth={2} />
+            <ChevronRightIcon className="h-4 w-4" />
           </div>
           <div>
             <p className="text-[13px] font-medium">Continue writing</p>

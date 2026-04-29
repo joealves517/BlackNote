@@ -143,7 +143,7 @@ function createTurndownService(): TurndownService {
   td.remove([
     "script", "style", "nav", "footer", "iframe", "noscript",
     "svg", "canvas", "video", "audio",
-  ]);
+  ] as any);
 
   return td;
 }

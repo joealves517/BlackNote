@@ -8,3 +8,11 @@ export const CHECKOUT_BASE =
 
 export const PRIVACY_POLICY_URL =
   "https://graphosai.github.io/blacknote-privacy";
+
+export enum ErrorCode {
+  TRANSCRIPT_NOT_FOUND = "TRANSCRIPT_NOT_FOUND",
+  NO_READABLE_CONTENT = "NO_READABLE_CONTENT",
+  DOM_CAPTURE_FAILED = "DOM_CAPTURE_FAILED",
+  CLIP_FAILED = "CLIP_FAILED",
+  UNKNOWN_ERROR = "UNKNOWN_ERROR"
+}

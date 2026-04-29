@@ -7,7 +7,7 @@ export default defineConfig({
   srcDir: 'src',
   publicDir: 'src/public',
   manifest: {
-    name: 'BlackNote',
+    name: 'BlackNote - AI Note & Web Clipper',
     description: 'Premium Notion-like side-panel note-taking app. Features built-in AI writing assistant, cloud sync, and instant access.',
     permissions: ['sidePanel', 'identity', 'activeTab', 'scripting'],
     icons: {

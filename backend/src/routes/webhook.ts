@@ -12,7 +12,8 @@ import {
 const router = Router();
 
 // Credits granted per subscription creation/renewal
-const CREDITS_PER_CYCLE = 1000;
+// Credits granted per subscription creation/renewal ($3.99 AI budget)
+const CREDITS_PER_CYCLE = 3990;
 
 /**
  * POST /api/webhook/ls

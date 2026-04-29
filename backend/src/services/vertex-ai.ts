@@ -85,7 +85,7 @@ RULES:
 
 interface StreamCallbacks {
   onToken: (token: string) => void;
-  onDone: () => void;
+  onDone: (usage?: { inputTokens: number; outputTokens: number }) => void;
   onError: (error: Error) => void;
 }
 
@@ -115,9 +115,12 @@ export async function streamWritingAI(
       },
     });
 
+    let inputTokens = 0;
+    let outputTokens = 0;
+
     for await (const chunk of response) {
       if (abortSignal?.aborted) {
-        callbacks.onDone();
+        callbacks.onDone({ inputTokens, outputTokens });
         return;
       }
 
@@ -125,9 +128,14 @@ export async function streamWritingAI(
       if (chunkText) {
         callbacks.onToken(chunkText);
       }
+
+      if (chunk.usageMetadata) {
+        inputTokens = chunk.usageMetadata.promptTokenCount ?? inputTokens;
+        outputTokens = chunk.usageMetadata.candidatesTokenCount ?? outputTokens;
+      }
     }
 
-    callbacks.onDone();
+    callbacks.onDone({ inputTokens, outputTokens });
   } catch (error) {
     callbacks.onError(error instanceof Error ? error : new Error(String(error)));
   }

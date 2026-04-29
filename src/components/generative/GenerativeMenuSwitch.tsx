@@ -1,25 +1,31 @@
-import { EditorBubble, removeAIHighlight, useEditor } from "novel";
-import { type ReactNode, useEffect, useState, Fragment } from "react";
-import { Sparkles } from "lucide-react";
-import { AISelector } from "./AISelector";
-import { GeminiIcon } from "./GeminiIcon";
+import { useState, useEffect, type ReactNode, Fragment } from "react";
+import { EditorBubble } from "novel";
+import { SparklesIcon } from "@/components/icons/sparkles";
 
 interface GenerativeMenuSwitchProps {
   children: ReactNode;
 }
 
 export function GenerativeMenuSwitch({ children }: GenerativeMenuSwitchProps) {
-  const { editor } = useEditor();
-  const [open, setOpen] = useState(false);
+  const [isAiSheetOpen, setIsAiSheetOpen] = useState(false);
 
   useEffect(() => {
-    if (!open && editor) removeAIHighlight(editor);
-  }, [open, editor]);
+    const handleOpen = () => setIsAiSheetOpen(true);
+    const handleClose = () => setIsAiSheetOpen(false);
+
+    window.addEventListener("open-ai-sheet", handleOpen);
+    window.addEventListener("ai-sheet-closed", handleClose);
+
+    return () => {
+      window.removeEventListener("open-ai-sheet", handleOpen);
+      window.removeEventListener("ai-sheet-closed", handleClose);
+    };
+  }, []);
 
   return (
     <EditorBubble
       tippyOptions={{
-        placement: open ? "bottom-start" : "top",
+        placement: "top",
         animation: false,
         duration: 0,
         popperOptions: {
@@ -28,27 +34,23 @@ export function GenerativeMenuSwitch({ children }: GenerativeMenuSwitchProps) {
             { name: "preventOverflow", enabled: true, options: { padding: 8 } },
           ],
         },
-        onHidden: () => {
-          setOpen(false);
-          if (editor) removeAIHighlight(editor);
-        },
       }}
-      className={open ? "ai-bubble-open" : "novel-bubble-menu"}
+      className={`novel-bubble-menu ${isAiSheetOpen ? "!hidden" : ""}`}
     >
-      {open && <AISelector open={open} onOpenChange={setOpen} />}
-      {!open && (
-        <Fragment>
-          <button
-            className="ai-ask-btn"
-            onClick={() => setOpen(true)}
-          >
-            <GeminiIcon className="h-4 w-4" />
-            <span>Ask AI</span>
-          </button>
-          <div className="novel-bubble-divider" />
-          {children}
-        </Fragment>
-      )}
+      <Fragment>
+        <button
+          className="ai-ask-btn"
+          onClick={() => {
+            // Dispatch event to App.tsx — same pattern as History/Clipper
+            window.dispatchEvent(new CustomEvent("open-ai-sheet"));
+          }}
+        >
+          <SparklesIcon className="h-4 w-4" />
+          <span>Ask AI</span>
+        </button>
+        <div className="novel-bubble-divider" />
+        {children}
+      </Fragment>
     </EditorBubble>
   );
 }

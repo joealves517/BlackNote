@@ -1,5 +1,17 @@
+import { EarthIcon } from "@/components/icons/earth";
+import { CircleHelpIcon } from "@/components/icons/circle-help";
+import { LoaderCircleIcon } from "@/components/icons/loader-circle";
+import { LogoutIcon } from "@/components/icons/logout";
+import { PlusIcon } from "@/components/icons/plus";
+import { MoonIcon } from "@/components/icons/moon";
+import { SunIcon } from "@/components/icons/sun";
+import { FileTextIcon } from "@/components/icons/file-text";
+import { SparklesIcon } from "@/components/icons/sparkles";
+import { SearchIcon } from "@/components/icons/search";
+import { CheckIcon } from "@/components/icons/check";
+import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { useState, useEffect, useRef } from "react";
-import { Search, Plus, Moon, Sun, FileText, Loader2, LogOut, Sparkles, Globe, Info, Check } from "lucide-react";
+
 import { WebClipper } from "@/components/WebClipper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +20,6 @@ import { CHECKOUT_BASE } from "@/lib/constants";
 import type { Note } from "@/hooks/use-notes";
 import type { SyncProgress } from "@/lib/sync-engine";
 import type { User } from "@supabase/supabase-js";
-
-
 
 interface SidebarProps {
   notes: Note[];
@@ -113,6 +123,15 @@ export function Sidebar({
     prevSyncStatusRef.current = syncProgress.status;
   }, [syncProgress.status]);
 
+  useEffect(() => {
+    if (activeNoteId) {
+      const el = document.getElementById(`note-item-${activeNoteId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }, [activeNoteId]);
+
   const isPremium = credits?.tier === "premium";
   const isQuotaExhausted = isPremium && credits?.credits !== undefined && credits.credits <= 0;
 
@@ -155,9 +174,9 @@ export function Sidebar({
             data-tooltip={theme === "light" ? "Dark mode" : "Light mode"}
           >
             {theme === "light" ? (
-              <Moon className="h-3.5 w-3.5" style={{ color: "hsl(var(--muted-foreground))" }} />
+              <MoonIcon className="h-3.5 w-3.5" style={{ color: "hsl(var(--muted-foreground))" }} />
             ) : (
-              <Sun className="h-3.5 w-3.5" style={{ color: "hsl(var(--muted-foreground))" }} />
+              <SunIcon className="h-3.5 w-3.5" style={{ color: "hsl(var(--muted-foreground))" }} />
             )}
           </Button>
           <Button
@@ -167,7 +186,7 @@ export function Sidebar({
             className="h-7 w-7"
             data-tooltip="Clip page"
           >
-            <Globe className={`h-3.5 w-3.5`} style={{ color: showClipper ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }} />
+            <EarthIcon className={`h-3.5 w-3.5`} style={{ color: showClipper ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }} />
           </Button>
           <Button
             variant="ghost"
@@ -176,7 +195,7 @@ export function Sidebar({
             className="h-7 w-7"
             data-tooltip="New note"
           >
-            <Plus className="h-3.5 w-3.5" style={{ color: "hsl(var(--muted-foreground))" }} />
+            <PlusIcon className="h-3.5 w-3.5" style={{ color: "hsl(var(--muted-foreground))" }} />
           </Button>
         </div>
       </div>
@@ -184,7 +203,7 @@ export function Sidebar({
       {/* Search */}
       <div className="px-3 pb-2">
         <div className="relative">
-          <Search
+          <SearchIcon
             className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
             style={{ color: "hsl(var(--muted-foreground))" }}
           />
@@ -214,14 +233,14 @@ export function Sidebar({
         <div className="px-1.5 pb-2">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2
+              <LoaderCircleIcon
                 className="h-5 w-5 animate-spin"
                 style={{ color: "hsl(var(--muted-foreground) / 0.5)" }}
               />
             </div>
           ) : notes.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-              <FileText
+              <FileTextIcon
                 className="h-8 w-8 mb-2"
                 style={{ color: "hsl(var(--muted-foreground) / 0.3)" }}
               />
@@ -238,7 +257,7 @@ export function Sidebar({
                   onClick={onCreateNote}
                   className="mt-2 text-xs h-7"
                 >
-                  <Plus className="h-3 w-3 mr-1" />
+                  <PlusIcon className="h-3 w-3 mr-1" />
                   Create your first note
                 </Button>
               )}
@@ -249,6 +268,7 @@ export function Sidebar({
               return (
                 <div
                   key={note.id}
+                  id={`note-item-${note.id}`}
                   onClick={() => onSelectNote(note.id)}
                   className="sidebar-note-item group"
                   style={{
@@ -368,7 +388,7 @@ export function Sidebar({
                 )}
                 {showSyncSuccess && (
                   <div className="absolute inset-0 flex items-center justify-center bg-green-500/80 rounded-full animate-in fade-in zoom-in duration-200">
-                    <Check className="h-5 w-5 text-white" strokeWidth={3} />
+                    <CheckIcon className="h-5 w-5 text-white" />
                   </div>
                 )}
               </div>
@@ -396,7 +416,7 @@ export function Sidebar({
                           onClick={() => setShowFairUseInfo(true)}
                           data-tooltip="Usage info"
                         >
-                          <Info className="h-[11px] w-[11px]" />
+                          <CircleHelpIcon className="h-[11px] w-[11px]" />
                         </button>
                       )}
                     </div>
@@ -427,7 +447,7 @@ export function Sidebar({
                 className="h-8 w-8 shrink-0"
                 data-tooltip="Sign out"
               >
-                <LogOut
+                <LogoutIcon
                   className="h-3.5 w-3.5"
                   style={{ color: "hsl(var(--muted-foreground))" }}
                 />
@@ -446,7 +466,7 @@ export function Sidebar({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-center gap-2">
-              <Sparkles className="h-4 w-4 text-yellow-500" />
+              <SparklesIcon className="h-4 w-4 text-yellow-500" />
               <h3 className="text-[15px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>Fair Use Policy</h3>
             </div>
             <p className="text-xs leading-relaxed" style={{ color: "hsl(var(--muted-foreground))" }}>

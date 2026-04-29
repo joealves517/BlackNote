@@ -76,7 +76,7 @@
     <h2>2. Data We Collect</h2>
     <p>BlackNote collects and processes the following data:</p>
     <ul>
-      <li><strong>Notes content:</strong> The text and media you create within the editor. Notes are stored locally in your browser (IndexedDB) by default. If you sign in, notes are also synced to our cloud database (Supabase) for cross-device access.</li>
+      <li><strong>Notes & Clipped Content:</strong> The text, images, and media you create within the editor, as well as articles you explicitly capture using the Web Clipper. Notes are stored locally in your browser (IndexedDB) by default. If you sign in, notes and images are also synced to our cloud database (Supabase) for cross-device access.</li>
       <li><strong>Account information:</strong> If you choose to sign in with Google, we receive your email address, display name, and profile picture from Google. This is used solely for authentication and displaying your profile within the extension.</li>
       <li><strong>AI prompts:</strong> When you use the AI writing assistant, the text you select or type is sent to our backend server for processing. We do not store or log the content of your AI prompts beyond what is needed to generate a response.</li>
       <li><strong>Usage metadata:</strong> For users with AI credits, we log the number of credits consumed and the AI model used. This is strictly for billing and service monitoring purposes. No note content is included in these logs.</li>
@@ -84,7 +84,7 @@
 
     <h2>3. Data We Do NOT Collect</h2>
     <ul>
-      <li>We do not collect browsing history or activity on other websites.</li>
+      <li>We do not collect browsing history. The Web Clipper only reads the specific webpage you are actively viewing, and only after you explicitly click the "Clip Page" button.</li>
       <li>We do not track, profile, or sell your personal data.</li>
       <li>We do not inject ads, affiliate links, or tracking scripts.</li>
       <li>We do not read or access any data from other browser tabs or extensions.</li>
@@ -92,7 +92,7 @@
 
     <h2>4. How We Use Your Data</h2>
     <ul>
-      <li><strong>Note storage & sync:</strong> To persist your notes locally and, if you opt in, synchronize them across devices via cloud storage.</li>
+      <li><strong>Note storage & Web Clipping:</strong> To persist your notes and captured web articles locally and synchronize them across devices via cloud storage.</li>
       <li><strong>Authentication:</strong> To identify your account and associate your notes with your profile.</li>
       <li><strong>AI processing:</strong> To send your selected text to the AI model and return the generated response.</li>
       <li><strong>Credit management:</strong> To track AI usage credits for premium users.</li>
@@ -125,6 +125,8 @@
     <ul>
       <li><strong>sidePanel:</strong> Required to display the note-taking interface as a browser side panel.</li>
       <li><strong>identity:</strong> Required for Google Sign-in to enable cloud sync functionality.</li>
+      <li><strong>activeTab & scripting:</strong> Required for the Web Clipper. These permissions allow the extension to inject a script to read and extract the text of the webpage you are currently viewing, strictly on-demand when you choose to clip the page.</li>
+      <li><strong>Host Permissions (&lt;all_urls&gt;):</strong> Necessary to allow the Web Clipper to extract articles from any website you choose to clip across the internet.</li>
     </ul>
 
     <h2>9. Changes to This Policy</h2>
