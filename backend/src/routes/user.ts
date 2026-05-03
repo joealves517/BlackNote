@@ -19,7 +19,7 @@ router.get(
       email: authReq.userEmail,
       displayName: authReq.userName,
       picture: authReq.userPicture,
-    });
+    }, "BlackNote");
 
     res.json({
       userId: authReq.userId,

@@ -5,7 +5,7 @@ import { AlignLeftIcon } from "@/components/icons/align-left";
 import { CircleCheckIcon } from "@/components/icons/circle-check";
 import { MessageSquareIcon } from "@/components/icons/message-square";
 import { FrameIcon } from "@/components/icons/frame";
-import { EarthIcon } from "@/components/icons/earth";
+
 import { BoldIcon } from "@/components/icons/bold";
 import { ItalicIcon } from "@/components/icons/italic";
 import { UnderlineIcon } from "@/components/icons/underline";

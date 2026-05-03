@@ -1,9 +1,10 @@
-import { EarthIcon } from "@/components/icons/earth";
+import { ScanTextIcon } from "@/components/icons/scan-text";
 import { CircleHelpIcon } from "@/components/icons/circle-help";
 import { PlusIcon } from "@/components/icons/plus";
 import { HistoryIcon } from "@/components/icons/history";
 import { MoonIcon } from "@/components/icons/moon";
 import { SunIcon } from "@/components/icons/sun";
+import { SparklesIcon } from "@/components/icons/sparkles";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useCallback, useEffect, useRef } from "react";
@@ -25,6 +26,7 @@ import { HandMetalIcon } from "@/components/icons/hand-metal";
 import { HeartHandshakeIcon } from "@/components/icons/heart-handshake";
 
 import { CHECKOUT_BASE } from "@/lib/constants";
+import { openSparkAIWithContext } from "@/lib/ecosystem";
 
 function GoogleIcon({ size = 20 }: { size?: number }) {
   return (
@@ -191,6 +193,22 @@ export function App() {
     window.addEventListener("trigger-clipper", handler);
     return () => window.removeEventListener("trigger-clipper", handler);
   }, []);
+
+  // Listen for Ask Note
+  useEffect(() => {
+    const handleOpenSparkAI = async (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const content = customEvent.detail?.content || "";
+      const success = await openSparkAIWithContext(content, activeNote?.title || "Untitled");
+      if (!success) {
+        chrome.tabs.create({
+          url: "https://chromewebstore.google.com/detail/spark-ai/cainihlnefiebaigcjiniandhodkajaj",
+        });
+      }
+    };
+    window.addEventListener("open-spark-ai", handleOpenSparkAI);
+    return () => window.removeEventListener("open-spark-ai", handleOpenSparkAI);
+  }, [activeNote?.title]);
 
   // Listen for notes from sister extensions (Spark AI, AI Recorder)
   useEffect(() => {
@@ -409,7 +427,7 @@ export function App() {
               opacity: showClipper ? 1 : undefined,
             }}
           >
-            <EarthIcon className="w-[17px] h-[17px]" />
+            <ScanTextIcon className="w-[17px] h-[17px]" />
           </button>
         </div>
 
@@ -434,24 +452,6 @@ export function App() {
           onScrollProgress={handleScrollProgress}
         />
       </div>
-
-      {/* ─── History Bottom Sheet ─── */}
-      <AnimatePresence>
-        {showHistory && (
-          <HistorySheet
-            notes={notes}
-            activeNoteId={activeNoteId ?? ""}
-            loading={notesLoading}
-            onSelectNote={handleSelectNote}
-            onCreateNote={handleCreateNote}
-            onDeleteNote={deleteNote}
-            onClose={() => {
-              cleanupEmptyNotes();
-              setShowHistory(false);
-            }}
-          />
-        )}
-      </AnimatePresence>
 
       {/* ─── Web Clipper Bottom Sheet ─── */}
       <AnimatePresence>
@@ -483,6 +483,24 @@ export function App() {
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* ─── History Bottom Sheet ─── */}
+      <AnimatePresence>
+        {showHistory && (
+          <HistorySheet
+            notes={notes}
+            activeNoteId={activeNoteId ?? ""}
+            loading={notesLoading}
+            onSelectNote={handleSelectNote}
+            onCreateNote={handleCreateNote}
+            onDeleteNote={deleteNote}
+            onClose={() => {
+              cleanupEmptyNotes();
+              setShowHistory(false);
+            }}
+          />
         )}
       </AnimatePresence>
 

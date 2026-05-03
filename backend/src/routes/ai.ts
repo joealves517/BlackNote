@@ -39,7 +39,7 @@ router.post(
       email: authReq.userEmail,
       displayName: authReq.userName,
       picture: authReq.userPicture,
-    });
+    }, "BlackNote");
 
     const option = body.option || "improve";
     const command = body.command;

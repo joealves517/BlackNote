@@ -60,3 +60,17 @@ export async function openSparkAI(
   });
   return response?.success === true;
 }
+
+/**
+ * Send note context to Spark AI for "Chat with Note".
+ */
+export async function openSparkAIWithContext(
+  content: string,
+  title: string
+): Promise<boolean> {
+  const response = await relayToExternal(ECOSYSTEM.SPARK_AI.ids, {
+    type: "SET_EXTERNAL_CONTEXT",
+    payload: { appName: "BlackNote", content, title },
+  });
+  return response?.success === true;
+}

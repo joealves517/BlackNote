@@ -618,6 +618,8 @@ body {
 .clipper-sheet-content {
   padding: 0 16px 12px;
   overflow-y: auto;
+  min-height: 0;
+  flex: 1;
 }
 
 /* ===== BlackNote Title ===== */

@@ -36,6 +36,11 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error("Unhandled promise rejection caught by boundary:", event.reason);
   };
 
+  private handleReset = () => {
+    this.setState({ hasError: false });
+    window.location.reload();
+  };
+
   public static getDerivedStateFromError(_: Error): State {
     return { hasError: true };
   }
@@ -62,9 +67,15 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex flex-col items-center justify-center w-full h-screen bg-background text-center p-6">
           <PlugZapIcon ref={this.iconRef} size={64} className="text-muted-foreground mb-4" />
-          <p className="text-lg font-medium text-muted-foreground">
+          <p className="text-lg font-medium text-muted-foreground mb-6">
             Oops, something went wrong
           </p>
+          <button
+            onClick={this.handleReset}
+            className="px-6 py-2 bg-primary text-primary-foreground font-medium rounded-full shadow-sm hover:opacity-90 transition-opacity active:scale-95 border border-zinc-200 dark:border-zinc-800"
+          >
+            Return Home
+          </button>
         </div>
       );
     }

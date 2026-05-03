@@ -1,4 +1,4 @@
-import { EarthIcon } from "@/components/icons/earth";
+import { ScanTextIcon } from "@/components/icons/scan-text";
 import { CircleHelpIcon } from "@/components/icons/circle-help";
 import { LoaderCircleIcon } from "@/components/icons/loader-circle";
 import { LogoutIcon } from "@/components/icons/logout";
@@ -186,7 +186,7 @@ export function Sidebar({
             className="h-7 w-7"
             data-tooltip="Clip page"
           >
-            <EarthIcon className={`h-3.5 w-3.5`} style={{ color: showClipper ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }} />
+            <ScanTextIcon className={`h-3.5 w-3.5`} style={{ color: showClipper ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }} />
           </Button>
           <Button
             variant="ghost"

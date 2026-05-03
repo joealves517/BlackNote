@@ -1,4 +1,4 @@
-import { EarthIcon } from "@/components/icons/earth";
+import { ScanTextIcon } from "@/components/icons/scan-text";
 import { GripIcon } from "@/components/icons/grip";
 import { LoaderCircleIcon } from "@/components/icons/loader-circle";
 import { CircleHelpIcon } from "@/components/icons/circle-help";
@@ -201,7 +201,7 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
               className="w-4 h-4 rounded-[3px]"
             />
           ) : (
-            <EarthIcon className="w-4 h-4" style={{ color: "hsl(var(--muted-foreground))" }} />
+            <ScanTextIcon className="w-4 h-4" style={{ color: "hsl(var(--muted-foreground))" }} />
           )}
           <span className="web-clipper-title">Clip Page</span>
         </div>

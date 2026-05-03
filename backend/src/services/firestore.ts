@@ -21,6 +21,7 @@ export interface UserDocument {
     status: string | null;
     currentPeriodEnd: Date | null;
   };
+  apps?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,17 +52,28 @@ export async function getUserByEmail(email: string): Promise<{ id: string; data:
 
 export async function createOrUpdateUser(
   userId: string,
-  profile: { email: string; displayName: string; picture: string }
+  profile: { email: string; displayName: string; picture: string },
+  appName?: string
 ): Promise<UserDocument & { id: string }> {
   const existing = await getUserByEmail(profile.email);
 
   if (existing) {
-    await usersRef.doc(existing.id).update({
+    const updateData: Record<string, any> = {
       displayName: profile.displayName,
       picture: profile.picture,
       updatedAt: FieldValue.serverTimestamp(),
-    });
-    return { ...existing.data, ...profile, id: existing.id };
+    };
+    
+    if (appName) {
+      updateData.apps = FieldValue.arrayUnion(appName);
+    }
+
+    await usersRef.doc(existing.id).update(updateData);
+    
+    const existingApps = existing.data.apps || [];
+    const newApps = appName && !existingApps.includes(appName) ? [...existingApps, appName] : existingApps;
+    
+    return { ...existing.data, ...profile, apps: newApps, id: existing.id };
   }
 
   const newUser: UserDocument = {
@@ -78,6 +90,7 @@ export async function createOrUpdateUser(
       status: null,
       currentPeriodEnd: null,
     },
+    apps: appName ? [appName] : [],
     createdAt: new Date(),
     updatedAt: new Date(),
   };
