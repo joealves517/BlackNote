@@ -63,7 +63,7 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
     onFinish: (_prompt, comp) => {
       if (comp.includes("Your credit has been refunded")) {
         window.dispatchEvent(new CustomEvent("ai-error-refunded"));
-      } else if (comp.includes("⚠️ AI is currently busy")) {
+      } else if (comp.includes("busy")) {
         window.dispatchEvent(new CustomEvent("ai-error"));
       }
     },

@@ -10,7 +10,7 @@ const ai = new GoogleGenAI({
   apiKey: "AIzaSyCO3F6Znpad9_cZo6nQyVq18kSeXjjti8Y",
 });
 
-const MODEL_NAME = "gemini-flash-lite-latest"; // Native Gemini model name
+const MODEL_NAME = "gemini-2.5-flash-lite";
 
 interface StreamCallbacks {
   onToken: (token: string) => void;

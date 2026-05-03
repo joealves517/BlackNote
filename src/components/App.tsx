@@ -26,9 +26,9 @@ import { HeartHandshakeIcon } from "@/components/icons/heart-handshake";
 
 import { CHECKOUT_BASE } from "@/lib/constants";
 
-function GoogleIcon() {
+function GoogleIcon({ size = 20 }: { size?: number }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
       <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.16v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
       <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.16C1.43 8.55 1 10.22 1 12s.43 3.45 1.16 4.93l3.68-2.84z" fill="#FBBC05"/>
@@ -112,19 +112,19 @@ export function App() {
     const topPx = t * 6;
     const sidePx = t * maxSide;
     const height = 44 - t * 8;
-    const paddingX = 8 - t * 4;
+    const paddingLeft = 10 - t * 2; // 10 -> 8
+    const paddingRight = 8 - t * 4; // 8 -> 4
     const radius = t * 20;
-    const bgAlpha = t * 0.8;
+    const bgAlpha = t * 0.85;
     const blur = t * 16;
     const shadow = t * 0.15;
-    const borderAlpha = t * 0.4;
 
     el.style.top = `${topPx}px`;
     el.style.left = `${sidePx}px`;
     el.style.right = `${sidePx}px`;
     el.style.height = `${height}px`;
-    el.style.paddingLeft = `${paddingX}px`;
-    el.style.paddingRight = `${paddingX}px`;
+    el.style.paddingLeft = `${paddingLeft}px`;
+    el.style.paddingRight = `${paddingRight}px`;
     el.style.borderRadius = `${radius}px`;
     el.style.backgroundColor = `hsl(var(--background) / ${bgAlpha})`;
     el.style.backdropFilter = blur > 0 ? `blur(${blur}px)` : 'none';
@@ -191,6 +191,33 @@ export function App() {
     window.addEventListener("trigger-clipper", handler);
     return () => window.removeEventListener("trigger-clipper", handler);
   }, []);
+
+  // Listen for notes from sister extensions (Spark AI, AI Recorder)
+  useEffect(() => {
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes.ecosystem_pending_note?.newValue) {
+        const { title, content } = changes.ecosystem_pending_note.newValue;
+        if (title && content) {
+          createNoteWithContent(title, content);
+          chrome.storage.local.remove("ecosystem_pending_note");
+        }
+      }
+    };
+    chrome.storage.local.onChanged.addListener(handleStorageChange);
+
+    // Also check on mount for any pending notes
+    chrome.storage.local.get("ecosystem_pending_note").then((result) => {
+      if (result.ecosystem_pending_note) {
+        const { title, content } = result.ecosystem_pending_note;
+        if (title && content) {
+          createNoteWithContent(title, content);
+          chrome.storage.local.remove("ecosystem_pending_note");
+        }
+      }
+    });
+
+    return () => chrome.storage.local.onChanged.removeListener(handleStorageChange);
+  }, [createNoteWithContent]);
 
   // Clean up empty notes when switching away
   const cleanupEmptyNotes = useCallback(() => {
@@ -286,7 +313,7 @@ export function App() {
           left: 0,
           right: 0,
           height: 44,
-          paddingLeft: 8,
+          paddingLeft: 10,
           paddingRight: 8,
           borderRadius: 0,
           backgroundColor: 'transparent',
@@ -300,100 +327,58 @@ export function App() {
           {/* Identity Pill — Login / Avatar + Badge */}
           <div className="relative">
             {!user ? (
-              /* Not logged in: Google Login pill */
               <button
+                className="identity-pill group flex items-center overflow-hidden"
                 onClick={handleLogin}
-                className="identity-pill"
-                data-tooltip="Sign in with Google"
                 disabled={isLoggingIn}
-                style={isLoggingIn ? { paddingRight: "2px" } : {}}
+                data-tooltip="Sign in with Google"
               >
                 {isLoggingIn ? (
-                  <LoaderIcon size={20} className="text-muted-foreground" />
+                  <LoaderIcon size={14} className="text-muted-foreground animate-spin" />
                 ) : (
-                  <>
-                    <GoogleIcon />
-                    <span className="identity-pill-text">Login</span>
-                  </>
+                  <GoogleIcon size={14} />
                 )}
+                <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover:max-w-[80px] group-hover:opacity-100 group-hover:ml-1.5 group-hover:pr-2.5 transition-all duration-300 ease-in-out font-bold">
+                  {isLoggingIn ? "LOADING" : "LOGIN"}
+                </span>
               </button>
             ) : (
-              /* Logged in: Avatar + PRO/UPGRADE pill */
-              <div className="identity-pill" style={{ cursor: "pointer" }}>
-                <button
-                  onClick={() => setShowAccountMenu(!showAccountMenu)}
-                  className="shrink-0 rounded-full focus:outline-none"
-                  data-tooltip="Account"
-                >
-                  {getUserAvatar(user) ? (
-                    <img
-                      src={getUserAvatar(user)!}
-                      className="w-5 h-5 rounded-full"
-                      alt=""
-                    />
-                  ) : (
-                    <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold"
-                      style={{
-                        backgroundColor: "hsl(var(--primary))",
-                        color: "hsl(var(--primary-foreground))",
-                      }}
-                    >
-                      {(user.user_metadata?.full_name || user.email || "U")
-                        .charAt(0)
-                        .toUpperCase()}
-                    </div>
-                  )}
-                </button>
-
-                {/* Badge */}
-                {credits === null ? (
-                  <div
-                    className="w-10 h-3.5 rounded-sm animate-pulse shrink-0"
-                    style={{ backgroundColor: "hsl(var(--muted))" }}
+              <button
+                className="identity-pill group flex items-center overflow-hidden"
+                onClick={() => setShowAccountMenu(!showAccountMenu)}
+                data-tooltip="Account"
+              >
+                {getUserAvatar(user) ? (
+                  <img
+                    src={getUserAvatar(user)!}
+                    alt=""
+                    width={16}
+                    height={16}
+                    style={{ borderRadius: "50%", flexShrink: 0, objectFit: "cover" }}
                   />
-                ) : isPremium ? (
-                  (() => {
-                    const ProIcon = proIconIndex === 0 ? ChessKingIcon : proIconIndex === 1 ? HandMetalIcon : HeartHandshakeIcon;
-                    return (
-                      <div className="flex items-center gap-1 pr-0.5">
-                        <div 
-                          className="identity-pill-badge-upgrade group flex items-center overflow-hidden"
-                          onMouseEnter={() => headerProIconRef.current?.startAnimation()}
-                          onMouseLeave={() => headerProIconRef.current?.stopAnimation()}
-                        >
-                          <ProIcon ref={headerProIconRef} size={18} />
-                          <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover:max-w-[80px] group-hover:opacity-100 group-hover:ml-1 transition-all duration-300 ease-in-out font-bold">
-                            PRO
-                          </span>
-                        </div>
-                        {isQuotaExhausted && (
-                          <CircleHelpIcon
-                            className="w-3 h-3 cursor-help"
-                            style={{ color: "hsl(45 90% 55%)" }}
-                            data-tooltip="Credits exhausted. Using free tier."
-                          />
-                        )}
-                      </div>
-                    );
-                  })()
                 ) : (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const url = `${CHECKOUT_BASE}?checkout[email]=${encodeURIComponent(user.email || "")}&checkout[custom][user_id]=${user.id}`;
-                      chrome.tabs.create({ url });
+                  <div
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      backgroundColor: "hsl(var(--muted))",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 9,
+                      fontWeight: 600,
+                      flexShrink: 0,
                     }}
-                    className="identity-pill-badge-upgrade group flex items-center overflow-hidden"
-                    data-tooltip="Upgrade to Pro"
                   >
-                    <ArrowBigUpDashIcon size={18} />
-                    <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover:max-w-[80px] group-hover:opacity-100 group-hover:ml-1 transition-all duration-300 ease-in-out">
-                      UPGRADE
-                    </span>
-                  </button>
+                    {(user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
+                  </div>
                 )}
-              </div>
+
+                <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover:max-w-[80px] group-hover:opacity-100 group-hover:ml-1.5 group-hover:pr-2.5 transition-all duration-300 ease-in-out font-bold">
+                  {isPremium ? "PRO" : "UPGRADE"}
+                </span>
+              </button>
             )}
           </div>
 

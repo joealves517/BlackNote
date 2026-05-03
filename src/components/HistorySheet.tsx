@@ -2,6 +2,8 @@ import { LoaderCircleIcon } from "@/components/icons/loader-circle";
 import { PlusIcon } from "@/components/icons/plus";
 import { FileTextIcon } from "@/components/icons/file-text";
 import { SearchIcon } from "@/components/icons/search";
+import { XIcon } from "@/components/icons/x";
+import { CheckIcon } from "@/components/icons/check";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
@@ -166,29 +168,39 @@ export function HistorySheet({
                       <span className="history-sheet-item-time">
                         {formatRelativeTime(note.updatedAt)}
                       </span>
-                      <div
+                      <span
                         className="history-sheet-item-delete"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setNoteToDelete(note.id);
+                          if (noteToDelete === note.id) {
+                            onDeleteNote(note.id);
+                            setNoteToDelete(null);
+                          } else {
+                            setNoteToDelete(note.id);
+                            // Auto reset confirmation after 3s
+                            setTimeout(() => {
+                              setNoteToDelete((prev) => prev === note.id ? null : prev);
+                            }, 3000);
+                          }
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: 24,
+                          height: 24,
+                          padding: 0,
+                          backgroundColor: noteToDelete === note.id ? "hsl(var(--destructive) / 0.15)" : undefined,
+                          color: noteToDelete === note.id ? "hsl(var(--destructive))" : undefined,
+                          opacity: noteToDelete === note.id ? 1 : undefined,
                         }}
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M3 6h18" />
-                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                        </svg>
-                      </div>
+                        {noteToDelete === note.id ? (
+                          <CheckIcon style={{ width: 14, height: 14 }} />
+                        ) : (
+                          <XIcon style={{ width: 14, height: 14 }} />
+                        )}
+                      </span>
                     </div>
                   </button>
                 );
@@ -198,51 +210,7 @@ export function HistorySheet({
         </div>
       </motion.div>
 
-      {/* Delete Confirmation Modal */}
-      {noteToDelete && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div
-            className="bg-background border rounded-[20px] p-5 shadow-lg max-w-[320px] w-full text-center flex flex-col gap-4"
-            style={{
-              backgroundColor: "hsl(var(--background))",
-              borderColor: "hsl(var(--border))",
-            }}
-          >
-            <h3
-              className="text-[15px] font-semibold"
-              style={{ color: "hsl(var(--foreground))" }}
-            >
-              Delete Note
-            </h3>
-            <p
-              className="text-xs"
-              style={{ color: "hsl(var(--muted-foreground))" }}
-            >
-              Are you sure you want to delete this note? This action cannot be
-              undone.
-            </p>
-            <div className="flex gap-2 w-full mt-2">
-              <Button
-                variant="outline"
-                className="flex-1 h-9 rounded-full text-xs font-medium"
-                onClick={() => setNoteToDelete(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                className="flex-1 h-9 rounded-full text-xs font-medium"
-                onClick={() => {
-                  onDeleteNote(noteToDelete);
-                  setNoteToDelete(null);
-                }}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </>
   );
 }

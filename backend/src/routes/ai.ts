@@ -64,7 +64,7 @@ router.post(
           },
           onError: (error: Error) => {
             console.error("[AI] Gemini Free fallback error:", error.message);
-            res.write("⚠️ AI is currently busy. Please try again.");
+            res.write("⚠️ Server is currently busy. Please try again.");
             res.end();
           },
         },
@@ -101,7 +101,7 @@ router.post(
         onError: (error: Error) => {
           console.error("[AI Premium] Vertex AI error:", error.message);
           // No credits deducted on error — fair billing
-          res.write("⚠️ AI is currently busy. Please try again.");
+          res.write("⚠️ Server is currently busy. Please try again.");
           res.end();
         },
       },

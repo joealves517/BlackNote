@@ -117,11 +117,11 @@ export function AccountPopup({
               onMouseEnter={() => proIconRef.current?.startAnimation()}
               onMouseLeave={() => proIconRef.current?.stopAnimation()}
             >
-              <div className="novel-slash-icon" style={{ borderColor: "hsl(45 90% 55% / 0.5)" }}>
-                <ProIcon ref={proIconRef} size={16} className="w-4 h-4" style={{ color: "hsl(45 90% 55%)" }} />
+              <div className="novel-slash-icon">
+                <ProIcon ref={proIconRef} size={16} className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-[13px] font-medium" style={{ color: "hsl(45 90% 55%)" }}>Pro Plan Active</p>
+                <p className="text-[13px] font-medium">Pro Plan Active</p>
                 <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
                   Thanks for supporting BlackNote!
                 </p>

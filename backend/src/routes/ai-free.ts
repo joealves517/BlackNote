@@ -48,7 +48,7 @@ router.post(
         },
         onError: (error: Error) => {
           console.error("[AI Free] Gemini error:", error.message);
-          res.write("⚠️ AI is currently busy. Please try again.");
+          res.write("⚠️ The Free AI server is temporarily busy (rate limited). Please wait 30 seconds before trying again.");
           res.end();
         },
       },

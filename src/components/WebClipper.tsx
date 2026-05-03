@@ -8,6 +8,8 @@ import { SparklesIcon } from "@/components/icons/sparkles";
 import { BrainIcon } from "@/components/icons/brain";
 import { XIcon } from "@/components/icons/x";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
+import { openSparkAI } from "@/lib/ecosystem";
+import sparkAIIcon from "@/assets/spark-ai-icon.png";
 /**
  * WebClipper — Sidebar component for clipping the current page.
  * ALL actions go through AI → auto-save to a NEW note.
@@ -43,6 +45,7 @@ const PROCESSING_LABELS: Record<string, string> = {
   summarize_page: "Summarizing",
   mindmap: "Generating mindmap",
   extract_key_points: "Extracting key points",
+  spark_sent: "Sent to Spark AI! Click ✦ icon in toolbar to open",
 };
 
 const TITLE_PREFIXES: Record<string, string> = {
@@ -160,6 +163,26 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
     );
   };
 
+  /** Open Spark AI to chat about the current page */
+  const handleChatWithPage = async () => {
+    if (!content) return;
+    const success = await openSparkAI();
+    if (success) {
+      setProcessing("spark_sent");
+      // Auto-close after a brief delay so user can see the confirmation
+      setTimeout(() => {
+        setProcessing(null);
+        onClose();
+      }, 2500);
+    } else {
+      // Spark AI is not installed — open Web Store
+      chrome.tabs.create({
+        url: "https://chromewebstore.google.com/detail/spark-ai/cainihlnefiebaigcjiniandhodkajaj",
+      });
+      onClose();
+    }
+  };
+
   const handleClose = () => {
     reset();
     setProcessing(null);
@@ -211,11 +234,22 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
-            <GripIcon loop className="ai-loading-icon" />
-            <span>
-              {PROCESSING_LABELS[processing] || "Processing"}
-              <AnimatedDots />
-            </span>
+            {processing === "spark_sent" ? (
+              <>
+                <SparklesIcon className="ai-loading-icon" style={{ color: "#22c55e" }} />
+                <span style={{ color: "#22c55e" }}>
+                  {PROCESSING_LABELS[processing]}
+                </span>
+              </>
+            ) : (
+              <>
+                <GripIcon loop className="ai-loading-icon" />
+                <span>
+                  {PROCESSING_LABELS[processing] || "Processing"}
+                  <AnimatedDots />
+                </span>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -243,7 +277,7 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
             )}
           </div>
 
-          <div className="ai-cmd-groups" style={{ marginTop: "16px" }}>
+          <div className="ai-cmd-groups">
             <div className="ai-cmd-group">
               <button
                 className="novel-slash-item w-full text-left"
@@ -312,6 +346,24 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
                   </p>
                 </div>
               </button>
+
+              {/* Chat with Page — powered by Spark AI */}
+              <button
+                className="novel-slash-item w-full text-left"
+                onClick={handleChatWithPage}
+              >
+                <div className="novel-slash-icon">
+                  <AnimatedIcon animation="hover">
+                    <img src={sparkAIIcon} className="w-4 h-4" alt="Spark AI" />
+                  </AnimatedIcon>
+                </div>
+                <div>
+                  <p className="text-[13px] font-medium">Chat with Page</p>
+                  <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    Ask AI about this page · Spark AI
+                  </p>
+                </div>
+              </button>
             </div>
           </div>
         </>
@@ -319,3 +371,4 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
     </div>
   );
 }
+

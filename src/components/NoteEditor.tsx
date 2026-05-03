@@ -202,7 +202,7 @@ const suggestionItems = createSuggestionItems([
     title: "Ask Note",
     description: "Ask AI about this entire note",
     searchTerms: ["ask", "ai", "note", "question", "summarize", "magic"],
-    icon: <SparklesIcon className="h-4 w-4 text-yellow-500" />,
+    icon: <SparklesIcon className="h-4 w-4" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).run();
       window.dispatchEvent(new CustomEvent("open-ai-sheet"));
