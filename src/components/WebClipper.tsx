@@ -8,7 +8,7 @@ import { SparklesIcon } from "@/components/icons/sparkles";
 import { BrainIcon } from "@/components/icons/brain";
 import { XIcon } from "@/components/icons/x";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
-import { openSparkAI } from "@/lib/ecosystem";
+import { openSparkAIWithPageContent, openUrlViaBackground, ECOSYSTEM } from "@/lib/ecosystem";
 import sparkAIIcon from "@/assets/spark-ai-icon.png";
 /**
  * WebClipper — Sidebar component for clipping the current page.
@@ -166,19 +166,23 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
   /** Open Spark AI to chat about the current page */
   const handleChatWithPage = async () => {
     if (!content) return;
-    const success = await openSparkAI();
+
+    const prepared = prepareForAI(content.markdown);
+    const success = await openSparkAIWithPageContent(
+      prepared,
+      content.title,
+      content.url,
+    );
+
     if (success) {
       setProcessing("spark_sent");
-      // Auto-close after a brief delay so user can see the confirmation
       setTimeout(() => {
         setProcessing(null);
         onClose();
       }, 2500);
     } else {
-      // Spark AI is not installed — open Web Store
-      chrome.tabs.create({
-        url: "https://chromewebstore.google.com/detail/spark-ai/cainihlnefiebaigcjiniandhodkajaj",
-      });
+      // Spark AI is not installed — open Chrome Web Store via background
+      openUrlViaBackground(ECOSYSTEM.SPARK_AI.storeUrl);
       onClose();
     }
   };

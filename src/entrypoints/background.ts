@@ -21,31 +21,48 @@ export default defineBackground(() => {
         return true;
       }
 
+      // Open a URL in a new tab (sidepanel has no chrome.tabs access)
+      if (message.type === "OPEN_URL" && message.url) {
+        chrome.tabs.create({ url: message.url });
+        return false;
+      }
+
       // Relay cross-extension messages from sidepanel → external extension
       // Background script uses raw chrome API, bypassing WXT polyfill
       if (message.type === "RELAY_EXTERNAL" && message.targetExtensionIds && message.targetExtensionIds.length > 0) {
         const ids = message.targetExtensionIds;
-        let currentIndex = 0;
 
-        const tryNextId = () => {
-          if (currentIndex >= ids.length) {
-            console.warn("[Ecosystem] External relay failed for all IDs.");
-            sendResponse(null);
-            return;
+        // Resolve windowId first — sidepanel sender has no sender.tab,
+        // so we must get it from the current window for the receiving
+        // extension to be able to open its own sidepanel.
+        chrome.windows.getCurrent((win) => {
+          const payload = { ...message.payload };
+          if (win?.id && !payload.windowId) {
+            payload.windowId = win.id;
           }
 
-          const currentId = ids[currentIndex];
-          chrome.runtime.sendMessage(currentId, message.payload, (response) => {
-            if (chrome.runtime.lastError) {
-              currentIndex++;
-              tryNextId();
-            } else {
-              sendResponse(response);
+          let currentIndex = 0;
+          const tryNextId = () => {
+            if (currentIndex >= ids.length) {
+              console.warn("[Ecosystem] External relay failed for all IDs.");
+              sendResponse(null);
+              return;
             }
-          });
-        };
 
-        tryNextId();
+            const currentId = ids[currentIndex];
+            chrome.runtime.sendMessage(currentId, payload, (response) => {
+              if (chrome.runtime.lastError) {
+                currentIndex++;
+                tryNextId();
+              } else {
+                sendResponse(response);
+              }
+            });
+          };
+
+          tryNextId();
+        });
+
         return true; // keep channel open for async sendResponse
       }
 
@@ -73,8 +90,10 @@ export default defineBackground(() => {
           });
 
           // Open the sidepanel if the sender provides a valid window/tab context, or fallback to current window
-          if (_sender.tab?.windowId) {
-            browser.sidePanel.open({ windowId: _sender.tab.windowId }).catch((err) => {
+          const targetWindowId = _sender.tab?.windowId || message.windowId || message.payload?.windowId;
+          
+          if (targetWindowId) {
+            browser.sidePanel.open({ windowId: targetWindowId }).catch((err) => {
               console.warn("Failed to open sidepanel from external message:", err);
             });
           } else {

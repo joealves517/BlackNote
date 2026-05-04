@@ -22,41 +22,68 @@ export const ECOSYSTEM = {
   },
 } as const;
 
+let cachedWindowId: number | undefined;
+// Pre-fetch window ID so it's synchronously available during user clicks
+if (typeof window !== "undefined" && window.chrome?.windows) {
+  window.chrome.windows.getCurrent((win) => {
+    cachedWindowId = win.id;
+  });
+}
+
 /**
- * Relay a message to an external extension via background service worker.
- * Background context bypasses WXT polyfill issues with external messaging.
+ * Relay a message to an external extension directly.
+ * We must send directly from the sidepanel context to preserve the user gesture.
+ * If we route it through the background script, the gesture is lost and
+ * the target extension won't be able to open its sidepanel.
  */
 function relayToExternal(
   extensionIds: readonly string[],
   message: Record<string, unknown>
 ): Promise<any> {
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage(
-      { type: "RELAY_EXTERNAL", targetExtensionIds: extensionIds, payload: message },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          resolve(null);
-          return;
-        }
-        resolve(response);
+    // Inject synchronous windowId so target doesn't lose gesture doing async lookups
+    const payload = { ...message, windowId: cachedWindowId };
+    
+    let currentIndex = 0;
+    const tryNextId = () => {
+      if (currentIndex >= extensionIds.length) {
+        resolve(null);
+        return;
       }
-    );
+
+      const currentId = extensionIds[currentIndex];
+      try {
+        // Use window.chrome to bypass WXT polyfill issues
+        window.chrome.runtime.sendMessage(currentId, payload, (response) => {
+          if (window.chrome.runtime.lastError) {
+            currentIndex++;
+            tryNextId();
+          } else {
+            resolve(response);
+          }
+        });
+      } catch (e) {
+        currentIndex++;
+        tryNextId();
+      }
+    };
+
+    tryNextId();
   });
 }
 
 /**
- * Send a command to Spark AI to chat about the current page.
+ * Send page content to Spark AI using SET_EXTERNAL_CONTEXT pattern.
  * Returns true if delivered, false if Spark AI is not installed.
- * Note: Spark AI cannot auto-open its sidepanel (Chrome API limitation).
  */
-export async function openSparkAI(
-  prompt?: string,
+export async function openSparkAIWithPageContent(
+  content: string,
+  title: string,
   url?: string,
-  title?: string
 ): Promise<boolean> {
   const response = await relayToExternal(ECOSYSTEM.SPARK_AI.ids, {
-    type: "CHAT_WITH_CONTENT",
-    payload: { prompt, url, title },
+    type: "SET_EXTERNAL_CONTEXT",
+    payload: { appName: "BlackNote", content, title, url },
   });
   return response?.success === true;
 }
@@ -73,4 +100,12 @@ export async function openSparkAIWithContext(
     payload: { appName: "BlackNote", content, title },
   });
   return response?.success === true;
+}
+
+/**
+ * Open a URL in a new tab via the background script.
+ * Sidepanel context cannot call chrome.tabs.create directly.
+ */
+export function openUrlViaBackground(url: string): void {
+  chrome.runtime.sendMessage({ type: "OPEN_URL", url });
 }
