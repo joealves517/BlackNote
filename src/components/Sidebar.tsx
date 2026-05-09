@@ -11,6 +11,7 @@ import { SearchIcon } from "@/components/icons/search";
 import { CheckIcon } from "@/components/icons/check";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { useState, useEffect, useRef } from "react";
+import { Pin, PinOff } from "lucide-react";
 
 import { WebClipper } from "@/components/WebClipper";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ interface SidebarProps {
   onSignOut: () => void;
   onClipSaveAsNote?: (title: string, markdown: string) => void;
   onRefreshCredits?: () => void;
+  onTogglePin?: (id: string) => void;
 }
 
 function formatRelativeTime(date: Date): string {
@@ -107,6 +109,7 @@ export function Sidebar({
   onSignOut,
   onRefreshCredits,
   onClipSaveAsNote,
+  onTogglePin,
 }: SidebarProps) {
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
   const [showClipper, setShowClipper] = useState(false);
@@ -287,20 +290,44 @@ export function Sidebar({
                         "transparent";
                   }}
                 >
-                  <div className="sidebar-note-text">
-                    <p
-                      className="sidebar-note-title"
-                      style={{
-                        color: isActive
-                          ? "hsl(var(--foreground))"
-                          : "hsl(var(--sidebar-fg))",
+                  <div className="sidebar-note-text relative flex items-center gap-2">
+                    <div 
+                      className="flex items-center justify-center shrink-0 w-4 h-4 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onTogglePin) onTogglePin(note.id);
                       }}
                     >
-                      {note.title || "Untitled"}
-                    </p>
-                    <p className="sidebar-note-time">
-                      {formatRelativeTime(note.updatedAt)}
-                    </p>
+                      {note.isPinned ? (
+                        <>
+                          <Pin
+                            className="w-4 h-4 text-yellow-500 fill-yellow-500 block group-hover:hidden"
+                          />
+                          <PinOff
+                            className="w-4 h-4 text-red-500 hidden group-hover:block"
+                          />
+                        </>
+                      ) : (
+                        <Pin
+                          className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                        />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p
+                        className="sidebar-note-title"
+                        style={{
+                          color: isActive
+                              ? "hsl(var(--foreground))"
+                              : "hsl(var(--sidebar-fg))",
+                        }}
+                      >
+                        {note.title || "Untitled"}
+                      </p>
+                      <p className="sidebar-note-time">
+                        {formatRelativeTime(note.updatedAt)}
+                      </p>
+                    </div>
                   </div>
                   <button
                     onClick={(e) => {

@@ -12,10 +12,11 @@ export interface PlusIconHandle {
 }
 
 interface PlusIconProps extends HTMLAttributes<HTMLDivElement> {
+  size?: number;
 }
 
 const PlusIcon = forwardRef<PlusIconHandle, PlusIconProps>(
-  ({ className, ...props }, ref) => {
+  ({ className, size = 24, ...props }, ref) => {
     const controls = useAnimation();
     const isControlledRef = useRef(false);
 
@@ -54,6 +55,8 @@ const PlusIcon = forwardRef<PlusIconHandle, PlusIconProps>(
       >
         <motion.svg
           animate={controls}
+          width={size}
+          height={size}
           fill="none"
           stroke="currentColor"
           strokeLinecap="round"

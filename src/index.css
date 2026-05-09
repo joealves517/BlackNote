@@ -405,6 +405,8 @@ body {
   height: calc(100% - 56px);
   display: flex;
   flex-direction: column;
+  max-width: 800px;
+  margin: 0 auto;
   border-radius: 20px 20px 0 0;
   background-color: hsl(var(--background) / 0.98);
   backdrop-filter: blur(16px) saturate(180%);
@@ -500,6 +502,9 @@ body {
 }
 
 .history-sheet-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 4px 8px 8px;
   font-size: 11px;
   font-weight: 500;
@@ -599,6 +604,8 @@ body {
   z-index: 60;
   display: flex;
   flex-direction: column;
+  max-width: 800px;
+  margin: 0 auto;
   border-radius: 20px 20px 0 0;
   background-color: hsl(var(--background) / 0.98);
   backdrop-filter: blur(16px) saturate(180%);
@@ -612,6 +619,37 @@ body {
 }
 
 .dark .clipper-sheet {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 -8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* ===== Account Sheet with Cutout ===== */
+.account-sheet, .dark .account-sheet {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.account-sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-color: hsl(var(--background) / 0.98);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+    0 -4px 24px rgba(0, 0, 0, 0.15);
+  mask-image: radial-gradient(circle 38px at 50% 0px, transparent 38px, black 39px);
+  -webkit-mask-image: radial-gradient(circle 38px at 50% 0px, transparent 38px, black 39px);
+}
+
+.dark .account-sheet::before {
   box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 -8px 32px rgba(0, 0, 0, 0.4);
 }
 
@@ -877,8 +915,8 @@ body {
   padding: 4px;
   border-radius: 10px;
   background-color: hsl(var(--background) / 0.98);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid hsl(var(--border) / 0.4);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 50;
@@ -905,7 +943,9 @@ body {
 .ai-bubble-open {
   border-radius: 12px;
   border: 1px solid hsl(var(--border));
-  background-color: hsl(var(--popover));
+  background-color: hsl(var(--background) / 0.98);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
   box-shadow: 0 4px 20px hsl(var(--foreground) / 0.12);
   z-index: 50;
   overflow: hidden;
@@ -1199,8 +1239,8 @@ body {
   overflow-y: auto;
   border-radius: 10px;
   background-color: hsl(var(--background) / 0.98);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid hsl(var(--border) / 0.4);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 4px;
@@ -1718,4 +1758,128 @@ button:active>.lucide,
 .dark .novel-bubble-menu,
 .dark .novel-slash-menu {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ===== Chat with Note — Message Styles (from Chat with Page) ===== */
+.chat-message-ai pre {
+  background-color: hsl(var(--secondary));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  overflow-x: auto;
+  margin: 6px 0;
+}
+
+.chat-message-ai pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+.chat-message-ai code {
+  background-color: hsl(var(--secondary));
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.88em;
+  font-family: var(--font-mono);
+}
+
+.chat-message-ai a {
+  color: hsl(213 94% 68%);
+  text-decoration: none;
+}
+
+.chat-message-ai a:hover {
+  text-decoration: underline;
+}
+
+.chat-message-ai blockquote {
+  border-left: 3px solid hsl(var(--border));
+  padding-left: 12px;
+  margin: 6px 0;
+  color: hsl(var(--muted-foreground));
+}
+
+.chat-message-ai ul,
+.chat-message-ai ol {
+  padding-left: 18px;
+  margin: 4px 0;
+}
+
+.chat-message-ai ul {
+  list-style-type: disc;
+}
+
+.chat-message-ai ol {
+  list-style-type: decimal;
+}
+
+.chat-message-ai li {
+  margin: 2px 0;
+}
+
+.chat-message-ai p {
+  margin: 4px 0;
+}
+
+.chat-message-ai strong,
+.chat-message-ai b {
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.chat-message-ai em,
+.chat-message-ai i {
+  font-style: italic;
+}
+
+.chat-message-ai table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.chat-message-ai th,
+.chat-message-ai td {
+  border: 1px solid hsl(var(--border));
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.chat-message-ai th {
+  background-color: hsl(var(--muted) / 0.5);
+  font-weight: 600;
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@media print {
+  .blacknote-sidebar,
+  .blacknote-floating-header,
+  .history-sheet-backdrop,
+  .ai-sheet-backdrop,
+  .import-sheet-backdrop,
+  .novel-bubble-menu,
+  .account-popup {
+    display: none !important;
+  }
+  
+  body, .blacknote-container, .flex-1 {
+    background-color: white !important;
+    color: black !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  .novel-wrapper {
+    overflow: visible !important;
+    height: auto !important;
+  }
 }

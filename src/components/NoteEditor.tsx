@@ -5,6 +5,7 @@ import { AlignLeftIcon } from "@/components/icons/align-left";
 import { CircleCheckIcon } from "@/components/icons/circle-check";
 import { MessageSquareIcon } from "@/components/icons/message-square";
 import { FrameIcon } from "@/components/icons/frame";
+import { Mic } from "lucide-react";
 
 import { BoldIcon } from "@/components/icons/bold";
 import { ItalicIcon } from "@/components/icons/italic";
@@ -12,7 +13,9 @@ import { UnderlineIcon } from "@/components/icons/underline";
 import { PlusIcon } from "@/components/icons/plus";
 import { SparklesIcon } from "@/components/icons/sparkles";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
+import { AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   EditorRoot,
   EditorContent,
@@ -43,6 +46,7 @@ import {
   type JSONContent,
   type SuggestionItem,
 } from "novel";
+import { ImportExportSheetBridge } from "@/components/ImportExportSheet";
 import { Extension } from "@tiptap/core";
 import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
@@ -52,8 +56,10 @@ import TableCell from "@tiptap/extension-table-cell";
 import { Button } from "@/components/ui/button";
 import { GenerativeMenuSwitch } from "@/components/generative/GenerativeMenuSwitch";
 import { AISelector } from "@/components/generative/AISelector";
+import { NoteChatSheet } from "@/components/generative/NoteChatSheet";
 import { supabase } from "@/lib/supabase";
 import type { Note } from "@/hooks/use-notes";
+import { useSpeech } from "@/hooks/use-speech";
 
 /**
  * Lightweight bridge: listens for 'open-ai-sheet' event
@@ -78,17 +84,66 @@ function AISheetTrigger() {
   return <AISelector open={show} onOpenChange={setShow} />;
 }
 
+/**
+ * Bridge for NoteChatSheet inside EditorContent so it has useEditor() access.
+ */
+function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
+  note: Note | null;
+  noteTitle: string;
+  onUpdateNote?: (noteId: string, updates: Partial<Note>) => void;
+}) {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setShow(true);
+    window.addEventListener("open-note-chat", handler);
+    return () => window.removeEventListener("open-note-chat", handler);
+  }, []);
+
+  if (!show || !note) return null;
+  return createPortal(
+    <AnimatePresence>
+      <NoteChatSheet
+        noteId={note.id}
+        noteTitle={noteTitle || "Untitled"}
+        noteContent={note.content}
+        initialHistory={note.chatHistory || []}
+        onHistoryChange={(newHistory) => {
+          if (onUpdateNote) {
+            onUpdateNote(note.id, { chatHistory: newHistory });
+          }
+        }}
+        onClose={() => setShow(false)}
+      />
+    </AnimatePresence>,
+    document.body
+  );
+}
+
 interface NoteEditorProps {
   note: Note | null;
   theme: "light" | "dark";
   onContentChange: (noteId: string, content: string) => void;
   onTitleChange: (noteId: string, title: string) => void;
-  onCreateNote: () => void;
-  onScrollProgress?: (progress: number) => void;
+  onCreateNote: (title: string, content: string) => void;
+  onScrollProgress: (progress: number) => void;
+  onUpdateNote: (note: Partial<Note>) => void;
+  toggleTheme?: () => void;
 }
 
 // Slash command suggestions — block types only, AI moved to bubble menu
 const suggestionItems = createSuggestionItems([
+  {
+    title: "Speech to Text",
+    description: "Type with your voice",
+    searchTerms: ["voice", "dictate", "speech", "mic", "microphone"],
+    icon: <AnimatedIcon><Mic className="h-4 w-4" /></AnimatedIcon>,
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).run();
+      (window as any).blackNoteSTTEditor = editor;
+      window.dispatchEvent(new CustomEvent("start-speech-to-text"));
+    },
+  },
   {
     title: "Text",
     description: "Plain text block",
@@ -198,16 +253,6 @@ const suggestionItems = createSuggestionItems([
       editor.chain().focus().deleteRange(range).setHorizontalRule().run();
     },
   },
-  {
-    title: "Ask Note",
-    description: "Ask AI about this entire note",
-    searchTerms: ["ask", "ai", "note", "question", "summarize", "magic"],
-    icon: <SparklesIcon className="h-4 w-4" />,
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).run();
-      window.dispatchEvent(new CustomEvent("open-ai-sheet"));
-    },
-  },
 ]);
 
 const compressImage = (file: File): Promise<string> => {
@@ -250,16 +295,16 @@ const compressImage = (file: File): Promise<string> => {
 
 const uploadFn = async (file: File): Promise<string> => {
   const compressedDataUrl = await compressImage(file);
-  
+
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       // Convert Data URL back to Blob for upload
       const res = await fetch(compressedDataUrl);
       const blob = await res.blob();
-      
+
       const fileName = `${session.user.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}.webp`;
-      
+
       const { error } = await supabase.storage
         .from("images")
         .upload(fileName, blob, {
@@ -267,22 +312,22 @@ const uploadFn = async (file: File): Promise<string> => {
           cacheControl: "3600000000",
           upsert: false
         });
-        
+
       if (error) {
         console.error("Supabase storage upload error:", error);
         return compressedDataUrl; // Fallback
       }
-      
+
       const { data: urlData } = supabase.storage
         .from("images")
         .getPublicUrl(fileName);
-        
+
       return urlData.publicUrl;
     }
   } catch (err) {
     console.error("Failed to upload image to Supabase, falling back to local:", err);
   }
-  
+
   return compressedDataUrl;
 };
 
@@ -366,11 +411,60 @@ export function NoteEditor({
   onTitleChange,
   onCreateNote,
   onScrollProgress,
+  onUpdateNote,
+  toggleTheme,
 }: NoteEditorProps) {
   const [titleValue, setTitleValue] = useState(note?.title ?? "");
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editorKey, setEditorKey] = useState(note?.id ?? "empty");
   const titleRef = useRef<HTMLTextAreaElement>(null);
+  
+  const { startRecording, stopRecording, isRecording } = useSpeech();
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("stt-state-changed", { detail: isRecording }));
+  }, [isRecording]);
+
+  useEffect(() => {
+    const handleStopSTT = () => stopRecording();
+    window.addEventListener("stop-speech-to-text", handleStopSTT);
+    return () => window.removeEventListener("stop-speech-to-text", handleStopSTT);
+  }, [stopRecording]);
+
+  useEffect(() => {
+    let startPos = -1;
+    let currentInterimLength = 0;
+
+    const handleStartSTT = () => {
+      const editor = (window as any).blackNoteSTTEditor;
+      if (editor) {
+        startPos = editor.state.selection.from;
+      }
+      currentInterimLength = 0;
+
+      startRecording((text, isFinal) => {
+        const editor = (window as any).blackNoteSTTEditor;
+        if (!editor) return;
+
+        // Delete previous interim text
+        if (currentInterimLength > 0) {
+          editor.chain().deleteRange({ from: startPos, to: startPos + currentInterimLength }).run();
+        }
+
+        const textToInsert = text + (isFinal ? " " : "");
+        editor.chain().insertContentAt(startPos, textToInsert).run();
+
+        if (isFinal) {
+          startPos = startPos + textToInsert.length;
+          currentInterimLength = 0;
+        } else {
+          currentInterimLength = textToInsert.length;
+        }
+      });
+    };
+    window.addEventListener("start-speech-to-text", handleStartSTT);
+    return () => window.removeEventListener("start-speech-to-text", handleStartSTT);
+  }, [startRecording]);
 
   const autoResizeTitle = useCallback(() => {
     const el = titleRef.current;
@@ -426,8 +520,8 @@ export function NoteEditor({
       style={{ backgroundColor: "hsl(var(--background))" }}
     >
       {/* Scrollable Container for Title + Editor */}
-      <div 
-        className="flex-1 overflow-y-auto novel-wrapper" 
+      <div
+        className="flex-1 overflow-y-auto novel-wrapper"
         onScroll={(e) => {
           if (onScrollProgress) {
             const scrollY = e.currentTarget.scrollTop;
@@ -511,24 +605,24 @@ export function NoteEditor({
                       return true;
                     }
                   }
-                  
+
                   // 2. Handle image elements dragged from other websites
                   const html = event.dataTransfer.getData("text/html");
                   if (html) {
                     const match = html.match(/<img.*?src=["'](.*?)["']/i);
                     if (match && match[1]) {
-                       event.preventDefault();
-                       const { schema } = view.state;
-                       const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
-                       const node = schema.nodes.image.create({ src: match[1] });
-                       const tr = view.state.tr;
-                       if (coordinates) {
-                         tr.insert(coordinates.pos, node);
-                       } else {
-                         tr.replaceSelectionWith(node);
-                       }
-                       view.dispatch(tr);
-                       return true;
+                      event.preventDefault();
+                      const { schema } = view.state;
+                      const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+                      const node = schema.nodes.image.create({ src: match[1] });
+                      const tr = view.state.tr;
+                      if (coordinates) {
+                        tr.insert(coordinates.pos, node);
+                      } else {
+                        tr.replaceSelectionWith(node);
+                      }
+                      view.dispatch(tr);
+                      return true;
                     }
                   }
                 }
@@ -594,8 +688,16 @@ export function NoteEditor({
               </EditorCommandList>
             </EditorCommand>
 
-            {/* AI Bottom Sheet — inside EditorContent for useEditor() access */}
+            {/* AI Bottom Sheet — inside EditorContent but portaled to prevent Prosemirror scroll jumps */}
             <AISheetTrigger />
+            <ChatSheetBridge note={note} noteTitle={titleValue} onUpdateNote={onUpdateNote} />
+            <ImportExportSheetBridge 
+              noteId={note.id} 
+              noteTitle={titleValue} 
+              onCreateNote={onCreateNote} 
+              theme={theme}
+              toggleTheme={toggleTheme}
+            />
           </EditorContent>
         </EditorRoot>
       </div>

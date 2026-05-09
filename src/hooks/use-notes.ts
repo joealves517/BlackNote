@@ -14,6 +14,8 @@ export interface Note {
   content: string;
   createdAt: Date;
   updatedAt: Date;
+  chatHistory: { role: string; content: string }[];
+  isPinned?: boolean;
 }
 
 function localToNote(row: LocalNote): Note {
@@ -23,6 +25,8 @@ function localToNote(row: LocalNote): Note {
     content: row.content,
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
+    chatHistory: row.chatHistory ? JSON.parse(row.chatHistory) : [],
+    isPinned: row.isPinned ?? false,
   };
 }
 
@@ -46,6 +50,7 @@ export function useNotes(userId: string | undefined) {
 
   const isNoteEmpty = (note: Note | null | undefined): boolean => {
     if (!note) return false;
+    if (note.chatHistory && note.chatHistory.length > 0) return false;
     if (note.title.trim() !== "" && note.title.trim() !== "Untitled") return false;
     if (!note.content) return true;
     try {
@@ -58,6 +63,12 @@ export function useNotes(userId: string | undefined) {
     }
   };
 
+  const sortNotes = (a: Note, b: Note) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    return b.updatedAt.getTime() - a.updatedAt.getTime();
+  };
+
   const filteredNotes = notes.filter((note) =>
     note.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -65,7 +76,7 @@ export function useNotes(userId: string | undefined) {
   // Reload notes from IndexedDB
   const loadFromLocal = useCallback(async () => {
     const rows = await db.notes.orderBy("updatedAt").reverse().toArray();
-    const mapped = rows.map(localToNote);
+    const mapped = rows.map(localToNote).sort(sortNotes);
     setNotes(mapped);
     return mapped;
   }, []);
@@ -170,6 +181,21 @@ export function useNotes(userId: string | undefined) {
     };
     init();
   }, []);
+  // Auto-cleanup ALL Welcome notes if user has other notes
+  useEffect(() => {
+    const welcomeNotes = notes.filter((n) => n.title === "Welcome to BlackNote 👋");
+    if (welcomeNotes.length > 0 && notes.length > welcomeNotes.length) {
+      Promise.all(welcomeNotes.map(n => db.notes.delete(n.id))).then(() => {
+        setNotes((prev) => {
+          const filtered = prev.filter((n) => n.title !== "Welcome to BlackNote 👋");
+          if (welcomeNotes.some(wn => wn.id === activeNoteId) && filtered.length > 0) {
+            setActiveNoteId(filtered[0].id);
+          }
+          return filtered;
+        });
+      });
+    }
+  }, [notes.length, activeNoteId]);
 
   // Sync when user logs in
   useEffect(() => {
@@ -218,7 +244,7 @@ export function useNotes(userId: string | undefined) {
     await db.notes.add(newNote);
 
     const mapped = localToNote(newNote);
-    setNotes((prev) => [mapped, ...prev]);
+    setNotes((prev) => [mapped, ...prev].sort(sortNotes));
     setActiveNoteId(mapped.id);
 
     // Background sync if logged in
@@ -244,7 +270,7 @@ export function useNotes(userId: string | undefined) {
 
       await db.notes.add(newNote);
       const mapped = localToNote(newNote);
-      setNotes((prev) => [mapped, ...prev]);
+      setNotes((prev) => [mapped, ...prev].sort(sortNotes));
       setActiveNoteId(mapped.id);
 
       if (userId) {
@@ -257,24 +283,30 @@ export function useNotes(userId: string | undefined) {
   );
 
   const updateNote = useCallback(
-    (id: string, updates: Partial<Pick<Note, "title" | "content">>) => {
+    (id: string, updates: Partial<Pick<Note, "title" | "content" | "chatHistory" | "isPinned">>) => {
       const now = Date.now();
+      const isPinOnly = Object.keys(updates).length === 1 && "isPinned" in updates;
 
       // Optimistic UI update
       setNotes((prev) =>
         prev.map((note) =>
           note.id === id
-            ? { ...note, ...updates, updatedAt: new Date(now) }
+            ? { ...note, ...updates, updatedAt: isPinOnly ? note.updatedAt : new Date(now) }
             : note
-        )
+        ).sort(sortNotes)
       );
 
       // Debounce persist to IndexedDB + optional cloud sync
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(async () => {
-        const dbUpdates: Partial<LocalNote> = { updatedAt: now, syncedAt: null };
+        const dbUpdates: Partial<LocalNote> = { syncedAt: null };
+        if (!isPinOnly) {
+          dbUpdates.updatedAt = now;
+        }
         if (updates.title !== undefined) dbUpdates.title = updates.title;
         if (updates.content !== undefined) dbUpdates.content = updates.content;
+        if (updates.chatHistory !== undefined) dbUpdates.chatHistory = JSON.stringify(updates.chatHistory);
+        if (updates.isPinned !== undefined) dbUpdates.isPinned = updates.isPinned;
 
         await db.notes.update(id, dbUpdates);
 

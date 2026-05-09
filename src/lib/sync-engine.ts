@@ -11,22 +11,50 @@ export interface SyncProgress {
 type ProgressCallback = (progress: SyncProgress) => void;
 
 function dbToLocal(row: DbNote): LocalNote {
+  let contentObj = row.content;
+  let chatHistory = "[]";
+  let isPinned = false;
+  
+  if (contentObj && typeof contentObj === "object" && !Array.isArray(contentObj)) {
+    const { _chatHistory, _isPinned, ...rest } = contentObj as any;
+    if ("_chatHistory" in contentObj) {
+      chatHistory = JSON.stringify(_chatHistory);
+    }
+    if ("_isPinned" in contentObj) {
+      isPinned = Boolean(_isPinned);
+    }
+    contentObj = rest;
+  }
+
   return {
     id: row.id,
     title: row.title,
-    content: JSON.stringify(row.content),
+    content: JSON.stringify(contentObj),
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at).getTime(),
     syncedAt: Date.now(),
+    chatHistory,
+    isPinned,
   };
 }
 
 function localToDb(note: LocalNote, userId: string): Record<string, unknown> {
-  let parsedContent: unknown = [];
+  let parsedContent: any = {};
   try {
     parsedContent = JSON.parse(note.content);
   } catch {
-    parsedContent = [];
+    parsedContent = { type: "doc", content: [] };
+  }
+
+  if (typeof parsedContent === "object" && parsedContent !== null && !Array.isArray(parsedContent)) {
+    if (note.chatHistory) {
+      try {
+        parsedContent._chatHistory = JSON.parse(note.chatHistory);
+      } catch (e) {}
+    }
+    if (note.isPinned !== undefined) {
+      parsedContent._isPinned = note.isPinned;
+    }
   }
 
   return {

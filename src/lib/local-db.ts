@@ -7,6 +7,8 @@ export interface LocalNote {
   createdAt: number; // timestamp ms
   updatedAt: number; // timestamp ms
   syncedAt: number | null; // null = never synced
+  chatHistory?: string; // JSON string of chat messages
+  isPinned?: boolean;
 }
 
 const db = new Dexie("blacknote") as Dexie & {

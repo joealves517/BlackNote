@@ -7,6 +7,7 @@ import { FileTextIcon } from "@/components/icons/file-text";
 import { SparklesIcon } from "@/components/icons/sparkles";
 import { BrainIcon } from "@/components/icons/brain";
 import { XIcon } from "@/components/icons/x";
+import { CircleCheckIcon } from "@/components/icons/circle-check";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { openSparkAIWithPageContent, openUrlViaBackground, ECOSYSTEM } from "@/lib/ecosystem";
 import sparkAIIcon from "@/assets/spark-ai-icon.png";
@@ -21,23 +22,11 @@ import { useWebClipper } from "@/hooks/use-web-clipper";
 import { prepareForAI } from "@/lib/page-reader";
 import { supabase } from "@/lib/supabase";
 import { AI_API_BASE } from "@/lib/constants";
+import { DynamicThinking } from "@/components/ui/dynamic-thinking";
 
 interface WebClipperProps {
   onSaveAsNote: (title: string, markdown: string) => void;
   onClose: () => void;
-}
-
-function AnimatedDots() {
-  const [dots, setDots] = useState("");
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
-    }, 400);
-    return () => clearInterval(interval);
-  }, []);
-
-  return <span>{dots}</span>;
 }
 
 const PROCESSING_LABELS: Record<string, string> = {
@@ -45,6 +34,7 @@ const PROCESSING_LABELS: Record<string, string> = {
   summarize_page: "Summarizing",
   mindmap: "Generating mindmap",
   extract_key_points: "Extracting key points",
+  extract_todo: "Extracting to-dos",
   spark_sent: "Sent to Spark AI! Click ✦ icon in toolbar to open",
 };
 
@@ -53,6 +43,7 @@ const TITLE_PREFIXES: Record<string, string> = {
   summarize_page: "Summary: ",
   mindmap: "Mindmap: ",
   extract_key_points: "Key Points: ",
+  extract_todo: "To-do: ",
 };
 
 /** Stream AI completion from backend */
@@ -248,10 +239,13 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
             ) : (
               <>
                 <GripIcon loop className="ai-loading-icon" />
-                <span>
-                  {PROCESSING_LABELS[processing] || "Processing"}
-                  <AnimatedDots />
-                </span>
+                <DynamicThinking 
+                  messages={[
+                    PROCESSING_LABELS[processing] || "Processing", 
+                    "Analyzing content", 
+                    "Structuring data"
+                  ]} 
+                />
               </>
             )}
           </motion.div>
@@ -347,6 +341,23 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
                   <p className="text-[13px] font-medium">Key Points</p>
                   <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
                     Extract main ideas
+                  </p>
+                </div>
+              </button>
+
+              <button
+                className="novel-slash-item w-full text-left"
+                onClick={() => handleAction("extract_todo")}
+              >
+                <div className="novel-slash-icon">
+                  <AnimatedIcon animation="hover">
+                    <CircleCheckIcon className="w-4 h-4" />
+                  </AnimatedIcon>
+                </div>
+                <div>
+                  <p className="text-[13px] font-medium">To-do List</p>
+                  <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    Extract tasks and action items
                   </p>
                 </div>
               </button>

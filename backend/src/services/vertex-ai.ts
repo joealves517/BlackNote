@@ -30,6 +30,7 @@ const OPTION_PROMPTS: Record<string, string> = {
   longer: "Expand and elaborate on this text. Add relevant details, examples, or explanations:",
   continue: "Continue writing naturally from where this text left off. Match the tone and style:",
   translate: "Translate this text to English. If it's already in English, translate to Vietnamese:",
+  todo: "Extract tasks, action items, and to-dos from this text. Ensure the output is formatted as a strict Markdown checklist using '- [ ] task':",
   zap: "",
   clean_page: `You are a content editor. Clean and restructure this raw web page content into a well-formatted note.
 
@@ -81,6 +82,13 @@ RULES:
 - Max 10 points, prioritize unique insights
 - Include specific data, numbers, names when available
 - No opinions, only verifiable facts:`,
+  extract_todo: `Extract actionable tasks and to-dos from this content.
+
+RULES:
+- First line MUST be: # Short Title (max 6 words)
+- Output MUST be a strict Markdown checklist using '- [ ] ' for each task
+- Group tasks logically if there are many (using ## headings)
+- Do not add conversational filler:`,
 };
 
 interface StreamCallbacks {
@@ -94,23 +102,69 @@ export async function streamWritingAI(
   option: string,
   callbacks: StreamCallbacks,
   abortSignal?: AbortSignal,
-  command?: string
+  command?: string,
+  history?: { role: string; content: string }[],
+  noteContext?: string,
+  files?: { mimeType: string; data: string }[]
 ): Promise<void> {
+  const contents: any[] = [];
+
+  if (history && history.length > 0) {
+    history.forEach(msg => {
+      if (!msg.content) return;
+      contents.push({
+        role: msg.role === "ai" || msg.role === "assistant" ? "model" : "user",
+        parts: [{ text: msg.content }]
+      });
+    });
+  }
+
   let userPrompt: string;
-  if (option === "zap" && command) {
+  if (option === "chat") {
+    userPrompt = text;
+  } else if (option === "zap" && command) {
     userPrompt = `${command}\n\n${text}`;
+  } else if (option === "import_file") {
+    userPrompt = "Read the attached file and convert its entire content into a well-formatted Markdown note. Preserve all headings, lists, and important data. Do not add any conversational filler:\n\n" + text;
   } else {
     const prefix = OPTION_PROMPTS[option] || OPTION_PROMPTS.improve;
     userPrompt = `${prefix}\n\n${text}`;
   }
 
+  const parts: any[] = [{ text: userPrompt }];
+
+  if (files && files.length > 0) {
+    files.forEach(file => {
+      parts.push({
+        inlineData: {
+          mimeType: file.mimeType,
+          data: file.data
+        }
+      });
+    });
+  }
+
+  contents.push({ role: "user", parts });
+
+  let sysInstruction = WRITING_SYSTEM_PROMPT;
+  if (option === "chat") {
+    sysInstruction = `You are a helpful AI assistant embedded in a note-taking app called BlackNote.
+You are chatting with the user. Answer their questions clearly and concisely.
+Use Markdown formatting where appropriate (bold, lists, code blocks).
+If the user asks about the note, refer to the Note Content below.
+
+--- NOTE CONTENT START ---
+${noteContext || "The note is currently empty."}
+--- NOTE CONTENT END ---`;
+  }
+
   try {
     const response = await ai.models.generateContentStream({
       model: MODEL_NAME,
-      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+      contents: contents,
       config: {
-        systemInstruction: WRITING_SYSTEM_PROMPT,
-        temperature: 0.3,
+        systemInstruction: sysInstruction,
+        temperature: option === "chat" ? 0.7 : 0.3,
         maxOutputTokens: 4096,
       },
     });

@@ -13,21 +13,11 @@ import { GeminiIcon } from "./GeminiIcon";
 import { supabase } from "@/lib/supabase";
 import { AI_API_BASE } from "@/lib/constants";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
+import { DynamicThinking } from "@/components/ui/dynamic-thinking";
 
 interface AISelectorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-function ThinkingDots() {
-  const [dotCount, setDotCount] = useState(1);
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setDotCount((prev) => (prev % 3) + 1);
-    }, 400);
-    return () => clearInterval(timer);
-  }, []);
-  return <span className="ai-thinking-dots">{".".repeat(dotCount)}</span>;
 }
 
 // Shared spring config for all layout transitions
@@ -58,12 +48,15 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
     streamProtocol: "text",
     onError: (err: Error) => {
       console.error("AI error:", err.message);
+      onOpenChange(false);
       window.dispatchEvent(new CustomEvent("ai-error"));
     },
     onFinish: (_prompt, comp) => {
       if (comp.includes("Your credit has been refunded")) {
+        onOpenChange(false);
         window.dispatchEvent(new CustomEvent("ai-error-refunded"));
       } else if (comp.includes("busy")) {
+        onOpenChange(false);
         window.dispatchEvent(new CustomEvent("ai-error"));
       }
     },
@@ -149,8 +142,6 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
         animate={{ bottom: 0 }}
         exit={{ bottom: "-100%" }}
         transition={{ type: "spring", damping: 30, stiffness: 350, mass: 0.8 }}
-        layout
-        layoutDependency={visualState}
       >
         <div className="history-sheet-handle" onClick={handleClose}>
           <div className="history-sheet-handle-bar" />
@@ -158,8 +149,7 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
 
         <motion.div
           className="clipper-sheet-content"
-          layout
-          transition={smoothSpring}
+          style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}
         >
           {/* ─── Thinking State ─── */}
           <AnimatePresence mode="wait">
@@ -173,7 +163,7 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
                 transition={{ duration: 0.2, ease: "easeOut" }}
               >
                 <GripIcon loop className="ai-loading-icon" />
-                <span>AI is thinking<ThinkingDots /></span>
+                <DynamicThinking messages={["Understanding context", "Analyzing selection", "Thinking", "Formulating response"]} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -187,8 +177,9 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.25, ease: "easeOut" }}
+                style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
               >
-                <div className="ai-response-preview">
+                <div className="ai-response-preview" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
                   <div className="ai-response-content">
                     <Markdown>{completion}</Markdown>
                   </div>
@@ -197,7 +188,7 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
                 {isLoading && (
                   <div className="ai-loading ai-loading-inline">
                     <GripIcon loop className="ai-loading-icon" />
-                    <span>Writing<ThinkingDots /></span>
+                    <DynamicThinking messages={["Writing", "Generating content", "Refining structure"]} interval={1500} />
                   </div>
                 )}
               </motion.div>
@@ -206,7 +197,7 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
 
           {/* ─── Input + Commands (visible when not thinking) ─── */}
           {visualState !== "thinking" && (
-            <motion.div layout transition={smoothSpring}>
+            <motion.div>
               <div className="ai-input-row">
                 <textarea
                   ref={textareaRef}

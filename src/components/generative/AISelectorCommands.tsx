@@ -4,6 +4,7 @@ import { ChevronRightIcon } from "@/components/icons/chevron-right";
 import { RefreshCCWDotIcon } from "@/components/icons/refresh-ccw-dot";
 import { CheckCheckIcon } from "@/components/icons/check-check";
 import { LanguagesIcon } from "@/components/icons/languages";
+import { CircleCheckIcon } from "@/components/icons/circle-check";
 import { getPrevText, useEditor } from "novel";
 
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
@@ -18,6 +19,7 @@ const editOptions = [
   { value: "shorter", label: "Make shorter", description: "Condense and summarize", icon: AlignCenterIcon },
   { value: "longer", label: "Make longer", description: "Expand and add more details", icon: AlignLeftIcon },
   { value: "translate", label: "Translate", description: "Translate text between languages", icon: LanguagesIcon },
+  { value: "todo", label: "To-do list", description: "Extract tasks and action items", icon: CircleCheckIcon },
 ];
 
 export function AISelectorCommands({ onSelect }: AISelectorCommandsProps) {

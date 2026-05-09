@@ -40,11 +40,13 @@ export function AIErrorSheet({
   // Logic branches for content based on user state
   const isProWithQuota = isPremium && !isQuotaExhausted;
   
-  const message = isProWithQuota
+  const message = !user
+    ? "Sign in to unlock free AI features."
+    : isProWithQuota
     ? "We are currently experiencing issues. Please try again."
     : isPremium && isQuotaExhausted
     ? "Server is experiencing high traffic."
-    : "Server is experiencing high traffic. Sign in and upgrade for a better experience.";
+    : "Server is experiencing high traffic. Upgrade to Pro for unlimited AI.";
 
   return (
     <AnimatePresence>
@@ -62,7 +64,7 @@ export function AIErrorSheet({
 
           <motion.div
             key="ai-error-sheet"
-            className="clipper-sheet"
+            className="clipper-sheet mx-auto max-w-[800px]"
             initial={{ bottom: "-100%" }}
             animate={{ bottom: 0 }}
             exit={{ bottom: "-100%" }}
@@ -79,7 +81,7 @@ export function AIErrorSheet({
                 <div className="text-destructive shrink-0 flex items-center justify-center">
                   <BadgeAlertIcon size={18} />
                 </div>
-                <div className="ai-response-content">
+                <div className="ai-response-content" style={{ padding: 0 }}>
                   <p style={{ margin: 0, fontSize: "14px", lineHeight: "1.5" }}>
                     {message}
                   </p>
@@ -127,22 +129,24 @@ export function AIErrorSheet({
                     </button>
                   )}
                   
-                  <button
-                    className="novel-slash-item w-full text-left"
-                    onClick={onRetry || onDismiss}
-                  >
-                    <div className="novel-slash-icon">
-                      <AnimatedIcon animation="hover">
-                        <RefreshCCWDotIcon className="h-4 w-4" />
-                      </AnimatedIcon>
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-medium">Retry</p>
-                      <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                        Attempt to connect again
-                      </p>
-                    </div>
-                  </button>
+                  {user && onRetry && (
+                    <button
+                      className="novel-slash-item w-full text-left"
+                      onClick={onRetry}
+                    >
+                      <div className="novel-slash-icon">
+                        <AnimatedIcon animation="hover">
+                          <RefreshCCWDotIcon className="h-4 w-4" />
+                        </AnimatedIcon>
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-medium">Retry</p>
+                        <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                          Attempt to connect again
+                        </p>
+                      </div>
+                    </button>
+                  )}
                   
                   <button
                     className="novel-slash-item w-full text-left"

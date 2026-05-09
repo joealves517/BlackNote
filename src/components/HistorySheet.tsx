@@ -10,6 +10,7 @@ import { useState, useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { Note } from "@/hooks/use-notes";
+import { Pin, PinOff, ArrowUpDown } from "lucide-react";
 
 interface HistorySheetProps {
   notes: Note[];
@@ -18,6 +19,7 @@ interface HistorySheetProps {
   onSelectNote: (id: string) => void;
   onCreateNote: () => void;
   onDeleteNote: (id: string) => void;
+  onTogglePin?: (id: string) => void;
   onClose: () => void;
 }
 
@@ -42,10 +44,12 @@ export function HistorySheet({
   onSelectNote,
   onCreateNote,
   onDeleteNote,
+  onTogglePin,
   onClose,
 }: HistorySheetProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
+  const [sortMode, setSortMode] = useState<"updated" | "created" | "title">("updated");
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Auto-focus search on open
@@ -53,11 +57,19 @@ export function HistorySheet({
     setTimeout(() => searchRef.current?.focus(), 100);
   }, []);
 
-  const filteredNotes = searchQuery
+  const filteredNotes = (searchQuery
     ? notes.filter((n) =>
         n.title.toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : notes;
+    : notes).sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+
+      if (sortMode === "updated") return b.updatedAt.getTime() - a.updatedAt.getTime();
+      if (sortMode === "created") return b.createdAt.getTime() - a.createdAt.getTime();
+      if (sortMode === "title") return a.title.localeCompare(b.title);
+      return 0;
+    });
 
   return (
     <>
@@ -117,6 +129,18 @@ export function HistorySheet({
           {/* Section label */}
           <div className="history-sheet-section-label">
             <span>Notes</span>
+            <button
+              onClick={() => {
+                const modes: ("updated" | "created" | "title")[] = ["updated", "created", "title"];
+                const nextIndex = (modes.indexOf(sortMode) + 1) % modes.length;
+                setSortMode(modes[nextIndex]);
+              }}
+              className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60 hover:text-muted-foreground transition-colors bg-transparent border-none cursor-pointer p-0"
+              title="Change sort order"
+            >
+              <ArrowUpDown className="w-3 h-3" />
+              {sortMode === "updated" ? "Updated" : sortMode === "created" ? "Created" : "Title"}
+            </button>
           </div>
 
           {/* Notes list */}
@@ -148,19 +172,45 @@ export function HistorySheet({
                       onSelectNote(note.id);
                       onClose();
                     }}
-                    className="history-sheet-item"
+                    className="history-sheet-item group"
                     style={{
                       backgroundColor: isActive
                         ? "hsl(var(--sidebar-active))"
                         : undefined,
                     }}
                   >
-                    <div className="history-sheet-item-left">
-                      <FileTextIcon
-                        className="w-4 h-4 shrink-0"
-                        style={{ color: "hsl(var(--foreground))" }}
-                      />
-                      <span className="history-sheet-item-title">
+                    <div className="history-sheet-item-left relative flex items-center">
+                      <div 
+                        className="flex items-center justify-center shrink-0 w-4 h-4 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onTogglePin) onTogglePin(note.id);
+                        }}
+                      >
+                        {note.isPinned ? (
+                          <>
+                            <Pin
+                              className="w-4 h-4 text-yellow-500 fill-yellow-500 block group-hover:hidden"
+                            />
+                            <PinOff
+                              className="w-4 h-4 text-red-500 hidden group-hover:block"
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <FileTextIcon
+                              className="w-4 h-4 block group-hover:hidden"
+                              style={{ color: "hsl(var(--foreground))" }}
+                            />
+                            <Pin
+                              className="w-4 h-4 text-muted-foreground hidden group-hover:block"
+                            />
+                          </>
+                        )}
+                      </div>
+                      <span 
+                        className="history-sheet-item-title ml-2"
+                      >
                         {note.title || "Untitled"}
                       </span>
                     </div>

@@ -5,9 +5,12 @@ import { HistoryIcon } from "@/components/icons/history";
 import { MoonIcon } from "@/components/icons/moon";
 import { SunIcon } from "@/components/icons/sun";
 import { SparklesIcon } from "@/components/icons/sparkles";
+import { AttachFileIcon } from "@/components/icons/attach-file";
+import { BlocksIcon } from "@/components/icons/blocks";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useCallback, useEffect, useRef } from "react";
+import { Mic, MicOff } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
 import { AIErrorSheet } from "@/components/AIErrorSheet";
 import { HistorySheet } from "@/components/HistorySheet";
@@ -92,6 +95,14 @@ export function App() {
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
   const [aiErrorVisible, setAiErrorVisible] = useState(false);
+  const [isSTTActive, setIsSTTActive] = useState(false);
+  const [isSTTHovered, setIsSTTHovered] = useState(false);
+
+  useEffect(() => {
+    const handleSTTState = (e: any) => setIsSTTActive(e.detail);
+    window.addEventListener("stt-state-changed", handleSTTState);
+    return () => window.removeEventListener("stt-state-changed", handleSTTState);
+  }, []);
   const scrollProgressRef = useRef(0);
   const headerRef = useRef<HTMLDivElement>(null);
 
@@ -108,7 +119,7 @@ export function App() {
     for (let i = 0; i < el.children.length; i++) {
       contentWidth += (el.children[i] as HTMLElement).offsetWidth;
     }
-    contentWidth += 12; // padding buffer
+    contentWidth += 18; // 12px padding buffer + 6px gap between sections
     const maxSide = Math.max(0, (parentWidth - contentWidth) / 2);
 
     const topPx = t * 6;
@@ -129,7 +140,9 @@ export function App() {
     el.style.paddingRight = `${paddingRight}px`;
     el.style.borderRadius = `${radius}px`;
     el.style.backgroundColor = `hsl(var(--background) / ${bgAlpha})`;
-    el.style.backdropFilter = blur > 0 ? `blur(${blur}px)` : 'none';
+    const filterValue = blur > 0 ? `blur(${blur}px) saturate(180%)` : 'none';
+    el.style.backdropFilter = filterValue;
+    (el.style as any).webkitBackdropFilter = filterValue;
     const isDark = document.documentElement.classList.contains("dark");
     if (shadow > 0) {
       if (isDark) {
@@ -272,8 +285,12 @@ export function App() {
     updateNote(noteId, { title });
   };
 
-  const handleCreateNote = () => {
-    createNote();
+  const handleCreateNote = (title?: string, content?: string) => {
+    if (title && content) {
+      createNoteWithContent(title, content);
+    } else {
+      createNote();
+    }
   };
 
   const handleClipSaveAsNote = useCallback(
@@ -325,7 +342,7 @@ export function App() {
       {/* ─── Header Bar ─── */}
       <div 
         ref={headerRef}
-        className="absolute z-30 flex items-center justify-between pointer-events-none"
+        className="absolute z-30 flex items-center justify-between gap-1.5 pointer-events-none"
         style={{
           top: 0,
           left: 0,
@@ -344,60 +361,41 @@ export function App() {
         <div className="flex items-center gap-1.5 pointer-events-auto">
           {/* Identity Pill — Login / Avatar + Badge */}
           <div className="relative">
-            {!user ? (
-              <button
-                className="identity-pill group flex items-center overflow-hidden"
-                onClick={handleLogin}
-                disabled={isLoggingIn}
-                data-tooltip="Sign in with Google"
-              >
-                {isLoggingIn ? (
-                  <LoaderIcon size={14} className="text-muted-foreground animate-spin" />
-                ) : (
-                  <GoogleIcon size={14} />
-                )}
-                <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover:max-w-[80px] group-hover:opacity-100 group-hover:ml-1.5 group-hover:pr-2.5 transition-all duration-300 ease-in-out font-bold">
-                  {isLoggingIn ? "LOADING" : "LOGIN"}
-                </span>
-              </button>
-            ) : (
-              <button
-                className="identity-pill group flex items-center overflow-hidden"
-                onClick={() => setShowAccountMenu(!showAccountMenu)}
-                data-tooltip="Account"
-              >
-                {getUserAvatar(user) ? (
-                  <img
-                    src={getUserAvatar(user)!}
-                    alt=""
-                    width={16}
-                    height={16}
-                    style={{ borderRadius: "50%", flexShrink: 0, objectFit: "cover" }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: 16,
-                      height: 16,
-                      borderRadius: "50%",
-                      backgroundColor: "hsl(var(--muted))",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 9,
-                      fontWeight: 600,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {(user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
-                  </div>
-                )}
-
-                <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover:max-w-[80px] group-hover:opacity-100 group-hover:ml-1.5 group-hover:pr-2.5 transition-all duration-300 ease-in-out font-bold">
-                  {isPremium ? "PRO" : "UPGRADE"}
-                </span>
-              </button>
-            )}
+            <button
+              className="floating-header-btn"
+              style={{ opacity: 1 }}
+              onClick={() => setShowAccountMenu(!showAccountMenu)}
+              data-tooltip={!user ? "Sign in / Account" : "Account"}
+            >
+              {!user ? (
+                <GoogleIcon size={17} />
+              ) : getUserAvatar(user) ? (
+                <img
+                  src={getUserAvatar(user)!}
+                  alt=""
+                  width={17}
+                  height={17}
+                  style={{ borderRadius: "50%", flexShrink: 0, objectFit: "cover" }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 17,
+                    height: 17,
+                    borderRadius: "50%",
+                    backgroundColor: "hsl(var(--muted))",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 9,
+                    fontWeight: 600,
+                    flexShrink: 0,
+                  }}
+                >
+                  {(user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
+                </div>
+              )}
+            </button>
           </div>
 
           {/* History */}
@@ -409,15 +407,6 @@ export function App() {
             <HistoryIcon className="w-[17px] h-[17px]" />
           </button>
 
-          {/* Theme Toggle */}
-          <button
-            className="floating-header-btn"
-            onClick={toggleTheme}
-            data-tooltip={theme === "light" ? "Dark mode" : "Light mode"}
-          >
-            {theme === "light" ? <MoonIcon className="w-[17px] h-[17px]" /> : <SunIcon className="w-[17px] h-[17px]" />}
-          </button>
-
           {/* Web Clipper */}
           <button
             className="floating-header-btn"
@@ -427,18 +416,55 @@ export function App() {
               opacity: showClipper ? 1 : undefined,
             }}
           >
-            <ScanTextIcon className="w-[17px] h-[17px]" />
+            <div className="-rotate-[135deg]">
+              <AttachFileIcon size={18} />
+            </div>
+          </button>
+
+          {/* Tools */}
+          <button
+            className="floating-header-btn"
+            onClick={() => window.dispatchEvent(new CustomEvent("open-import-export-sheet"))}
+            data-tooltip="Tools & Settings"
+          >
+            <AnimatedIcon animation="hover">
+              <BlocksIcon size={16} className="w-[17px] h-[17px]" />
+            </AnimatedIcon>
           </button>
         </div>
 
         {/* Right Section */}
-        <button
-          className="floating-header-btn pointer-events-auto"
-          onClick={handleCreateNote}
-          data-tooltip="New note"
-        >
-          <PlusIcon className="w-[18px] h-[18px]" />
-        </button>
+        <div className="flex items-center gap-1.5 pointer-events-auto">
+          {isSTTActive && (
+            <button
+              className="floating-header-btn relative"
+              onClick={() => window.dispatchEvent(new CustomEvent("stop-speech-to-text"))}
+              data-tooltip="Stop voice typing"
+              onMouseEnter={() => setIsSTTHovered(true)}
+              onMouseLeave={() => setIsSTTHovered(false)}
+            >
+              {/* Camera recording red dot effect */}
+              <div className="relative flex items-center justify-center w-4 h-4">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping" style={{ animationDuration: '1.5s' }}></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+              </div>
+            </button>
+          )}
+          <button
+            className="floating-header-btn"
+            onClick={() => window.dispatchEvent(new CustomEvent("open-note-chat"))}
+            data-tooltip="Ask AI"
+          >
+            <span style={{ fontSize: 18, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>✦</span>
+          </button>
+          <button
+            className="floating-header-btn"
+            onClick={handleCreateNote}
+            data-tooltip="New note"
+          >
+            <PlusIcon className="w-[18px] h-[18px]" />
+          </button>
+        </div>
       </div>
 
       {/* ─── Main Content ─── */}
@@ -450,6 +476,8 @@ export function App() {
           onTitleChange={handleTitleChange}
           onCreateNote={handleCreateNote}
           onScrollProgress={handleScrollProgress}
+          onUpdateNote={(id, updates) => updateNote(id, updates)}
+          toggleTheme={toggleTheme}
         />
       </div>
 
@@ -466,7 +494,7 @@ export function App() {
               transition={{ duration: 0.2 }}
             />
             <motion.div
-              className="clipper-sheet"
+              className="clipper-sheet mx-auto max-w-[800px]"
               initial={{ bottom: "-100%" }}
               animate={{ bottom: 0 }}
               exit={{ bottom: "-100%" }}
@@ -496,6 +524,10 @@ export function App() {
             onSelectNote={handleSelectNote}
             onCreateNote={handleCreateNote}
             onDeleteNote={deleteNote}
+            onTogglePin={(id) => {
+              const note = notes.find((n) => n.id === id);
+              if (note) updateNote(id, { isPinned: !note.isPinned });
+            }}
             onClose={() => {
               cleanupEmptyNotes();
               setShowHistory(false);
@@ -506,9 +538,10 @@ export function App() {
 
       {/* ─── Account Bottom Sheet ─── */}
       <AnimatePresence>
-        {showAccountMenu && user && (
+        {showAccountMenu && (
           <>
             <motion.div
+              key="history-backdrop"
               className="history-sheet-backdrop"
               onClick={() => setShowAccountMenu(false)}
               initial={{ opacity: 0 }}
@@ -517,7 +550,7 @@ export function App() {
               transition={{ duration: 0.2 }}
             />
             <motion.div
-              className="clipper-sheet"
+              className="clipper-sheet account-sheet"
               initial={{ bottom: "-100%" }}
               animate={{ bottom: 0 }}
               exit={{ bottom: "-100%" }}
@@ -526,7 +559,7 @@ export function App() {
               <div className="history-sheet-handle" onClick={() => setShowAccountMenu(false)}>
                 <div className="history-sheet-handle-bar" />
               </div>
-              <div className="clipper-sheet-content" style={{ padding: 0 }}>
+              <div style={{ padding: 0, overflow: "visible" }}>
                 <AccountPopup
                   user={user}
                   credits={credits}
@@ -536,6 +569,8 @@ export function App() {
                     setIsSigningOut(true);
                     await signOut();
                   }}
+                  onLogin={handleLogin}
+                  isLoggingIn={isLoggingIn}
                   onClose={() => setShowAccountMenu(false)}
                   onRefreshCredits={refreshCredits}
                 />

@@ -1,25 +1,34 @@
-import { CircleHelpIcon } from "@/components/icons/circle-help";
-import { LogoutIcon } from "@/components/icons/logout";
+import React, { useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { SparklesIcon } from "@/components/icons/sparkles";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
-import { ChessKingIcon } from "@/components/icons/chess-king";
-import { HandMetalIcon } from "@/components/icons/hand-metal";
-import { HeartHandshakeIcon } from "@/components/icons/heart-handshake";
+import { LogoutIcon } from "@/components/icons/logout";
+import { CircleCheckIcon } from "@/components/icons/circle-check";
+import { LoaderIcon } from "@/components/ui/loader";
 
-import { Button } from "@/components/ui/button";
+import { MessageSquare, PenLine, Mic, Wand2, Zap, Minus } from "lucide-react";
 import { CHECKOUT_BASE } from "@/lib/constants";
 import type { User } from "@supabase/supabase-js";
 
-import { useRef } from "react";
-
 interface AccountPopupProps {
-  user: User;
+  user: User | null;
   credits: { credits: number; tier: string } | null;
   proIconIndex?: number;
   onSignOut: () => void;
+  onLogin?: () => void;
+  isLoggingIn?: boolean;
   onClose: () => void;
   onRefreshCredits?: () => void;
 }
+
+const GoogleLogo = () => (
+  <svg width="18" height="18" viewBox="0 0 48 48">
+    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+    <path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.0 24.0 0 0 0 0 21.56l7.98-6.19z"/>
+    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+  </svg>
+);
 
 function getUserAvatar(user: User): string | null {
   return user.user_metadata?.avatar_url || null;
@@ -34,119 +43,241 @@ function getUserDisplayName(user: User): string {
   );
 }
 
+const AIFeatureItem = ({ icon, title, description, available, colorRgb = "59, 130, 246", isLast = false, isGuest = false }: any) => {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <>
+      <div 
+        role="button"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "14px",
+          padding: "12px 14px",
+          borderRadius: "14px",
+          background: hovered
+            ? `linear-gradient(90deg, rgba(${colorRgb}, 0) 0%, rgba(${colorRgb}, 0.08) 30%, rgba(${colorRgb}, 0.08) 70%, rgba(${colorRgb}, 0) 100%)`
+            : `linear-gradient(90deg, rgba(${colorRgb}, 0) 0%, rgba(${colorRgb}, 0.04) 30%, rgba(${colorRgb}, 0.04) 70%, rgba(${colorRgb}, 0) 100%)`,
+          transition: "all 0.25s ease",
+          cursor: "pointer",
+          transform: hovered ? "scale(1.01)" : "scale(1)",
+        }}
+        onMouseOver={() => setHovered(true)}
+        onMouseOut={() => setHovered(false)}
+      >
+        <div style={{
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "38px",
+          height: "38px",
+          borderRadius: "10px",
+          background: `linear-gradient(135deg, rgba(${colorRgb}, 0.14) 0%, rgba(${colorRgb}, 0.05) 100%)`,
+          border: `1px solid rgba(${colorRgb}, 0.1)`,
+          boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.5)",
+        }}>
+          {icon}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="text-[13px] font-semibold text-foreground leading-snug">{title}</div>
+          <div className="text-[11.5px] text-muted-foreground leading-snug mt-[2px]">{description}</div>
+        </div>
+        {available && (
+          <div style={{
+            width: "20px",
+            height: "20px",
+            borderRadius: "50%",
+            background: isGuest ? "rgba(255, 255, 255, 0.05)" : "rgba(52, 211, 153, 0.1)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: isGuest ? "1px solid rgba(255, 255, 255, 0.1)" : "none"
+          }}>
+            <AnimatedIcon animation="none">
+              {isGuest ? (
+                <Minus size={14} color="#888" strokeWidth={2.5} style={{ display: "flex", alignItems: "center", justifyContent: "center" }} />
+              ) : (
+                <CircleCheckIcon size={14} color="#10B981" strokeWidth={2.5} style={{ display: "flex", alignItems: "center", justifyContent: "center" }} />
+              )}
+            </AnimatedIcon>
+          </div>
+        )}
+      </div>
+      {!isLast && (
+        <div style={{
+          height: "1px",
+          width: "85%",
+          margin: "0 auto",
+          background: `linear-gradient(90deg, rgba(${colorRgb}, 0) 0%, rgba(${colorRgb}, 0.15) 50%, rgba(${colorRgb}, 0) 100%)`,
+        }} />
+      )}
+    </>
+  );
+};
+
+const FeatureList = ({ isPro, quotaExhausted, isGuest = false }: { isPro: boolean, quotaExhausted: boolean, isGuest?: boolean }) => (
+  <div className="flex flex-col mb-3.5">
+    <AIFeatureItem
+      icon={<AnimatedIcon animation="none"><MessageSquare className="text-blue-500 w-5 h-5 flex items-center justify-center" strokeWidth={1.5} /></AnimatedIcon>}
+      title="Chat with Note"
+      description={isPro && !quotaExhausted ? "Powered by Gemini Nano" : "Limited usage"}
+      available={true}
+      colorRgb="59, 130, 246"
+      isGuest={isGuest}
+    />
+    <AIFeatureItem
+      icon={<AnimatedIcon animation="none"><PenLine className="text-purple-500 w-5 h-5 flex items-center justify-center" strokeWidth={1.5} /></AnimatedIcon>}
+      title="Smart Text Rewrite"
+      description={isPro && !quotaExhausted ? "Advanced analysis" : "Limited usage"}
+      available={true}
+      colorRgb="168, 85, 247"
+      isGuest={isGuest}
+    />
+    <AIFeatureItem
+      icon={<AnimatedIcon animation="none"><Wand2 className="text-amber-500 w-5 h-5 flex items-center justify-center" strokeWidth={1.5} /></AnimatedIcon>}
+      title="AI Summarization"
+      description={isPro && !quotaExhausted ? "Extract key insights" : "Limited usage"}
+      available={true}
+      colorRgb="245, 158, 11"
+      isGuest={isGuest}
+    />
+    <AIFeatureItem
+      icon={<AnimatedIcon animation="none"><CircleCheckIcon className="text-emerald-500 w-5 h-5 flex items-center justify-center" strokeWidth={1.5} /></AnimatedIcon>}
+      title="Fix Spelling & Grammar"
+      description={isPro && !quotaExhausted ? "Professional polish" : "Limited usage"}
+      available={true}
+      colorRgb="16, 185, 129"
+      isLast={true}
+      isGuest={isGuest}
+    />
+  </div>
+);
+
 export function AccountPopup({
   user,
   credits,
-  proIconIndex = 0,
   onSignOut,
-  onClose,
+  onLogin,
+  isLoggingIn,
 }: AccountPopupProps) {
   const isPremium = credits?.tier === "premium";
-  const isQuotaExhausted =
-    isPremium && credits?.credits !== undefined && credits.credits <= 0;
+  const isQuotaExhausted = isPremium && credits?.credits !== undefined && credits.credits <= 0;
+  const [logoutHovered, setLogoutHovered] = useState(false);
 
-  const ProIcon = proIconIndex === 0 ? ChessKingIcon : proIconIndex === 1 ? HandMetalIcon : HeartHandshakeIcon;
-  const proIconRef = useRef<any>(null);
+  // GUEST VIEW
+  if (!user) {
+    return (
+      <div className="relative pt-6 px-4 pb-4">
+        <div className="absolute left-1/2 -top-[56px] -translate-x-1/2 z-10">
+          <div className="w-[64px] h-[64px] rounded-full flex items-center justify-center overflow-hidden drop-shadow-md bg-black border border-white/5">
+            <img src={chrome.runtime.getURL("icon/128.png")} alt="BlackNote" className="w-[34px] h-[34px]" />
+          </div>
+        </div>
+
+        <div className="text-center pt-5 pb-3">
+          <h3 className="text-lg font-bold text-foreground mb-1 tracking-tight">Unlock AI Features</h3>
+          <p className="text-xs text-muted-foreground">Sign in to enhance your note-taking experience.</p>
+        </div>
+
+        <FeatureList isPro={false} quotaExhausted={false} isGuest={true} />
+
+        <button
+          onClick={onLogin}
+          disabled={isLoggingIn}
+          className="w-full h-[40px] rounded-[20px] text-[13.5px] font-medium flex items-center justify-center gap-2 border border-border/80 text-muted-foreground bg-transparent hover:bg-muted/30 hover:text-foreground transition-all active:scale-[0.98] disabled:opacity-70 mt-1"
+        >
+          {isLoggingIn ? (
+            <motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="flex">
+              <LoaderIcon size={18} className="text-background" />
+            </motion.span>
+          ) : (
+            <GoogleLogo />
+          )}
+          {isLoggingIn ? "Signing in..." : "Sign in with Google"}
+        </button>
+      </div>
+    );
+  }
+
+  // LOGGED IN VIEW
+  const firstName = getUserDisplayName(user).split(" ")[0];
+
+  const getGreetingMessage = () => {
+    if (isPremium && isQuotaExhausted) return "AI quota exceeded, renews next month";
+    if (isPremium) return "Thank you for supporting us! 💜";
+    return "Upgrade to unlock unlimited AI features";
+  };
 
   return (
-    <div className="account-popup">
-      {/* User info */}
-      <div className="account-popup-profile">
-        <div className="account-popup-avatar-wrapper">
+    <div className="relative pt-6 px-4 pb-4">
+      {/* Floating Avatar */}
+      <div className="absolute left-1/2 -top-[56px] -translate-x-1/2 z-10">
+        <div className="w-[64px] h-[64px] rounded-full flex items-center justify-center overflow-hidden drop-shadow-md bg-muted border border-white/5">
           {getUserAvatar(user) ? (
-            <img
-              src={getUserAvatar(user)!}
-              alt={getUserDisplayName(user)}
-              className="account-popup-avatar"
-            />
+            <img src={getUserAvatar(user)!} alt={firstName} className="w-full h-full object-cover" />
           ) : (
-            <div className="account-popup-avatar-fallback">
-              {getUserDisplayName(user).charAt(0).toUpperCase()}
-            </div>
+            <span className="text-xl font-bold text-muted-foreground">{firstName.charAt(0).toUpperCase()}</span>
           )}
-        </div>
-        <div className="account-popup-info">
-          <p className="account-popup-name">{getUserDisplayName(user)}</p>
-          <p className="account-popup-email">{user.email}</p>
         </div>
       </div>
 
-      {/* Quota exhausted warning */}
-      {isQuotaExhausted && (
-        <div className="account-popup-quota-warning">
-          <div className="account-popup-quota-icon">
-            <SparklesIcon className="h-3.5 w-3.5 text-yellow-500" />
+      <div className="flex items-start justify-between pt-4 pb-3.5 px-2">
+        <div className="flex-1 min-w-0">
+          <div className="text-[18px] font-bold text-foreground tracking-tight leading-snug">
+            Hello, {firstName} 👋
           </div>
-          <div className="account-popup-quota-text">
-            <p className="account-popup-quota-title">Fair Use Policy</p>
-            <p className="account-popup-quota-desc">
-              Premium AI usage limit reached. Using standard AI until next
-              renewal.
-            </p>
+          <div className="text-[12.5px] text-muted-foreground mt-1 leading-snug">
+            {getGreetingMessage()}
           </div>
         </div>
-      )}
 
-      {/* Actions */}
-      <div className="ai-cmd-groups" style={{ padding: "0 8px 8px" }}>
-        <div className="ai-cmd-group">
-          {!isPremium ? (
+        <div className="shrink-0 ml-3 mt-0.5">
+          {isPremium ? (
+            isQuotaExhausted ? (
+              <div className="flex items-center px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[11px] font-bold text-red-500 tracking-wider">
+                LIMIT
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-[11px] font-bold text-purple-500 tracking-wider shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+                ✨ PRO
+              </div>
+            )
+          ) : (
             <button
-              className="novel-slash-item w-full text-left"
               onClick={() => {
                 const url = `${CHECKOUT_BASE}?checkout[email]=${encodeURIComponent(user.email || "")}&checkout[custom][user_id]=${user.id}`;
                 chrome.tabs.create({ url });
               }}
+              className="flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-[11.5px] font-bold text-purple-500 tracking-wider hover:bg-purple-500/15 transition-all active:scale-95"
             >
-              <div className="novel-slash-icon">
-                <AnimatedIcon animation="hover">
-                  <SparklesIcon className="w-4 h-4 text-yellow-500" />
-                </AnimatedIcon>
-              </div>
-              <div>
-                <p className="text-[13px] font-medium">Upgrade to Pro</p>
-                <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                  Unlock unlimited AI features
-                </p>
-              </div>
+              <Zap className="w-3 h-3" />
+              UPGRADE
             </button>
-          ) : (
-            <div 
-              className="novel-slash-item w-full text-left" 
-              style={{ cursor: "default" }}
-              onMouseEnter={() => proIconRef.current?.startAnimation()}
-              onMouseLeave={() => proIconRef.current?.stopAnimation()}
-            >
-              <div className="novel-slash-icon">
-                <ProIcon ref={proIconRef} size={16} className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-[13px] font-medium">Pro Plan Active</p>
-                <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                  Thanks for supporting BlackNote!
-                </p>
-              </div>
-            </div>
           )}
-
-          <button
-            className="novel-slash-item w-full text-left"
-            onClick={onSignOut}
-          >
-            <div className="novel-slash-icon">
-              <AnimatedIcon animation="hover">
-                <LogoutIcon className="w-4 h-4" />
-              </AnimatedIcon>
-            </div>
-            <div>
-              <p className="text-[13px] font-medium">Sign out</p>
-              <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                Log out of your account
-              </p>
-            </div>
-          </button>
         </div>
       </div>
+
+      <FeatureList isPro={isPremium} quotaExhausted={isQuotaExhausted} />
+
+      <button
+        onClick={onSignOut}
+        className="w-full h-10 flex items-center justify-center gap-2 rounded-full text-[13px] font-semibold transition-all"
+        style={{
+          background: logoutHovered ? "hsl(var(--destructive) / 0.1)" : "transparent",
+          color: logoutHovered ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))",
+          border: logoutHovered ? "1px solid hsl(var(--destructive) / 0.2)" : "1px solid hsl(var(--border))",
+        }}
+        onMouseOver={() => setLogoutHovered(true)}
+        onMouseOut={() => setLogoutHovered(false)}
+        onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.98)"}
+        onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
+      >
+        <AnimatedIcon animation="none">
+          <LogoutIcon className="w-4 h-4" />
+        </AnimatedIcon>
+        Sign out
+      </button>
     </div>
   );
 }

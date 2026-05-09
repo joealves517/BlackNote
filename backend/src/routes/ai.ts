@@ -15,6 +15,9 @@ interface AIRequestBody {
   prompt: string;
   option?: string;
   command?: string;
+  history?: { role: string; content: string }[];
+  noteContext?: string;
+  files?: { mimeType: string; data: string }[];
 }
 
 /**
@@ -69,7 +72,10 @@ router.post(
           },
         },
         undefined,
-        command
+        command,
+        body.history,
+        body.noteContext,
+        body.files
       );
       return;
     }
@@ -106,7 +112,10 @@ router.post(
         },
       },
       undefined,
-      command
+      command,
+      body.history,
+      body.noteContext,
+      body.files
     );
   }
 );

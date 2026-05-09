@@ -32,15 +32,40 @@ export default defineContentScript({
             window.location.href
           );
 
-          if (!parsed) {
-            sendResponse({
-              error: "Could not extract readable content from this page.",
-              errorCode: ErrorCode.NO_READABLE_CONTENT,
-            });
-            return true;
-          }
+          const isWebApp = ['mail.google.com', 'console.cloud.google.com', 'console.aws.amazon.com', 'notion.so'].some(domain => window.location.hostname.includes(domain));
 
-          sendResponse({ parsed });
+          if (parsed && !isWebApp && parsed.markdown.length > 150) {
+            sendResponse({ parsed });
+          } else {
+            const title = document.title || "";
+            const bodyText = document.body ? getDeepText(document.body).replace(/\n{3,}/g, '\n\n').trim() : "";
+            const maxChars = 50000;
+            const truncated =
+              bodyText.length > maxChars
+                ? bodyText.substring(0, maxChars) + "\n\n[Content truncated...]"
+                : bodyText;
+
+            if (!truncated) {
+              sendResponse({
+                error: "Could not extract readable content from this page.",
+                errorCode: ErrorCode.NO_READABLE_CONTENT,
+              });
+              return true;
+            }
+
+            const fallbackParsed = {
+              title: title,
+              markdown: `URL: ${window.location.href}\n\n${truncated}`,
+              excerpt: truncated.substring(0, 200) + "...",
+              siteName: new URL(window.location.href).hostname,
+              byline: null,
+              url: window.location.href,
+              wordCount: truncated.split(/\s+/).length,
+              clippedAt: new Date().toISOString(),
+            };
+
+            sendResponse({ parsed: fallbackParsed });
+          }
         } catch (error) {
           sendResponse({
             error:
@@ -58,6 +83,53 @@ export default defineContentScript({
 });
 
 /**
+ * Recursively extracts text from DOM nodes, piercing through open Shadow DOMs.
+ * Bypasses noisy elements to provide a clean text representation of complex SPAs.
+ */
+function getDeepText(node: Node): string {
+  if (!node) return "";
+  let text = "";
+
+  if (node.nodeType === Node.TEXT_NODE) {
+    const content = node.textContent?.trim();
+    return content ? content + " " : "";
+  }
+
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    const tag = (node as Element).tagName.toLowerCase();
+    if (['script', 'style', 'noscript', 'svg', 'canvas', 'video', 'audio'].includes(tag)) {
+      return "";
+    }
+    
+    try {
+       const style = window.getComputedStyle(node as Element);
+       if (style.display === 'none' || style.visibility === 'hidden') return "";
+    } catch {
+       // Ignore
+    }
+  }
+
+  const el = node as Element;
+  if (el.shadowRoot) {
+    text += getDeepText(el.shadowRoot) + "\n";
+  }
+
+  node.childNodes.forEach(child => {
+    text += getDeepText(child);
+  });
+
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    const tag = (node as Element).tagName.toLowerCase();
+    const blockTags = ['div', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'article', 'section', 'main', 'tr'];
+    if (blockTags.includes(tag)) {
+      text += "\n";
+    }
+  }
+
+  return text;
+}
+
+/**
  * Handle YouTube page clipping by extracting the video transcript.
  * Falls back to title-only if transcript is unavailable.
  */
@@ -72,7 +144,7 @@ async function handleYouTubeClip(
       ? `## Video Transcript\n\n${transcript}`
       : "_No transcript available for this video._";
 
-    const markdown = `# ${videoTitle}\n\n${transcriptSection}`;
+    const markdown = transcriptSection;
 
     sendResponse({
       parsed: {

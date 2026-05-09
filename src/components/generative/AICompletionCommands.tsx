@@ -19,12 +19,13 @@ export function AICompletionCommands({
 
   const parseMarkdown = (md: string) => {
     try {
-      const jsonStr = markdownToProsemirror(md);
+      const cleanMd = md.trim();
+      const jsonStr = markdownToProsemirror(cleanMd);
       const json = JSON.parse(jsonStr);
-      return json.content || md;
+      return json.content || cleanMd;
     } catch (err) {
       console.error(err);
-      return md;
+      return md.trim();
     }
   };
 
@@ -58,7 +59,7 @@ export function AICompletionCommands({
             editor
               .chain()
               .focus()
-              .insertContentAt(selection.to + 1, parseMarkdown(completion))
+              .insertContentAt(selection.to, parseMarkdown(completion))
               .run();
             onDiscard();
           }}

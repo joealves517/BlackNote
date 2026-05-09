@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { requireAuth, AuthenticatedRequest } from "../middleware/auth.js";
 import { streamFreeWritingAI } from "../services/gemini-free.js";
 
 const router = Router();
@@ -7,19 +8,24 @@ interface FreeAIRequestBody {
   prompt: string;
   option?: string;
   command?: string;
+  history?: { role: string; content: string }[];
+  noteContext?: string;
+  files?: { mimeType: string; data: string }[];
 }
 
 /**
  * POST /api/ai/free
  * Free tier — proxies Gemini API for writing assistance.
- * No authentication required. Rate limited aggressively.
+ * Requires authentication. Rate limited aggressively.
  *
  * Vercel AI SDK `useCompletion` sends { prompt } in the body.
  * We also accept `option` (improve/fix/shorter/etc.) and `command` for custom prompts.
  */
 router.post(
   "/",
+  requireAuth,
   async (req: Request, res: Response): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
     const body = req.body as FreeAIRequestBody;
 
     if (!body.prompt || body.prompt.trim().length < 2) {
@@ -53,7 +59,10 @@ router.post(
         },
       },
       undefined,
-      command
+      command,
+      body.history,
+      body.noteContext,
+      body.files
     );
   }
 );
