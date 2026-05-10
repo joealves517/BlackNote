@@ -1,5 +1,13 @@
+/**
+ * Sync Engine — Bi-directional sync between local IndexedDB and AWS DynamoDB.
+ *
+ * All cloud operations go through the Backend API (which talks to DynamoDB).
+ * Strategy: last-write-wins by updatedAt timestamp.
+ */
+
 import { db, type LocalNote } from "@/lib/local-db";
-import { supabase, type DbNote } from "@/lib/supabase";
+import { getAuthToken, getCurrentUser } from "@/lib/auth-client";
+import { AI_API_BASE } from "@/lib/constants";
 
 export interface SyncProgress {
   status: "idle" | "syncing" | "done" | "error";
@@ -10,35 +18,42 @@ export interface SyncProgress {
 
 type ProgressCallback = (progress: SyncProgress) => void;
 
-function dbToLocal(row: DbNote): LocalNote {
-  let contentObj = row.content;
-  let chatHistory = "[]";
-  let isPinned = false;
-  
-  if (contentObj && typeof contentObj === "object" && !Array.isArray(contentObj)) {
-    const { _chatHistory, _isPinned, ...rest } = contentObj as any;
-    if ("_chatHistory" in contentObj) {
-      chatHistory = JSON.stringify(_chatHistory);
-    }
-    if ("_isPinned" in contentObj) {
-      isPinned = Boolean(_isPinned);
-    }
-    contentObj = rest;
-  }
+// ─── API Helpers ────────────────────────────────────────────────────
 
+interface RemoteNote {
+  NoteId: string;
+  title: string;
+  content: string;
+  chatHistory?: string;
+  isPinned?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getAuthToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+}
+
+function remoteToLocal(remote: RemoteNote): LocalNote {
   return {
-    id: row.id,
-    title: row.title,
-    content: JSON.stringify(contentObj),
-    createdAt: new Date(row.created_at).getTime(),
-    updatedAt: new Date(row.updated_at).getTime(),
+    id: remote.NoteId,
+    title: remote.title,
+    content: remote.content,
+    createdAt: new Date(remote.createdAt).getTime(),
+    updatedAt: new Date(remote.updatedAt).getTime(),
     syncedAt: Date.now(),
-    chatHistory,
-    isPinned,
+    chatHistory: remote.chatHistory || "[]",
+    isPinned: remote.isPinned ?? false,
   };
 }
 
-function localToDb(note: LocalNote, userId: string): Record<string, unknown> {
+function localToRemote(note: LocalNote): RemoteNote {
+  // Embed chatHistory and isPinned into content for cloud storage
   let parsedContent: any = {};
   try {
     parsedContent = JSON.parse(note.content);
@@ -46,29 +61,43 @@ function localToDb(note: LocalNote, userId: string): Record<string, unknown> {
     parsedContent = { type: "doc", content: [] };
   }
 
-  if (typeof parsedContent === "object" && parsedContent !== null && !Array.isArray(parsedContent)) {
-    if (note.chatHistory) {
-      try {
-        parsedContent._chatHistory = JSON.parse(note.chatHistory);
-      } catch (e) {}
-    }
-    if (note.isPinned !== undefined) {
-      parsedContent._isPinned = note.isPinned;
-    }
-  }
-
   return {
-    id: note.id,
-    user_id: userId,
+    NoteId: note.id,
     title: note.title,
-    content: parsedContent,
-    created_at: new Date(note.createdAt).toISOString(),
-    updated_at: new Date(note.updatedAt).toISOString(),
+    content: note.content,
+    chatHistory: note.chatHistory,
+    isPinned: note.isPinned,
+    createdAt: new Date(note.createdAt).toISOString(),
+    updatedAt: new Date(note.updatedAt).toISOString(),
   };
 }
 
+// ─── Migration ──────────────────────────────────────────────────────
+
 /**
- * Full sync: merge local IndexedDB ↔ Supabase.
+ * Trigger one-time lazy migration from Supabase to DynamoDB.
+ * Called on first login with the new extension version.
+ */
+async function triggerMigration(): Promise<void> {
+  try {
+    const headers = await authHeaders();
+    const res = await fetch(`${AI_API_BASE}/api/notes/migrate`, {
+      method: "POST",
+      headers,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      console.log("[Sync] Migration result:", data);
+    }
+  } catch (err) {
+    console.warn("[Sync] Migration request failed (will retry):", err);
+  }
+}
+
+// ─── Full Sync ──────────────────────────────────────────────────────
+
+/**
+ * Full sync: merge local IndexedDB ↔ DynamoDB via Backend.
  * Strategy: last-write-wins by updatedAt timestamp.
  */
 export async function fullSync(
@@ -85,25 +114,33 @@ export async function fullSync(
     });
 
   try {
+    // Step 0: Trigger lazy migration (idempotent, fast if already done)
+    const migrationDone = localStorage.getItem("blacknote_migrated");
+    if (!migrationDone) {
+      report({ message: "Checking for cloud data..." });
+      await triggerMigration();
+      localStorage.setItem("blacknote_migrated", "true");
+    }
+
     report({ message: "Fetching cloud data..." });
 
-    // 1. Fetch remote notes
-    const { data: remoteRows, error } = await supabase
-      .from("notes")
-      .select("*")
-      .eq("user_id", userId)
-      .order("updated_at", { ascending: false });
+    // Step 1: Fetch remote notes via Backend
+    const headers = await authHeaders();
+    const res = await fetch(`${AI_API_BASE}/api/notes`, { headers });
 
-    if (error) throw new Error(error.message);
+    if (!res.ok) throw new Error(`Failed to fetch notes: ${res.status}`);
 
-    const remoteNotes = (remoteRows as DbNote[]).map(dbToLocal);
+    const { notes: remoteRaw } = (await res.json()) as {
+      notes: RemoteNote[];
+    };
+    const remoteNotes = remoteRaw.map(remoteToLocal);
     const localNotes = await db.notes.toArray();
 
-    // 2. Build lookup maps
+    // Step 2: Build lookup maps
     const remoteMap = new Map(remoteNotes.map((n) => [n.id, n]));
     const localMap = new Map(localNotes.map((n) => [n.id, n]));
 
-    // 3. Determine merge actions
+    // Step 3: Determine merge actions
     const toPushToCloud: LocalNote[] = [];
     const toPullToLocal: LocalNote[] = [];
 
@@ -147,7 +184,7 @@ export async function fullSync(
 
     let completed = 0;
 
-    // 4. Push local → cloud (upsert)
+    // Step 4: Push local → cloud (batch)
     if (toPushToCloud.length > 0) {
       report({
         current: completed,
@@ -155,13 +192,15 @@ export async function fullSync(
         message: `Uploading ${toPushToCloud.length} notes...`,
       });
 
-      const rows = toPushToCloud.map((n) => localToDb(n, userId));
-      const { error: upsertError } = await supabase
-        .from("notes")
-        .upsert(rows, { onConflict: "id" });
+      const remoteNotes = toPushToCloud.map(localToRemote);
+      const pushRes = await fetch(`${AI_API_BASE}/api/notes/sync`, {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify({ notes: remoteNotes }),
+      });
 
-      if (upsertError) {
-        console.error("Sync push error:", upsertError.message);
+      if (!pushRes.ok) {
+        console.error("[Sync] Push failed:", pushRes.status);
       }
 
       // Mark as synced locally
@@ -176,7 +215,7 @@ export async function fullSync(
       }
     }
 
-    // 5. Pull remote → local
+    // Step 5: Pull remote → local
     for (const remote of toPullToLocal) {
       await db.notes.put({ ...remote, syncedAt: Date.now() });
       completed++;
@@ -206,20 +245,22 @@ export async function fullSync(
 }
 
 /**
- * Push a single note to Supabase (debounced background sync).
+ * Push a single note to cloud (debounced background sync).
  */
 export async function pushNote(
   note: LocalNote,
   userId: string
 ): Promise<void> {
   try {
-    const row = localToDb(note, userId);
-    const { error } = await supabase
-      .from("notes")
-      .upsert(row, { onConflict: "id" });
+    const remote = localToRemote(note);
+    const res = await fetch(`${AI_API_BASE}/api/notes/sync`, {
+      method: "POST",
+      headers: await authHeaders(),
+      body: JSON.stringify({ notes: [remote] }),
+    });
 
-    if (error) {
-      console.error("Push note error:", error.message);
+    if (!res.ok) {
+      console.error("Push note error:", res.status);
       return;
     }
 
@@ -230,12 +271,15 @@ export async function pushNote(
 }
 
 /**
- * Delete a note from Supabase.
+ * Delete a note from cloud.
  */
 export async function deleteRemoteNote(noteId: string): Promise<void> {
   try {
-    const { error } = await supabase.from("notes").delete().eq("id", noteId);
-    if (error) console.error("Delete remote note error:", error.message);
+    const res = await fetch(`${AI_API_BASE}/api/notes/${noteId}`, {
+      method: "DELETE",
+      headers: await authHeaders(),
+    });
+    if (!res.ok) console.error("Delete remote note error:", res.status);
   } catch (err) {
     console.error("Delete remote note failed:", err);
   }

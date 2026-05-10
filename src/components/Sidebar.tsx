@@ -1,4 +1,4 @@
-import { ScanTextIcon } from "@/components/icons/scan-text";
+import { GlobeIcon } from "@/components/icons/globe";
 import { CircleHelpIcon } from "@/components/icons/circle-help";
 import { LoaderCircleIcon } from "@/components/icons/loader-circle";
 import { LogoutIcon } from "@/components/icons/logout";
@@ -20,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { CHECKOUT_BASE } from "@/lib/constants";
 import type { Note } from "@/hooks/use-notes";
 import type { SyncProgress } from "@/lib/sync-engine";
-import type { User } from "@supabase/supabase-js";
+import type { AppUser } from "@/lib/auth-client";
 
 interface SidebarProps {
   notes: Note[];
@@ -28,7 +28,7 @@ interface SidebarProps {
   searchQuery: string;
   theme: "light" | "dark";
   loading?: boolean;
-  user: User | null;
+  user: AppUser | null;
   credits: { credits: number; tier: string } | null;
   syncProgress: SyncProgress;
   onSelectNote: (id: string) => void;
@@ -57,26 +57,17 @@ function formatRelativeTime(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function getUserInitial(user: User): string {
-  const name =
-    user.user_metadata?.full_name ||
-    user.user_metadata?.name ||
-    user.email ||
-    "U";
+function getUserInitial(user: AppUser): string {
+  const name = user.displayName || user.email || "U";
   return name.charAt(0).toUpperCase();
 }
 
-function getUserAvatar(user: User): string | null {
-  return user.user_metadata?.avatar_url || null;
+function getUserAvatar(user: AppUser): string | null {
+  return user.picture || null;
 }
 
-function getUserDisplayName(user: User): string {
-  return (
-    user.user_metadata?.full_name ||
-    user.user_metadata?.name ||
-    user.email ||
-    "User"
-  );
+function getUserDisplayName(user: AppUser): string {
+  return user.displayName || user.email || "User";
 }
 
 // Google official SVG icon
@@ -177,9 +168,9 @@ export function Sidebar({
             data-tooltip={theme === "light" ? "Dark mode" : "Light mode"}
           >
             {theme === "light" ? (
-              <MoonIcon className="h-3.5 w-3.5" style={{ color: "hsl(var(--muted-foreground))" }} />
+              <MoonIcon size={16} className="h-4 w-4" style={{ color: "hsl(var(--muted-foreground))" }} />
             ) : (
-              <SunIcon className="h-3.5 w-3.5" style={{ color: "hsl(var(--muted-foreground))" }} />
+              <SunIcon size={16} className="h-4 w-4" style={{ color: "hsl(var(--foreground))" }} />
             )}
           </Button>
           <Button
@@ -189,7 +180,7 @@ export function Sidebar({
             className="h-7 w-7"
             data-tooltip="Clip page"
           >
-            <ScanTextIcon className={`h-3.5 w-3.5`} style={{ color: showClipper ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }} />
+            <GlobeIcon className={`h-3.5 w-3.5`} style={{ color: showClipper ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }} />
           </Button>
           <Button
             variant="ghost"

@@ -1,4 +1,4 @@
-import { ScanTextIcon } from "@/components/icons/scan-text";
+import { GlobeIcon } from "@/components/icons/globe";
 import { GripIcon } from "@/components/icons/grip";
 import { LoaderCircleIcon } from "@/components/icons/loader-circle";
 import { CircleHelpIcon } from "@/components/icons/circle-help";
@@ -9,8 +9,13 @@ import { BrainIcon } from "@/components/icons/brain";
 import { XIcon } from "@/components/icons/x";
 import { CircleCheckIcon } from "@/components/icons/circle-check";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
+import { AIProcessingView } from "@/components/ui/ai-processing-view";
+import { setWasmUrl } from "@lottiefiles/dotlottie-react";
 import { openSparkAIWithPageContent, openUrlViaBackground, ECOSYSTEM } from "@/lib/ecosystem";
 import sparkAIIcon from "@/assets/spark-ai-icon.png";
+
+setWasmUrl(chrome.runtime.getURL("dotlottie-player.wasm"));
+
 /**
  * WebClipper — Sidebar component for clipping the current page.
  * ALL actions go through AI → auto-save to a NEW note.
@@ -20,7 +25,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { useWebClipper } from "@/hooks/use-web-clipper";
 import { prepareForAI } from "@/lib/page-reader";
-import { supabase } from "@/lib/supabase";
+import { getAuthToken } from "@/lib/auth-client";
 import { AI_API_BASE } from "@/lib/constants";
 
 
@@ -55,13 +60,7 @@ async function streamAI(
   onError: (msg: string) => void,
 ) {
   try {
-    let token: string | null = null;
-    try {
-      const { data } = await supabase.auth.getSession();
-      token = data.session?.access_token || null;
-    } catch {
-      token = null;
-    }
+    const token = await getAuthToken();
 
     const endpoint = token
       ? `${AI_API_BASE}/api/ai`
@@ -102,18 +101,7 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
   const [processError, setProcessError] = useState("");
 
   useEffect(() => {
-    if (processing) {
-      window.dispatchEvent(
-        new CustomEvent("ai-thinking-start", {
-          detail: { 
-            messages: processing === "spark_sent" 
-              ? [PROCESSING_LABELS[processing]] 
-              : ["Analyzing page content", "Extracting main ideas", "Reading text", "Thinking"] 
-          },
-        })
-      );
-      return () => window.dispatchEvent(new CustomEvent("ai-thinking-stop"));
-    }
+    // Left empty since we no longer dispatch ai-thinking events globally.
   }, [processing]);
 
   // Auto-clip on mount
@@ -139,8 +127,12 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
         const prefix = TITLE_PREFIXES[option] || "";
 
         let title: string;
+        let finalResult = result;
+        
         if (titleMatch) {
           title = titleMatch[1];
+          // Xóa thẻ heading bị trùng lặp bên dưới khối Source
+          finalResult = finalResult.replace(titleMatch[0], "").trim();
         } else {
           // Truncate page title to keep it short
           const shortPageTitle = content.title.length > 40
@@ -149,7 +141,7 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
           title = `${prefix}${shortPageTitle}`;
         }
 
-        const body = `> Source: [${content.siteName}](${content.url})\n\n${result}`;
+        const body = `> Source: [${content.siteName}](${content.url})\n\n${finalResult}`;
 
         onSaveAsNote(title, body);
         reset();
@@ -211,7 +203,7 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
               className="w-4 h-4 rounded-[3px]"
             />
           ) : (
-            <ScanTextIcon className="w-4 h-4" style={{ color: "hsl(var(--muted-foreground))" }} />
+            <GlobeIcon size={16} className="w-4 h-4" style={{ color: "hsl(var(--muted-foreground))" }} />
           )}
           <span className="web-clipper-title">Clip Page</span>
         </div>
@@ -236,7 +228,15 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
       {/* AI processing */}
       <AnimatePresence mode="wait">
         {processing ? (
-          <div key="processing" className="ai-loading" style={{ height: "40px", opacity: 0 }}></div>
+          <AIProcessingView
+            key="processing"
+            title="Clipping Page"
+            messages={
+              processing === "spark_sent"
+                ? [PROCESSING_LABELS[processing] || "Processing with Spark AI"]
+                : ["Analyzing page content", "Extracting main ideas", "Reading text"]
+            }
+          />
         ) : null}
       </AnimatePresence>
 

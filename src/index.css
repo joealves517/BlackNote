@@ -161,6 +161,26 @@ body {
   background-color: hsl(var(--muted-foreground) / 0.4);
 }
 
+/* ===== Apple Glass Icon Spring Bounce ===== */
+.floating-header-btn > div,
+.floating-header-btn > svg,
+.floating-header-btn > span {
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: center center;
+}
+
+.floating-header-btn:not(.no-zoom):hover > div,
+.floating-header-btn:not(.no-zoom):hover > svg,
+.floating-header-btn:not(.no-zoom):hover > span {
+  transform: scale(1.2);
+}
+
+.floating-header-btn:not(.no-zoom):active > div,
+.floating-header-btn:not(.no-zoom):active > svg,
+.floating-header-btn:not(.no-zoom):active > span {
+  transform: scale(0.9);
+}
+
 /* ===== Apple Glass Block (Header) ===== */
 .apple-glass-block {
   display: flex;
@@ -529,7 +549,7 @@ body {
   height: calc(100% - 56px);
   display: flex;
   flex-direction: column;
-  max-width: 800px;
+  max-width: 600px;
   margin: 0 auto;
   border-radius: 20px 20px 0 0;
   background-color: hsl(var(--background) / 0.98);
@@ -728,7 +748,7 @@ body {
   z-index: 60;
   display: flex;
   flex-direction: column;
-  max-width: 800px;
+  max-width: 600px;
   margin: 0 auto;
   border-radius: 20px 20px 0 0;
   background-color: hsl(var(--background) / 0.98);
@@ -2501,4 +2521,68 @@ button:active>.lucide,
   50% {
     opacity: 1;
   }
+}
+
+/* ===== Animated Gradient Border Card ===== */
+@property --gradient-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rotation {
+  0% {
+    --gradient-angle: 0deg;
+  }
+  100% {
+    --gradient-angle: 360deg;
+  }
+}
+
+.animated-gradient-border {
+  position: relative;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px hsl(var(--foreground) / 0.05);
+  z-index: 0;
+}
+
+.animated-gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 13px;
+  background: linear-gradient(
+    var(--gradient-angle),
+    hsl(var(--border) / 0.8) 0%,
+    transparent 100%
+  );
+  animation: rotation 4s linear infinite;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.animated-gradient-border::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-color: hsl(var(--card));
+  z-index: -1;
+  pointer-events: none;
+}
+/* Zoom effect for icons when their parent is hovered */
+button:hover .hover-zoom-icon,
+.novel-slash-item:hover .hover-zoom-icon,
+[role="button"]:hover .hover-zoom-icon,
+[data-state="open"] .hover-zoom-icon {
+  transform: scale(1.2);
+}
+button:active .hover-zoom-icon,
+.novel-slash-item:active .hover-zoom-icon,
+[role="button"]:active .hover-zoom-icon {
+  transform: scale(0.9);
+}
+.hover-zoom-icon {
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: center center;
 }

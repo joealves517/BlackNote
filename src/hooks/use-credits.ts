@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { getAuthToken } from "@/lib/auth-client";
 import { AI_API_BASE } from "@/lib/constants";
 
 interface UserCredits {
@@ -17,8 +17,7 @@ export function useCredits(userId: string | undefined) {
     }
 
     try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
+      const token = await getAuthToken();
       if (!token) return;
 
       const res = await fetch(`${AI_API_BASE}/api/user`, {

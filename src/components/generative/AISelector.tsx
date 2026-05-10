@@ -5,14 +5,19 @@ import { useCompletion } from "@ai-sdk/react";
 import { useEditor, addAIHighlight, removeAIHighlight } from "novel";
 import { useState, useEffect, useRef, useCallback } from "react";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
+import { DOMSerializer } from "prosemirror-model";
+import TurndownService from "turndown";
 import { AISelectorCommands } from "./AISelectorCommands";
 import { AICompletionCommands } from "./AICompletionCommands";
 import { GeminiIcon } from "./GeminiIcon";
-import { supabase } from "@/lib/supabase";
+import { getAuthToken } from "@/lib/auth-client";
 import { AI_API_BASE } from "@/lib/constants";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
+import { SparklesIcon } from "@/components/icons/sparkles";
+import { AIProcessingView } from "@/components/ui/ai-processing-view";
 import { DynamicThinking } from "@/components/ui/dynamic-thinking";
 
 interface AISelectorProps {
@@ -30,9 +35,7 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setToken(data.session?.access_token || null);
-    });
+    getAuthToken().then(setToken);
   }, []);
 
   // Focus textarea without scrolling — prevents editor jump
@@ -67,16 +70,22 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
   const getSelectedText = (): string => {
     if (!editor) return "";
     const slice = editor.state.selection.content();
+    const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
+
     if (slice.size === 0) {
-      return (
-        editor.storage.markdown?.serializer?.serialize(editor.state.doc.content) ||
-        editor.state.doc.textContent
-      );
+      return turndown.turndown(editor.getHTML());
     }
-    return (
-      editor.storage.markdown?.serializer?.serialize(slice.content) ||
-      slice.content.textBetween(0, slice.content.size, "\n")
-    );
+
+    try {
+      // Convert selection slice to DOM fragment then to Markdown
+      const dom = DOMSerializer.fromSchema(editor.schema).serializeFragment(slice.content);
+      const div = document.createElement("div");
+      div.appendChild(dom);
+      return turndown.turndown(div.innerHTML);
+    } catch {
+      // Fallback
+      return slice.content.textBetween(0, slice.content.size, "\n");
+    }
   };
 
   const handleSubmit = () => {
@@ -121,14 +130,7 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
       : "menu";
 
   useEffect(() => {
-    if (visualState === "thinking") {
-      window.dispatchEvent(
-        new CustomEvent("ai-thinking-start", {
-          detail: { messages: ["Understanding context", "Analyzing selection", "Thinking", "Formulating response"] },
-        })
-      );
-      return () => window.dispatchEvent(new CustomEvent("ai-thinking-stop"));
-    }
+    // Left empty since we no longer dispatch ai-thinking events globally.
   }, [visualState]);
 
   const portalTarget = document.getElementById("blacknote-root") || document.body;
@@ -165,7 +167,11 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
           {/* ─── Thinking State ─── */}
           <AnimatePresence mode="wait">
             {visualState === "thinking" && (
-              <div key="thinking" className="ai-loading" style={{ height: "40px", opacity: 0 }}></div>
+              <AIProcessingView
+                key="thinking"
+                title="Fixing text"
+                messages={["Understanding context", "Analyzing selection", "Formulating response"]}
+              />
             )}
           </AnimatePresence>
 
@@ -182,7 +188,21 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
               >
                 <div className="ai-response-preview" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
                   <div className="ai-response-content">
-                    <Markdown>{completion}</Markdown>
+                    <Markdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ ...props }) => <p style={{ margin: "4px 0", fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }} {...props} />,
+                        ul: ({ ...props }) => <ul style={{ listStyleType: "disc", paddingLeft: "1.5em", margin: "4px 0" }} {...props} />,
+                        ol: ({ ...props }) => <ol style={{ listStyleType: "decimal", paddingLeft: "1.5em", margin: "4px 0" }} {...props} />,
+                        li: ({ ...props }) => <li style={{ marginBottom: "2px" }} {...props} />,
+                        h1: ({ ...props }) => <h1 style={{ fontWeight: 600, fontSize: "1.2em", margin: "8px 0 4px 0" }} {...props} />,
+                        h2: ({ ...props }) => <h2 style={{ fontWeight: 600, fontSize: "1.1em", margin: "8px 0 4px 0" }} {...props} />,
+                        h3: ({ ...props }) => <h3 style={{ fontWeight: 600, fontSize: "1.05em", margin: "8px 0 4px 0" }} {...props} />,
+                        blockquote: ({ ...props }) => <blockquote style={{ borderLeft: "2px solid hsl(var(--muted-foreground)/0.4)", paddingLeft: 8, color: "hsl(var(--muted-foreground))", margin: "4px 0" }} {...props} />
+                      }}
+                    >
+                      {completion}
+                    </Markdown>
                   </div>
                 </div>
 

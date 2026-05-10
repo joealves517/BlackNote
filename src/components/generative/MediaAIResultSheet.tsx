@@ -10,15 +10,17 @@ import { createPortal } from "react-dom";
 import { useCompletion } from "@ai-sdk/react";
 import { useEditor } from "novel";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ArrowUpIcon } from "@/components/icons/arrow-up";
 import { MessageSquareIcon } from "@/components/icons/message-square";
 import { DeleteIcon } from "@/components/icons/delete";
 import { GripIcon } from "@/components/icons/grip";
 import { GeminiIcon } from "./GeminiIcon";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
+import { AIProcessingView } from "@/components/ui/ai-processing-view";
 import { DynamicThinking } from "@/components/ui/dynamic-thinking";
 import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
-import { supabase } from "@/lib/supabase";
+import { getAuthToken } from "@/lib/auth-client";
 import { AI_API_BASE } from "@/lib/constants";
 
 interface MediaAIResultSheetProps {
@@ -35,9 +37,7 @@ export function MediaAIResultSheet({ completion: initialResult, mediaId, onClose
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setToken(data.session?.access_token || null);
-    });
+    getAuthToken().then(setToken);
   }, []);
 
   useEffect(() => {
@@ -135,7 +135,11 @@ export function MediaAIResultSheet({ completion: initialResult, mediaId, onClose
           {/* ─── Thinking State ─── */}
           <AnimatePresence mode="wait">
             {isThinking && (
-              <div key="thinking" className="ai-loading" style={{ height: "40px", opacity: 0 }}></div>
+              <AIProcessingView
+                key="thinking"
+                title="Generating Insights"
+                messages={["Processing prompt", "Analyzing recording", "Formatting text"]}
+              />
             )}
           </AnimatePresence>
 
@@ -152,7 +156,21 @@ export function MediaAIResultSheet({ completion: initialResult, mediaId, onClose
               >
                 <div className="ai-response-preview" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
                   <div className="ai-response-content">
-                    <Markdown>{visibleText}</Markdown>
+                    <Markdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ ...props }) => <p style={{ margin: "4px 0", fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }} {...props} />,
+                        ul: ({ ...props }) => <ul style={{ listStyleType: "disc", paddingLeft: "1.5em", margin: "4px 0" }} {...props} />,
+                        ol: ({ ...props }) => <ol style={{ listStyleType: "decimal", paddingLeft: "1.5em", margin: "4px 0" }} {...props} />,
+                        li: ({ ...props }) => <li style={{ marginBottom: "2px" }} {...props} />,
+                        h1: ({ ...props }) => <h1 style={{ fontWeight: 600, fontSize: "1.2em", margin: "8px 0 4px 0" }} {...props} />,
+                        h2: ({ ...props }) => <h2 style={{ fontWeight: 600, fontSize: "1.1em", margin: "8px 0 4px 0" }} {...props} />,
+                        h3: ({ ...props }) => <h3 style={{ fontWeight: 600, fontSize: "1.05em", margin: "8px 0 4px 0" }} {...props} />,
+                        blockquote: ({ ...props }) => <blockquote style={{ borderLeft: "2px solid hsl(var(--muted-foreground)/0.4)", paddingLeft: 8, color: "hsl(var(--muted-foreground))", margin: "4px 0" }} {...props} />
+                      }}
+                    >
+                      {visibleText}
+                    </Markdown>
                   </div>
                 </div>
 

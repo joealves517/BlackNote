@@ -180,6 +180,9 @@ export function AIMediaResultSheet({
                         {...props}
                       />
                     ),
+                    ul: ({ ...props }) => <ul style={{ listStyleType: "disc", paddingLeft: "1.5em", margin: "4px 0" }} {...props} />,
+                    ol: ({ ...props }) => <ol style={{ listStyleType: "decimal", paddingLeft: "1.5em", margin: "4px 0" }} {...props} />,
+                    blockquote: ({ ...props }) => <blockquote style={{ borderLeft: "2px solid hsl(var(--muted-foreground)/0.4)", paddingLeft: 8, color: "hsl(var(--muted-foreground))", margin: "4px 0" }} {...props} />,
                     li: ({ ...props }) => (
                       <li
                         style={{ marginBottom: 4, lineHeight: 1.6 }}

@@ -4,18 +4,20 @@ import { useEditor } from "novel";
 import { createPortal } from "react-dom";
 import { useCompletion } from "@ai-sdk/react";
 import { AI_API_BASE } from "@/lib/constants";
-import { supabase } from "@/lib/supabase";
+import { getAuthToken } from "@/lib/auth-client";
 import TurndownService from "turndown";
 import * as mammoth from "mammoth";
 import { PlusIcon } from "@/components/icons/plus";
 import { HardDriveUploadIcon } from "@/components/icons/hard-drive-upload";
 import { HardDriveDownloadIcon } from "@/components/icons/hard-drive-download";
+import { ToggleLeftIcon } from "@/components/animate-ui/icons/toggle-left";
+import { ToggleRightIcon } from "@/components/animate-ui/icons/toggle-right";
 import { MoonIcon } from "@/components/icons/moon";
 import { SunIcon } from "@/components/icons/sun";
 import { SparklesIcon } from "@/components/icons/sparkles";
 import { RedoDotIcon } from "@/components/icons/redo-dot";
-import { GripIcon } from "@/components/icons/grip";
-import { DownloadIcon } from "lucide-react";
+import { AIProcessingView } from "@/components/ui/ai-processing-view";
+import { DownloadIcon } from "@/components/icons/download";
 
 
 interface ImportExportSheetProps {
@@ -41,9 +43,7 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setToken(data.session?.access_token || null);
-    });
+    getAuthToken().then(setToken);
   }, []);
 
   const { complete } = useCompletion({
@@ -126,14 +126,7 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
   };
 
   useEffect(() => {
-    if (isProcessing) {
-      window.dispatchEvent(
-        new CustomEvent("ai-thinking-start", {
-          detail: { messages: ["Analyzing document", "Extracting structure", "Reading content", "Thinking"] },
-        })
-      );
-      return () => window.dispatchEvent(new CustomEvent("ai-thinking-stop"));
-    }
+    // Left empty since we no longer dispatch ai-thinking events globally.
   }, [isProcessing]);
 
   const handleExportPdf = (e: React.MouseEvent) => {
@@ -195,7 +188,11 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
         <div className="flex flex-col gap-3 p-5">
           <AnimatePresence mode="wait">
             {isProcessing ? (
-              <div key="thinking" className="ai-loading" style={{ height: "40px", opacity: 0 }}></div>
+              <AIProcessingView
+                key="thinking"
+                title="Analyzing Document"
+                messages={["Extracting structure", "Reading content", "Formatting into Note"]}
+              />
             ) : (
               <motion.div
                 key="content"
@@ -276,7 +273,8 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
 
                     {/* Theme Row */}
                     <div
-                      className="novel-slash-item w-full text-left"
+                      className="novel-slash-item w-full text-left cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); toggleTheme?.(); }}
                       onMouseEnter={() => iconRefs.theme.current?.startAnimation()}
                       onMouseLeave={() => iconRefs.theme.current?.stopAnimation()}
                     >
@@ -293,13 +291,12 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
                           {theme === "light" ? "Dark Mode" : "Light Mode"}
                         </p>
                       </div>
-                      <div className="mr-1">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); toggleTheme?.(); }}
-                          className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                        >
-                          <RedoDotIcon size={16} />
-                        </button>
+                      <div className="mr-1 flex items-center justify-center text-muted-foreground">
+                        {theme === "light" ? (
+                          <ToggleLeftIcon size={18} className="w-4.5 h-4.5" />
+                        ) : (
+                          <ToggleRightIcon size={18} className="w-4.5 h-4.5 text-foreground" />
+                        )}
                       </div>
                     </div>
 

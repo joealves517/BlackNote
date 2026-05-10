@@ -10,6 +10,7 @@ import { VideoNode } from "@/extensions/VideoNode";
 import { AudioLinesIcon } from "@/components/icons/audio-lines";
 import { MicIcon } from "@/components/icons/mic";
 import { VideoIcon } from "@/components/icons/video";
+import { Minus, Strikethrough } from "lucide-react";
 
 import { BoldIcon } from "@/components/icons/bold";
 import { ItalicIcon } from "@/components/icons/italic";
@@ -62,8 +63,10 @@ import { Button } from "@/components/ui/button";
 import { GenerativeMenuSwitch } from "@/components/generative/GenerativeMenuSwitch";
 import { AISelector } from "@/components/generative/AISelector";
 import { NoteChatSheet } from "@/components/generative/NoteChatSheet";
+import TurndownService from "turndown";
 import { MediaAIResultSheet } from "@/components/generative/MediaAIResultSheet";
-import { supabase } from "@/lib/supabase";
+import { getAuthToken } from "@/lib/auth-client";
+import { AI_API_BASE } from "@/lib/constants";
 import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
 import type { Note } from "@/hooks/use-notes";
 import { useSpeech } from "@/hooks/use-speech";
@@ -151,6 +154,7 @@ function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
   onUpdateNote?: (noteId: string, updates: Partial<Note>) => void;
 }) {
   const [show, setShow] = useState(false);
+  const { editor } = useEditor();
 
   useEffect(() => {
     const handler = () => setShow(true);
@@ -159,12 +163,20 @@ function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
   }, []);
 
   if (!show || !note) return null;
+
+  // Convert current editor state to Markdown to preserve formatting in AI context
+  let markdownContent = note.content;
+  if (editor) {
+    const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
+    markdownContent = turndown.turndown(editor.getHTML());
+  }
+
   return createPortal(
     <AnimatePresence>
       <NoteChatSheet
         noteId={note.id}
         noteTitle={noteTitle || "Untitled"}
-        noteContent={note.content}
+        noteContent={markdownContent}
         initialHistory={note.chatHistory || []}
         onHistoryChange={(newHistory) => {
           if (onUpdateNote) {
@@ -228,7 +240,7 @@ const suggestionItems = createSuggestionItems([
     searchTerms: ["paragraph", "p", "text"],
     icon: <AlignLeftIcon className="h-4 w-4" />,
     command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).setNode("paragraph").run();
+      editor.chain().focus().setNode("paragraph").run();
     },
   },
   {
@@ -326,7 +338,7 @@ const suggestionItems = createSuggestionItems([
     title: "Divider",
     description: "Horizontal separator",
     searchTerms: ["hr", "divider", "separator", "line"],
-    icon: <DeleteIcon className="h-4 w-4" />,
+    icon: <Minus className="h-4 w-4 hover-zoom-icon" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).setHorizontalRule().run();
     },
@@ -371,39 +383,55 @@ const compressImage = (file: File): Promise<string> => {
   });
 };
 
+/**
+ * Upload image to S3 via presigned URL from backend.
+ * Falls back to base64 data URL if upload fails (offline support).
+ */
 const uploadFn = async (file: File): Promise<string> => {
   const compressedDataUrl = await compressImage(file);
 
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      // Convert Data URL back to Blob for upload
-      const res = await fetch(compressedDataUrl);
-      const blob = await res.blob();
-
-      const fileName = `${session.user.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}.webp`;
-
-      const { error } = await supabase.storage
-        .from("images")
-        .upload(fileName, blob, {
+    const token = await getAuthToken();
+    if (token) {
+      // Step 1: Get presigned URL from backend
+      const presignRes = await fetch(`${AI_API_BASE}/api/upload/presign`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          fileName: file.name.replace(/[^a-zA-Z0-9.-]/g, '_') + ".webp",
           contentType: "image/webp",
-          cacheControl: "3600000000",
-          upsert: false
-        });
+        }),
+      });
 
-      if (error) {
-        console.error("Supabase storage upload error:", error);
-        return compressedDataUrl; // Fallback
+      if (!presignRes.ok) {
+        console.error("Presign request failed:", presignRes.status);
+        return compressedDataUrl;
       }
 
-      const { data: urlData } = supabase.storage
-        .from("images")
-        .getPublicUrl(fileName);
+      const { uploadUrl, publicUrl } = await presignRes.json();
 
-      return urlData.publicUrl;
+      // Step 2: Upload directly to S3
+      const blobRes = await fetch(compressedDataUrl);
+      const blob = await blobRes.blob();
+
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "image/webp" },
+        body: blob,
+      });
+
+      if (!uploadRes.ok) {
+        console.error("S3 upload failed:", uploadRes.status);
+        return compressedDataUrl;
+      }
+
+      return publicUrl;
     }
   } catch (err) {
-    console.error("Failed to upload image to Supabase, falling back to local:", err);
+    console.error("Failed to upload image to S3, falling back to local:", err);
   }
 
   return compressedDataUrl;
@@ -743,7 +771,7 @@ export function NoteEditor({
               <EditorBubbleItem
                 onSelect={(editor) => editor.chain().focus().toggleStrike().run()}
               >
-                <DeleteIcon className="h-3.5 w-3.5" />
+                <Strikethrough className="h-3.5 w-3.5 hover-zoom-icon" />
               </EditorBubbleItem>
               <EditorBubbleItem
                 onSelect={(editor) => editor.chain().focus().toggleCode().run()}

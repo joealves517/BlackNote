@@ -8,7 +8,7 @@ import { useEditor } from "novel";
 import { AttachFileIcon } from "@/components/icons/attach-file";
 import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
 import { AI_API_BASE } from "@/lib/constants";
-import { supabase } from "@/lib/supabase";
+import { getAuthToken } from "@/lib/auth-client";
 import { ClipboardCheckIcon } from "@/components/icons/clipboard-check";
 import { CheckIcon } from "@/components/icons/check";
 import { SparklesIcon } from "@/components/icons/sparkles";
@@ -68,7 +68,7 @@ export function NoteChatSheet({
   const { user } = useAuth();
   const { credits } = useCredits(user?.id);
   const isPremium = credits?.tier === "premium";
-  const userName = user?.user_metadata?.full_name?.split(" ")[0] || user?.user_metadata?.name?.split(" ")[0] || "there";
+  const userName = user?.displayName?.split(" ")[0] || "there";
   const [messages, setMessages] = useState<ChatMessage[]>(initialHistory || []);
   const [input, setInput] = useState("");
   const [token, setToken] = useState<string | null>(null);
@@ -106,9 +106,7 @@ export function NoteChatSheet({
   }, [noteContent]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setToken(data.session?.access_token || null);
-    });
+    getAuthToken().then(setToken);
   }, []);
 
   const { completion, complete, isLoading } = useCompletion({
@@ -430,8 +428,14 @@ export function NoteChatSheet({
                         remarkPlugins={[remarkGfm]}
                         components={{
                           p: ({ ...props }) => (
-                            <p style={{ margin: "4px 0", fontSize: 14, lineHeight: 1.6 }} {...props} />
+                            <p style={{ margin: "4px 0", fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }} {...props} />
                           ),
+                          ul: ({ ...props }) => <ul style={{ listStyleType: "disc", paddingLeft: "1.5em", margin: "4px 0" }} {...props} />,
+                          ol: ({ ...props }) => <ol style={{ listStyleType: "decimal", paddingLeft: "1.5em", margin: "4px 0" }} {...props} />,
+                          li: ({ ...props }) => <li style={{ marginBottom: "2px" }} {...props} />,
+                          h1: ({ ...props }) => <h1 style={{ fontWeight: 600, fontSize: "1.2em", margin: "8px 0 4px 0" }} {...props} />,
+                          h2: ({ ...props }) => <h2 style={{ fontWeight: 600, fontSize: "1.1em", margin: "8px 0 4px 0" }} {...props} />,
+                          h3: ({ ...props }) => <h3 style={{ fontWeight: 600, fontSize: "1.05em", margin: "8px 0 4px 0" }} {...props} />,
                           a: ({ ...props }) => (
                             <a target="_blank" rel="noopener noreferrer" {...props} />
                           ),
@@ -552,8 +556,14 @@ export function NoteChatSheet({
                       remarkPlugins={[remarkGfm]}
                       components={{
                         p: ({ ...props }) => (
-                          <p style={{ margin: "4px 0", fontSize: 14, lineHeight: 1.6 }} {...props} />
+                          <p style={{ margin: "4px 0", fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }} {...props} />
                         ),
+                        ul: ({ ...props }) => <ul style={{ listStyleType: "disc", paddingLeft: "1.5em", margin: "4px 0" }} {...props} />,
+                        ol: ({ ...props }) => <ol style={{ listStyleType: "decimal", paddingLeft: "1.5em", margin: "4px 0" }} {...props} />,
+                        li: ({ ...props }) => <li style={{ marginBottom: "2px" }} {...props} />,
+                        h1: ({ ...props }) => <h1 style={{ fontWeight: 600, fontSize: "1.2em", margin: "8px 0 4px 0" }} {...props} />,
+                        h2: ({ ...props }) => <h2 style={{ fontWeight: 600, fontSize: "1.1em", margin: "8px 0 4px 0" }} {...props} />,
+                        h3: ({ ...props }) => <h3 style={{ fontWeight: 600, fontSize: "1.05em", margin: "8px 0 4px 0" }} {...props} />,
                         blockquote: ({ children }) => {
                           const plainText = extractMarkdownText(children);
                           
@@ -670,7 +680,7 @@ export function NoteChatSheet({
                 value={input}
                 onChange={handleInput}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask anything about this note..."
+                placeholder={noteId === "general" || wordCount === 0 ? "Ask anything..." : "Ask anything about this note..."}
                 rows={1}
                 style={{
                   width: "100%",
@@ -851,16 +861,13 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
       {/* Note Info Card — gradient border */}
       {noteTitle && (
         <div
+          className="animated-gradient-border"
           style={{
             display: "flex",
             flexDirection: "column",
             gap: 6,
-            background: "linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box, linear-gradient(135deg, hsl(var(--border) / 0.8), transparent) border-box",
-            border: "1px solid transparent",
-            borderRadius: 12,
             padding: 12,
             width: "100%",
-            boxShadow: "0 2px 8px hsl(var(--foreground) / 0.03)",
             textAlign: "left",
           }}
         >
@@ -952,7 +959,7 @@ function ActionItem({ action, index, total, onAction }: {
         borderBottomLeftRadius: isLeftColumn && isLastRow ? 11 : 0,
         borderBottomRightRadius: !isLeftColumn && isLastRow ? 11 : 0,
       }}
-      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "hsl(var(--muted))")}
+      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "hsl(var(--accent))")}
       onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "hsl(var(--background))")}
     >
       <div style={{ color: "hsl(var(--muted-foreground))", zIndex: 1 }}>{animatedIcon}</div>
@@ -964,11 +971,10 @@ function ActionItem({ action, index, total, onAction }: {
           position: "absolute",
           inset: 0,
           background: `radial-gradient(circle 70px at ${mouse.x}px ${mouse.y}px, ${action.color}, transparent 100%)`,
-          opacity: isHovering ? 0.35 : 0,
+          opacity: isHovering ? 0.15 : 0,
           transition: "opacity 0.3s ease",
           pointerEvents: "none",
           zIndex: 2,
-          mixBlendMode: "overlay",
         }}
       />
     </button>

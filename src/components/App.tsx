@@ -6,7 +6,7 @@ import { MoonIcon } from "@/components/icons/moon";
 import { SunIcon } from "@/components/icons/sun";
 import { AIDynamicIsland } from "@/components/ui/ai-dynamic-island";
 import { SparklesIcon } from "@/components/icons/sparkles";
-import { BookmarkIcon } from "@/components/icons/bookmark";
+import { GlobeIcon } from "@/components/icons/globe";
 import { BlocksIcon } from "@/components/icons/blocks";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { motion, AnimatePresence } from "framer-motion";
@@ -47,7 +47,7 @@ function GoogleIcon({ size = 20 }: { size?: number }) {
 }
 
 function getUserAvatar(user: any): string | null {
-  return user?.user_metadata?.avatar_url || null;
+  return user?.picture || user?.user_metadata?.avatar_url || null;
 }
 
 export function App() {
@@ -130,27 +130,7 @@ export function App() {
   const globalAiThinkingRef = useRef(false);
   const [globalAiMessages, setGlobalAiMessages] = useState<string[]>(["Thinking"]);
 
-  // Global AI Thinking listener
-  useEffect(() => {
-    const handleStart = (e: CustomEvent) => {
-      if (e.detail?.messages) {
-        setGlobalAiMessages(e.detail.messages);
-      }
-      setGlobalAiThinking(true);
-      globalAiThinkingRef.current = true;
-    };
-    const handleStop = () => {
-      setGlobalAiThinking(false);
-      globalAiThinkingRef.current = false;
-    };
-
-    window.addEventListener("ai-thinking-start", handleStart as EventListener);
-    window.addEventListener("ai-thinking-stop", handleStop);
-    return () => {
-      window.removeEventListener("ai-thinking-start", handleStart as EventListener);
-      window.removeEventListener("ai-thinking-stop", handleStop);
-    };
-  }, []);
+  // Removed Global AI Thinking listener as all thinking states are now localized in bottom sheets.
 
   useEffect(() => {
     const handleOpenMediaSheet = (e: Event) => {
@@ -632,7 +612,7 @@ export function App() {
                       flexShrink: 0,
                     }}
                   >
-                    {(user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
+                    {(user.displayName || user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
                   </div>
                 )}
               </button>
@@ -657,7 +637,7 @@ export function App() {
                   backgroundColor: showClipper ? "hsl(var(--muted))" : "transparent"
                 }}
               >
-                <BookmarkIcon size={17} />
+                <GlobeIcon size={17} className="w-[17px] h-[17px]" />
               </button>
 
               {/* Tools */}
@@ -685,7 +665,7 @@ export function App() {
 
             <div className="apple-glass-block">
               <button
-                className="floating-header-btn"
+                className="floating-header-btn no-zoom"
                 onClick={handleCreateNote}
                 data-tooltip="New note"
                 style={{

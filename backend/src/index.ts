@@ -8,6 +8,8 @@ import aiFreeRouter from "./routes/ai-free.js";
 import mediaAiRouter from "./routes/media-ai.js";
 import userRouter from "./routes/user.js";
 import webhookRouter from "./routes/webhook.js";
+import notesRouter from "./routes/notes.js";
+import uploadRouter from "./routes/upload.js";
 
 const app = express();
 
@@ -59,6 +61,8 @@ app.use("/api/media", mediaAiRouter);
 app.use("/api/ai/free", aiFreeRouter);
 app.use("/api/ai", aiRouter);
 app.use("/api/user", userRouter);
+app.use("/api/notes", notesRouter);
+app.use("/api/upload", uploadRouter);
 
 // ─── Health Check ───────────────────────────────────────────────────
 app.get("/health", (_req, res) => {

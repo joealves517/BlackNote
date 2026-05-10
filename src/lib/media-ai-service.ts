@@ -9,7 +9,7 @@ import { db, type MediaTranscript } from "@/lib/local-db";
 import { prepareAudioChunks } from "@/lib/audio-compress";
 import { extractKeyframes } from "@/lib/keyframe-extract";
 import { AI_API_BASE } from "@/lib/constants";
-import { supabase } from "@/lib/supabase";
+import { getAuthToken as fetchGoogleToken } from "@/lib/auth-client";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -54,8 +54,7 @@ export interface TitleResult {
 // ─── Auth Helper ──────────────────────────────────────────────────
 
 async function getAuthToken(): Promise<string | null> {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token || null;
+  return fetchGoogleToken();
 }
 
 function authHeaders(token: string | null): Record<string, string> {

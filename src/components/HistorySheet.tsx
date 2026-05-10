@@ -10,7 +10,9 @@ import { useState, useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { Note } from "@/hooks/use-notes";
-import { Pin, PinOff, ArrowUpDown } from "lucide-react";
+import { PinOff } from "lucide-react";
+import { ArrowDownUpIcon } from "@/components/icons/arrow-down-up";
+import { PinIcon } from "@/components/animate-ui/icons/pin";
 
 interface HistorySheetProps {
   notes: Note[];
@@ -135,11 +137,13 @@ export function HistorySheet({
                 const nextIndex = (modes.indexOf(sortMode) + 1) % modes.length;
                 setSortMode(modes[nextIndex]);
               }}
-              className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60 hover:text-muted-foreground transition-colors bg-transparent border-none cursor-pointer p-0"
+              className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60 hover:text-muted-foreground transition-colors bg-transparent border-none cursor-pointer p-0"
               title="Change sort order"
             >
-              <ArrowUpDown className="w-3 h-3" />
-              {sortMode === "updated" ? "Updated" : sortMode === "created" ? "Created" : "Title"}
+              <ArrowDownUpIcon size={14} className="w-3.5 h-3.5" />
+              <span className="w-[52px] text-left">
+                {sortMode === "updated" ? "Updated" : sortMode === "created" ? "Created" : "Title"}
+              </span>
             </button>
           </div>
 
@@ -189,8 +193,10 @@ export function HistorySheet({
                       >
                         {note.isPinned ? (
                           <>
-                            <Pin
-                              className="w-4 h-4 text-yellow-500 fill-yellow-500 block group-hover:hidden"
+                            <PinIcon
+                              size={16}
+                              className="w-4 h-4 text-yellow-500 block group-hover:hidden"
+                              style={{ fill: "currentColor" }}
                             />
                             <PinOff
                               className="w-4 h-4 text-red-500 hidden group-hover:block"
@@ -202,7 +208,8 @@ export function HistorySheet({
                               className="w-4 h-4 block group-hover:hidden"
                               style={{ color: "hsl(var(--foreground))" }}
                             />
-                            <Pin
+                            <PinIcon
+                              size={16}
                               className="w-4 h-4 text-muted-foreground hidden group-hover:block"
                             />
                           </>

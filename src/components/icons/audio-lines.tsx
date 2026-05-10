@@ -2,7 +2,7 @@
 
 import { motion, useAnimation } from "framer-motion";
 import type { HTMLAttributes } from "react";
-import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -28,34 +28,29 @@ const AudioLinesIcon = forwardRef<AudioLinesIconHandle, AudioLinesIconProps>(
         stopAnimation: () => controls.start("normal"),
       };
     });
+    const wrapperRef = useRef<HTMLDivElement>(null);
 
-    const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
-        if (isControlledRef.current) {
-          onMouseEnter?.(e);
-        } else {
-          controls.start("animate");
-        }
-      },
-      [controls, onMouseEnter]
-    );
+    useEffect(() => {
+      const el = wrapperRef.current;
+      if (!el || isControlledRef.current) return;
 
-    const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
-        if (isControlledRef.current) {
-          onMouseLeave?.(e);
-        } else {
-          controls.start("normal");
-        }
-      },
-      [controls, onMouseLeave]
-    );
+      const parent = el.closest("button, a, [role=button], .novel-slash-item, .ai-cmd-item, .floating-header-btn, .web-clipper-action-btn, .account-popup-action-btn, .identity-pill");
+      const target = parent && parent !== el ? parent : el;
+
+      const onEnter = () => { controls.start("animate"); };
+      const onLeave = () => { controls.start("normal"); };
+      target.addEventListener("pointerenter", onEnter);
+      target.addEventListener("pointerleave", onLeave);
+      return () => {
+        target.removeEventListener("pointerenter", onEnter);
+        target.removeEventListener("pointerleave", onLeave);
+      };
+    }, [controls]);
 
     return (
       <div
-        className={cn(className)}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        ref={wrapperRef}
+        className={cn("inline-flex items-center justify-center", className)}
         {...props}
       >
         <svg

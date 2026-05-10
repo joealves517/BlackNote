@@ -14,6 +14,7 @@ import { Mic, Monitor, PenLine, Wand2, BookOpen, Tag, Play, ChevronRight, Messag
 import { ArrowUpIcon } from "@/components/icons/arrow-up";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { CircleCheckIcon } from "@/components/icons/circle-check";
+import { AIProcessingView } from "@/components/ui/ai-processing-view";
 import { DeleteIcon } from "@/components/icons/delete";
 import { db } from "@/lib/local-db";
 import { useAuth } from "@/hooks/use-auth";
@@ -35,7 +36,7 @@ interface MediaActionSheetProps {
   onInsertToNote?: (text: string) => void;
 }
 
-type SheetPhase = "idle" | "processing" | "analyzed";
+type SheetPhase = "idle" | "processing" | "analyzed" | "generating_feature";
 
 const PROCESSING_MESSAGES = [
   "Extracting audio track",
@@ -162,12 +163,7 @@ export function MediaActionSheet({
       return;
     }
 
-    // Close this sheet → show Dynamic Island thinking → get result → open result sheet
-    onClose();
-    window.dispatchEvent(new CustomEvent("ai-thinking-start", {
-      detail: { messages: ["Analyzing recording", "Generating insights", "Formatting result"] },
-    }));
-
+    setPhase("generating_feature");
     try {
       let resultText = "";
       if (id === "title") {
@@ -178,14 +174,13 @@ export function MediaActionSheet({
         resultText = d.text;
       }
 
-      window.dispatchEvent(new CustomEvent("ai-thinking-stop"));
-
+      onClose();
       // Open result sheet with the AI output
       window.dispatchEvent(new CustomEvent("media-ai-result", {
         detail: { text: resultText, mediaId },
       }));
     } catch {
-      window.dispatchEvent(new CustomEvent("ai-thinking-stop"));
+      setPhase("analyzed");
       window.dispatchEvent(new CustomEvent("ai-error"));
     }
   }, [mediaId, type, onClose]);
@@ -246,37 +241,29 @@ export function MediaActionSheet({
         </div>
 
         <div className={`relative px-4 pb-4 ${phase !== "analyzed" ? "pt-4" : "pt-1"}`}>
-          {/* ─── Floating Robot (Idle & Processing Only) ─── */}
-          {phase !== "analyzed" && (
-            <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10">
-              <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
-                <DotLottieReact
-                  src={chrome.runtime.getURL("ai-robo.lottie")}
-                  autoplay
-                  loop
-                  stateMachineId="StateMachine1"
-                  dotLottieRefCallback={setDotLottie}
-                  backgroundColor="transparent"
-                  style={{ width: "150%", height: "150%", transform: "scale(1.35) translateY(2%)", position: "absolute" }}
-                />
+          {/* ─── Header & Robot (Idle Only) ─── */}
+          {phase === "idle" && (
+            <>
+              <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10">
+                <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
+                  <DotLottieReact
+                    src={chrome.runtime.getURL("ai-robo.lottie")}
+                    autoplay loop stateMachineId="StateMachine1"
+                    dotLottieRefCallback={setDotLottie}
+                    backgroundColor="transparent"
+                    style={{ width: "150%", height: "150%", transform: "scale(1.35) translateY(2%)", position: "absolute" }}
+                  />
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* ─── Header ─── */}
-          {phase !== "analyzed" && (
-            <div className="text-center pt-4 pb-3">
-              <h3 className="text-lg font-bold text-foreground mb-1 tracking-tight">
-                {phase === "processing" ? "Analyzing" : (fileName || (type === "audio" ? "Audio Recording" : "Screen Recording"))}
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                {phase === "processing" ? statusMsg + "..." : (
-                  <>
-                    {type === "audio" ? "Audio" : "Video"} • {formatTime(duration)}
-                  </>
-                )}
-              </p>
-            </div>
+              <div className="text-center pt-4 pb-3">
+                <h3 className="text-lg font-bold text-foreground mb-1 tracking-tight">
+                  {fileName || (type === "audio" ? "Audio Recording" : "Screen Recording")}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {type === "audio" ? "Audio" : "Video"} • {formatTime(duration)}
+                </p>
+              </div>
+            </>
           )}
 
           {/* ─── Phase: Idle (Not Analyzed) ─── */}
@@ -303,17 +290,12 @@ export function MediaActionSheet({
             </div>
           )}
 
-          {/* ─── Phase: Processing ─── */}
+          {/* ─── Phase: Processing (Transcribing) ─── */}
           {phase === "processing" && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingBottom: 8 }}>
-              <div style={{ width: 160, height: 160 }}>
-                <DotLottieReact
-                  src={chrome.runtime.getURL("bouncing-fruits.json")}
-                  autoplay loop backgroundColor="transparent"
-                  style={{ width: "100%", height: "100%" }}
-                />
-              </div>
-            </div>
+            <AIProcessingView
+              title="Analyzing"
+              messages={PROCESSING_MESSAGES}
+            />
           )}
 
           {/* ─── Phase: Analyzed (Feature List + Prompt) ─── */}
@@ -367,6 +349,14 @@ export function MediaActionSheet({
               </div>
             </div>
             </motion.div>
+          )}
+
+          {/* ─── Phase: Generating Feature ─── */}
+          {phase === "generating_feature" && (
+            <AIProcessingView
+              title="Generating Insights"
+              messages={["Analyzing recording", "Structuring insights", "Formatting result"]}
+            />
           )}
 
           {/* ─── Delete Button (not during processing) ─── */}

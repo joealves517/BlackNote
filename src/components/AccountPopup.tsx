@@ -9,10 +9,10 @@ import { LoaderIcon } from "@/components/ui/loader";
 
 import { MessageSquare, PenLine, Mic, Wand2, Zap, Minus } from "lucide-react";
 import { CHECKOUT_BASE } from "@/lib/constants";
-import type { User } from "@supabase/supabase-js";
+import type { AppUser } from "@/lib/auth-client";
 
 interface AccountPopupProps {
-  user: User | null;
+  user: AppUser | null;
   credits: { credits: number; tier: string } | null;
   proIconIndex?: number;
   onSignOut: () => void;
@@ -31,17 +31,12 @@ const GoogleLogo = () => (
   </svg>
 );
 
-function getUserAvatar(user: User): string | null {
-  return user.user_metadata?.avatar_url || null;
+function getUserAvatar(user: AppUser): string | null {
+  return user.picture || null;
 }
 
-function getUserDisplayName(user: User): string {
-  return (
-    user.user_metadata?.full_name ||
-    user.user_metadata?.name ||
-    user.email ||
-    "User"
-  );
+function getUserDisplayName(user: AppUser): string {
+  return user.displayName || user.email || "User";
 }
 
 const AIFeatureItem = ({ icon, title, description, available, colorRgb = "59, 130, 246", isLast = false, isGuest = false }: any) => {
