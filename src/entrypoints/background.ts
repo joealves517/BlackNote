@@ -38,6 +38,8 @@ export default defineBackground(() => {
 
       if (message.type === "RELOAD_SIDEPANEL") {
         chrome.runtime.sendMessage({ type: "DO_RELOAD_SIDEPANEL" }).catch(() => {});
+        // Also close the offscreen document to clear its permission cache
+        chrome.offscreen.closeDocument().catch(() => {});
         return false;
       }
 
@@ -112,8 +114,16 @@ export default defineBackground(() => {
           });
         };
 
-        startOffscreen().then(res => sendResponse(res)).catch(err => {
+        startOffscreen().then((res: any) => {
+          sendResponse(res);
+          if (res && res.success === false) {
+            setTimeout(() => {
+              chrome.offscreen.closeDocument().catch(() => {});
+            }, 100);
+          }
+        }).catch(err => {
           console.error("[BG] Failed to start offscreen recording:", err);
+          chrome.offscreen.closeDocument().catch(() => {});
           sendResponse({ success: false, error: String(err) });
         });
         return true;
