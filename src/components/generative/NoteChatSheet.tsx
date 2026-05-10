@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { DotLottieReact, type DotLottie } from "@lottiefiles/dotlottie-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCompletion } from "@ai-sdk/react";
 import { useEditor } from "novel";
@@ -649,6 +650,38 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
   userName: string;
 }) {
   const isEmptyNote = wordCount === 0;
+  const [dotLottie, setDotLottie] = useState<DotLottie | null>(null);
+
+  useEffect(() => {
+    if (!dotLottie) return;
+
+    const fireJump = () => {
+      try {
+        if (typeof dotLottie.stateMachineFireEvent === "function") {
+          dotLottie.stateMachineFireEvent("jumpClick");
+        }
+      } catch (err) {}
+    };
+
+    const fireYesClick = () => {
+      try {
+        if (typeof dotLottie.stateMachineFireEvent === "function") {
+          dotLottie.stateMachineFireEvent("yesClick");
+        }
+      } catch (err) {}
+    };
+
+    let interval: NodeJS.Timeout;
+    const initialTimeout = setTimeout(() => {
+      fireJump();
+      interval = setInterval(fireYesClick, 3000);
+    }, 200);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      if (interval) clearInterval(interval);
+    };
+  }, [dotLottie]);
 
   if (isEmptyNote) {
     return (
@@ -682,8 +715,18 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
         gap: 16,
       }}
     >
-      {/* Icon */}
-      <MessageSquareMoreIcon size={32} style={{ opacity: 0.5 }} />
+      {/* Lottie Animation instead of Icon */}
+      <div className="w-[64px] h-[64px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
+        <DotLottieReact
+          src={chrome.runtime.getURL("ai-robo.lottie")}
+          autoplay
+          loop
+          stateMachineId="StateMachine1"
+          dotLottieRefCallback={setDotLottie}
+          backgroundColor="transparent"
+          style={{ width: "150%", height: "150%", transform: "scale(1.35) translateY(2%)", position: "absolute" }}
+        />
+      </div>
 
       {/* Title */}
       <div style={{ textAlign: "center", fontSize: 18, fontWeight: 600, color: "hsl(var(--foreground))" }}>

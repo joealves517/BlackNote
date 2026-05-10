@@ -22,7 +22,7 @@ import { useWebClipper } from "@/hooks/use-web-clipper";
 import { prepareForAI } from "@/lib/page-reader";
 import { supabase } from "@/lib/supabase";
 import { AI_API_BASE } from "@/lib/constants";
-import { DynamicThinking } from "@/components/ui/dynamic-thinking";
+
 
 interface WebClipperProps {
   onSaveAsNote: (title: string, markdown: string) => void;
@@ -100,6 +100,21 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
   const { clip, status, content, error, reset } = useWebClipper();
   const [processing, setProcessing] = useState<string | null>(null);
   const [processError, setProcessError] = useState("");
+
+  useEffect(() => {
+    if (processing) {
+      window.dispatchEvent(
+        new CustomEvent("ai-thinking-start", {
+          detail: { 
+            messages: processing === "spark_sent" 
+              ? [PROCESSING_LABELS[processing]] 
+              : ["Analyzing page content", "Extracting main ideas", "Reading text", "Thinking"] 
+          },
+        })
+      );
+      return () => window.dispatchEvent(new CustomEvent("ai-thinking-stop"));
+    }
+  }, [processing]);
 
   // Auto-clip on mount
   if (status === "idle") {
@@ -220,36 +235,9 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
 
       {/* AI processing */}
       <AnimatePresence mode="wait">
-        {processing && (
-          <motion.div
-            key="processing"
-            className="ai-loading"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            {processing === "spark_sent" ? (
-              <>
-                <SparklesIcon className="ai-loading-icon" style={{ color: "#22c55e" }} />
-                <span style={{ color: "#22c55e" }}>
-                  {PROCESSING_LABELS[processing]}
-                </span>
-              </>
-            ) : (
-              <>
-                <GripIcon loop className="ai-loading-icon" />
-                <DynamicThinking 
-                  messages={[
-                    PROCESSING_LABELS[processing] || "Processing", 
-                    "Analyzing content", 
-                    "Structuring data"
-                  ]} 
-                />
-              </>
-            )}
-          </motion.div>
-        )}
+        {processing ? (
+          <div key="processing" className="ai-loading" style={{ height: "40px", opacity: 0 }}></div>
+        ) : null}
       </AnimatePresence>
 
       {/* Process error */}

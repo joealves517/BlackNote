@@ -5,7 +5,11 @@ import { AlignLeftIcon } from "@/components/icons/align-left";
 import { CircleCheckIcon } from "@/components/icons/circle-check";
 import { MessageSquareIcon } from "@/components/icons/message-square";
 import { FrameIcon } from "@/components/icons/frame";
-import { Mic } from "lucide-react";
+import { AudioNode } from "@/extensions/AudioNode";
+import { VideoNode } from "@/extensions/VideoNode";
+import { AudioLinesIcon } from "@/components/icons/audio-lines";
+import { MicIcon } from "@/components/icons/mic";
+import { VideoIcon } from "@/components/icons/video";
 
 import { BoldIcon } from "@/components/icons/bold";
 import { ItalicIcon } from "@/components/icons/italic";
@@ -137,11 +141,31 @@ const suggestionItems = createSuggestionItems([
     title: "Speech to Text",
     description: "Type with your voice",
     searchTerms: ["voice", "dictate", "speech", "mic", "microphone"],
-    icon: <AnimatedIcon><Mic className="h-4 w-4" /></AnimatedIcon>,
+    icon: <MicIcon className="h-4 w-4" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).run();
       (window as any).blackNoteSTTEditor = editor;
       window.dispatchEvent(new CustomEvent("start-speech-to-text"));
+    },
+  },
+  {
+    title: "Record Audio",
+    description: "Record voice memo or audio",
+    searchTerms: ["record", "audio", "voice", "memo", "microphone"],
+    icon: <AudioLinesIcon className="h-4 w-4" />,
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).run();
+      window.dispatchEvent(new CustomEvent("start-audio-recording", { detail: { editor } }));
+    },
+  },
+  {
+    title: "Record Screen",
+    description: "Record screen with audio",
+    searchTerms: ["record", "screen", "video", "capture", "screencast"],
+    icon: <VideoIcon className="h-4 w-4" />,
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).run();
+      window.dispatchEvent(new CustomEvent("start-screen-recording", { detail: { editor } }));
     },
   },
   {
@@ -402,6 +426,8 @@ const extensions = [
       });
     },
   }),
+  AudioNode,
+  VideoNode,
 ];
 
 export function NoteEditor({

@@ -120,6 +120,17 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
       ? "result"
       : "menu";
 
+  useEffect(() => {
+    if (visualState === "thinking") {
+      window.dispatchEvent(
+        new CustomEvent("ai-thinking-start", {
+          detail: { messages: ["Understanding context", "Analyzing selection", "Thinking", "Formulating response"] },
+        })
+      );
+      return () => window.dispatchEvent(new CustomEvent("ai-thinking-stop"));
+    }
+  }, [visualState]);
+
   const portalTarget = document.getElementById("blacknote-root") || document.body;
 
   return createPortal(
@@ -154,17 +165,7 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
           {/* ─── Thinking State ─── */}
           <AnimatePresence mode="wait">
             {visualState === "thinking" && (
-              <motion.div
-                key="thinking"
-                className="ai-loading"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-              >
-                <GripIcon loop className="ai-loading-icon" />
-                <DynamicThinking messages={["Understanding context", "Analyzing selection", "Thinking", "Formulating response"]} />
-              </motion.div>
+              <div key="thinking" className="ai-loading" style={{ height: "40px", opacity: 0 }}></div>
             )}
           </AnimatePresence>
 

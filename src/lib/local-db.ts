@@ -11,12 +11,28 @@ export interface LocalNote {
   isPinned?: boolean;
 }
 
+export interface MediaFile {
+  id: string;
+  noteId: string;
+  type: "audio" | "video";
+  blob: Blob;
+  duration: number; // seconds
+  createdAt: number; // timestamp ms
+  fileName: string;
+}
+
 const db = new Dexie("blacknote") as Dexie & {
   notes: EntityTable<LocalNote, "id">;
+  media_files: EntityTable<MediaFile, "id">;
 };
 
 db.version(1).stores({
   notes: "id, updatedAt",
+});
+
+db.version(2).stores({
+  notes: "id, updatedAt",
+  media_files: "id, noteId, type, createdAt",
 });
 
 export { db };

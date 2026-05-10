@@ -4,6 +4,7 @@ import { PlusIcon } from "@/components/icons/plus";
 import { HistoryIcon } from "@/components/icons/history";
 import { MoonIcon } from "@/components/icons/moon";
 import { SunIcon } from "@/components/icons/sun";
+import { AIDynamicIsland } from "@/components/ui/ai-dynamic-island";
 import { SparklesIcon } from "@/components/icons/sparkles";
 import { AttachFileIcon } from "@/components/icons/attach-file";
 import { BlocksIcon } from "@/components/icons/blocks";
@@ -12,8 +13,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Mic, MicOff } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
+import { RecordingHeader } from "@/components/RecordingHeader";
 import { AIErrorSheet } from "@/components/AIErrorSheet";
 import { HistorySheet } from "@/components/HistorySheet";
+import { MediaActionSheet } from "@/components/MediaActionSheet";
 import { AccountPopup } from "@/components/AccountPopup";
 import { WebClipper } from "@/components/WebClipper";
 import { LoaderIcon } from "@/components/ui/loader";
@@ -23,6 +26,7 @@ import { useNotes } from "@/hooks/use-notes";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useCredits } from "@/hooks/use-credits";
+import { useRecorder } from "@/hooks/use-recorder";
 import { ArrowBigUpDashIcon } from "@/components/icons/arrow-big-up-dash";
 import { ChessKingIcon } from "@/components/icons/chess-king";
 import { HandMetalIcon } from "@/components/icons/hand-metal";
@@ -76,6 +80,14 @@ export function App() {
 
   const { theme, toggleTheme } = useTheme();
   const { credits, refreshCredits } = useCredits(user?.id);
+  const recorder = useRecorder();
+  const recorderRef2 = useRef(recorder);
+  recorderRef2.current = recorder;
+
+  const isRecording = recorder.state === "requesting" || recorder.state === "recording" || recorder.state === "paused" || recorder.state === "saving";
+
+  // Store editor ref for inserting media nodes after recording stops
+  const recordingEditorRef = useRef<any>(null);
 
   const [showHistory, setShowHistory] = useState(false);
   const [showClipper, setShowClipper] = useState(false);
@@ -96,13 +108,200 @@ export function App() {
   }, []);
   const [aiErrorVisible, setAiErrorVisible] = useState(false);
   const [isSTTActive, setIsSTTActive] = useState(false);
-  const [isSTTHovered, setIsSTTHovered] = useState(false);
+  const [sttElapsed, setSttElapsed] = useState(0);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isSTTActive) {
+      setSttElapsed(0);
+      interval = setInterval(() => setSttElapsed(prev => prev + 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isSTTActive]);
+  const [mediaSheetConfig, setMediaSheetConfig] = useState<{
+    mediaId: string;
+    type: "audio" | "video";
+    fileName: string;
+    duration: number;
+    onDeleteNode: () => void;
+  } | null>(null);
+
+  const [globalAiThinking, setGlobalAiThinking] = useState(false);
+  const globalAiThinkingRef = useRef(false);
+  const [globalAiMessages, setGlobalAiMessages] = useState<string[]>(["Thinking"]);
+
+  // Global AI Thinking listener
+  useEffect(() => {
+    const handleStart = (e: CustomEvent) => {
+      if (e.detail?.messages) {
+        setGlobalAiMessages(e.detail.messages);
+      }
+      setGlobalAiThinking(true);
+      globalAiThinkingRef.current = true;
+    };
+    const handleStop = () => {
+      setGlobalAiThinking(false);
+      globalAiThinkingRef.current = false;
+    };
+
+    window.addEventListener("ai-thinking-start", handleStart as EventListener);
+    window.addEventListener("ai-thinking-stop", handleStop);
+    return () => {
+      window.removeEventListener("ai-thinking-start", handleStart as EventListener);
+      window.removeEventListener("ai-thinking-stop", handleStop);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleOpenMediaSheet = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setMediaSheetConfig(detail);
+    };
+    window.addEventListener("open-media-sheet", handleOpenMediaSheet);
+    return () => window.removeEventListener("open-media-sheet", handleOpenMediaSheet);
+  }, []);
 
   useEffect(() => {
     const handleSTTState = (e: any) => setIsSTTActive(e.detail);
     window.addEventListener("stt-state-changed", handleSTTState);
     return () => window.removeEventListener("stt-state-changed", handleSTTState);
   }, []);
+
+  // ── Recording slash command listeners ──
+  useEffect(() => {
+    const handleAudioRecording = async (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      let insertedMediaId = "";
+      if (detail?.editor) {
+        recordingEditorRef.current = detail.editor;
+        insertedMediaId = `media_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        detail.editor.chain().focus().insertContent({
+          type: "audioNode",
+          attrs: { mediaId: insertedMediaId, status: "recording", duration: 0, fileName: "Recording..." },
+        }).run();
+      }
+      const success = await recorderRef2.current.startAudioRecording();
+      if (!success && detail?.editor && insertedMediaId) {
+        const editor = detail.editor;
+        editor.state.doc.descendants((node: any, pos: number) => {
+          if (node.type.name === "audioNode" && node.attrs.mediaId === insertedMediaId) {
+            editor.chain().focus().command(({ tr }: { tr: any }) => {
+              tr.delete(pos, pos + node.nodeSize);
+              return true;
+            }).run();
+            return false;
+          }
+        });
+        recordingEditorRef.current = null;
+      }
+    };
+
+    const handleScreenRecording = async (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      let insertedMediaId = "";
+      if (detail?.editor) {
+        recordingEditorRef.current = detail.editor;
+        insertedMediaId = `media_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        detail.editor.chain().focus().insertContent({
+          type: "videoNode",
+          attrs: { mediaId: insertedMediaId, status: "recording", duration: 0, fileName: "Recording..." },
+        }).run();
+      }
+      const success = await recorderRef2.current.startScreenRecording();
+      if (!success && detail?.editor && insertedMediaId) {
+        const editor = detail.editor;
+        editor.state.doc.descendants((node: any, pos: number) => {
+          if (node.type.name === "videoNode" && node.attrs.mediaId === insertedMediaId) {
+            editor.chain().focus().command(({ tr }: { tr: any }) => {
+              tr.delete(pos, pos + node.nodeSize);
+              return true;
+            }).run();
+            return false;
+          }
+        });
+        recordingEditorRef.current = null;
+      }
+    };
+
+    window.addEventListener("start-audio-recording", handleAudioRecording);
+    window.addEventListener("start-screen-recording", handleScreenRecording);
+    return () => {
+      window.removeEventListener("start-audio-recording", handleAudioRecording);
+      window.removeEventListener("start-screen-recording", handleScreenRecording);
+    };
+  }, []); // stable — uses ref
+
+  // ── Shared stop/discard handlers (used by both Header and Toolbar) ──
+  const handleRecordingStop = useCallback(async () => {
+    const result = await recorder.stopRecording();
+    if (result && recordingEditorRef.current) {
+      const editor = recordingEditorRef.current;
+      const nodeType = result.type === "audio" ? "audioNode" : "videoNode";
+      const { doc } = editor.state;
+      let targetPos: number | null = null;
+
+      doc.descendants((node: any, pos: number) => {
+        if (node.type.name === nodeType && node.attrs.status === "recording") {
+          targetPos = pos;
+          return false;
+        }
+      });
+
+      if (targetPos !== null) {
+        editor.chain().focus()
+          .command(({ tr }: { tr: any }) => {
+            tr.setNodeMarkup(targetPos!, undefined, {
+              mediaId: result.mediaId,
+              status: "saved",
+              duration: result.duration,
+              fileName: result.type === "audio"
+                ? `Meeting Audio ${new Date().toLocaleDateString()}`
+                : `Screen Recording ${new Date().toLocaleDateString()}`,
+            });
+            return true;
+          })
+          .run();
+      }
+      recordingEditorRef.current = null;
+    }
+  }, [recorder]);
+
+  const handleRecordingDiscard = useCallback(() => {
+    const currentMode = recorder.mode;
+    recorder.discardRecording();
+    if (recordingEditorRef.current) {
+      const editor = recordingEditorRef.current;
+      const nodeType = currentMode === "audio" ? "audioNode" : "videoNode";
+      const { doc } = editor.state;
+
+      doc.descendants((node: any, pos: number) => {
+        if (node.type.name === nodeType && node.attrs.status === "recording") {
+          editor.chain().focus()
+            .command(({ tr }: { tr: any }) => {
+              tr.delete(pos, pos + node.nodeSize);
+              return true;
+            })
+            .run();
+          return false;
+        }
+      });
+      recordingEditorRef.current = null;
+    }
+  }, [recorder]);
+
+  // Listen for toolbar commands dispatched from use-recorder
+  useEffect(() => {
+    const onToolbarStop = () => handleRecordingStop();
+    const onToolbarDiscard = () => handleRecordingDiscard();
+
+    window.addEventListener("toolbar-stop-recording", onToolbarStop);
+    window.addEventListener("toolbar-discard-recording", onToolbarDiscard);
+    return () => {
+      window.removeEventListener("toolbar-stop-recording", onToolbarStop);
+      window.removeEventListener("toolbar-discard-recording", onToolbarDiscard);
+    };
+  }, [handleRecordingStop, handleRecordingDiscard]);
+
   const scrollProgressRef = useRef(0);
   const headerRef = useRef<HTMLDivElement>(null);
 
@@ -111,12 +310,29 @@ export function App() {
     const el = headerRef.current;
     if (!el) return;
 
+    if (globalAiThinkingRef.current) {
+      el.style.top = '0px';
+      el.style.left = '0px';
+      el.style.right = '0px';
+      el.style.height = '44px';
+      el.style.paddingLeft = '10px';
+      el.style.paddingRight = '8px';
+      el.style.borderRadius = '0px';
+      el.style.backgroundColor = 'transparent';
+      el.style.backdropFilter = 'none';
+      (el.style as any).webkitBackdropFilter = 'none';
+      el.style.boxShadow = 'none';
+      return;
+    }
+
     const t = progress; // 0 → 1
 
     // Measure actual content width to know where to stop shrinking
     const parentWidth = el.parentElement?.clientWidth || 400;
     let contentWidth = 0;
     for (let i = 0; i < el.children.length; i++) {
+      // Bỏ qua lớp phủ AI island nếu có
+      if ((el.children[i] as HTMLElement).classList.contains('recording-header-container')) continue;
       contentWidth += (el.children[i] as HTMLElement).offsetWidth;
     }
     contentWidth += 18; // 12px padding buffer + 6px gap between sections
@@ -197,7 +413,10 @@ export function App() {
   useEffect(() => {
     const handleOpenClipper = () => setShowClipper(true);
     window.addEventListener("open-web-clipper", handleOpenClipper);
-    return () => window.removeEventListener("open-web-clipper", handleOpenClipper);
+
+    return () => {
+      window.removeEventListener("open-web-clipper", handleOpenClipper);
+    };
   }, []);
 
   // Also listen for "trigger-clipper" (legacy event from sidebar)
@@ -340,6 +559,18 @@ export function App() {
       </AnimatePresence>
 
       {/* ─── Header Bar ─── */}
+      {isRecording || isSTTActive ? (
+        <RecordingHeader
+          state={isRecording ? recorder.state : "recording"}
+          mode={isRecording ? recorder.mode : "audio"}
+          elapsed={isRecording ? recorder.elapsed : sttElapsed}
+          analyserNode={isRecording ? recorder.analyserNode : null}
+          onPause={isRecording ? recorder.pauseRecording : undefined}
+          onResume={isRecording ? recorder.resumeRecording : undefined}
+          onStop={isRecording ? handleRecordingStop : () => window.dispatchEvent(new CustomEvent("stop-speech-to-text"))}
+          onDiscard={isRecording ? handleRecordingDiscard : undefined}
+        />
+      ) : (
       <div 
         ref={headerRef}
         className="absolute z-30 flex items-center justify-between gap-1.5 pointer-events-none"
@@ -357,8 +588,15 @@ export function App() {
           willChange: 'top, left, right, height, border-radius, background-color, backdrop-filter, box-shadow',
         }}
       >
-        {/* Left Section */}
-        <div className="flex items-center gap-1.5 pointer-events-auto">
+        {/* Dynamic Island Overlay for AI */}
+        <AnimatePresence>
+          {globalAiThinking && (
+            <AIDynamicIsland key="ai-island" messages={globalAiMessages} />
+          )}
+        </AnimatePresence>
+
+        {/* Left Section (Hidden when thinking) */}
+        <div className="flex items-center gap-1.5 pointer-events-auto" style={{ opacity: globalAiThinking ? 0 : 1, transition: 'opacity 0.2s', pointerEvents: globalAiThinking ? 'none' : 'auto' }}>
           {/* Identity Pill — Login / Avatar + Badge */}
           <div className="relative">
             <button
@@ -433,23 +671,8 @@ export function App() {
           </button>
         </div>
 
-        {/* Right Section */}
-        <div className="flex items-center gap-1.5 pointer-events-auto">
-          {isSTTActive && (
-            <button
-              className="floating-header-btn relative"
-              onClick={() => window.dispatchEvent(new CustomEvent("stop-speech-to-text"))}
-              data-tooltip="Stop voice typing"
-              onMouseEnter={() => setIsSTTHovered(true)}
-              onMouseLeave={() => setIsSTTHovered(false)}
-            >
-              {/* Camera recording red dot effect */}
-              <div className="relative flex items-center justify-center w-4 h-4">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping" style={{ animationDuration: '1.5s' }}></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-              </div>
-            </button>
-          )}
+        {/* Right Section (Hidden when thinking or recording) */}
+        <div className="flex items-center gap-1.5 pointer-events-auto" style={{ opacity: globalAiThinking ? 0 : 1, transition: 'opacity 0.2s', pointerEvents: globalAiThinking ? 'none' : 'auto' }}>
           <button
             className="floating-header-btn"
             onClick={() => window.dispatchEvent(new CustomEvent("open-note-chat"))}
@@ -466,6 +689,7 @@ export function App() {
           </button>
         </div>
       </div>
+      )}
 
       {/* ─── Main Content ─── */}
       <div className="flex-1 flex flex-col min-w-0 h-full">
@@ -595,6 +819,15 @@ export function App() {
           }
         }}
       />
+
+      <AnimatePresence>
+        {mediaSheetConfig && (
+          <MediaActionSheet
+            {...mediaSheetConfig}
+            onClose={() => setMediaSheetConfig(null)}
+          />
+        )}
+      </AnimatePresence>
 
       <GlobalTooltip />
     </div>

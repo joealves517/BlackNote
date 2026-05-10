@@ -9,7 +9,12 @@ export default defineConfig({
   manifest: {
     name: 'BlackNote - AI Note & Web Clipper',
     description: 'Premium Notion-like side-panel note-taking app. Features built-in AI writing assistant, cloud sync, and instant access.',
-    permissions: ['sidePanel', 'identity', 'activeTab', 'storage'],
+    host_permissions: ['<all_urls>'],
+    permissions: ['sidePanel', 'identity', 'activeTab', 'storage', 'tabCapture', 'offscreen'],
+    optional_permissions: ['desktopCapture'],
+    content_security_policy: {
+      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+    },
     icons: {
       16: '/icon/16.png',
       48: '/icon/48.png',

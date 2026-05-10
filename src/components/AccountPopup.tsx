@@ -1,5 +1,6 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { DotLottieReact, type DotLottie } from "@lottiefiles/dotlottie-react";
 import { SparklesIcon } from "@/components/icons/sparkles";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { LogoutIcon } from "@/components/icons/logout";
@@ -164,18 +165,58 @@ export function AccountPopup({
   const isPremium = credits?.tier === "premium";
   const isQuotaExhausted = isPremium && credits?.credits !== undefined && credits.credits <= 0;
   const [logoutHovered, setLogoutHovered] = useState(false);
+  const [dotLottie, setDotLottie] = useState<DotLottie | null>(null);
+
+  useEffect(() => {
+    if (!dotLottie || user) return;
+
+    const fireJump = () => {
+      try {
+        if (typeof dotLottie.stateMachineFireEvent === "function") {
+          dotLottie.stateMachineFireEvent("jumpClick");
+        }
+      } catch (err) {}
+    };
+
+    const fireYesClick = () => {
+      try {
+        if (typeof dotLottie.stateMachineFireEvent === "function") {
+          dotLottie.stateMachineFireEvent("yesClick");
+        }
+      } catch (err) {}
+    };
+
+    let interval: NodeJS.Timeout;
+    const initialTimeout = setTimeout(() => {
+      fireJump();
+      interval = setInterval(fireYesClick, 3000);
+    }, 200);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      if (interval) clearInterval(interval);
+    };
+  }, [dotLottie, user]);
 
   // GUEST VIEW
   if (!user) {
     return (
-      <div className="relative pt-6 px-4 pb-4">
-        <div className="absolute left-1/2 -top-[56px] -translate-x-1/2 z-10">
-          <div className="w-[64px] h-[64px] rounded-full flex items-center justify-center overflow-hidden drop-shadow-md bg-black border border-white/5">
-            <img src={chrome.runtime.getURL("icon/128.png")} alt="BlackNote" className="w-[34px] h-[34px]" />
+      <div className="relative pt-4 px-4 pb-4">
+        <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10">
+          <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
+            <DotLottieReact
+              src={chrome.runtime.getURL("ai-robo.lottie")}
+              autoplay
+              loop
+              stateMachineId="StateMachine1"
+              dotLottieRefCallback={setDotLottie}
+              backgroundColor="transparent"
+              style={{ width: "150%", height: "150%", transform: "scale(1.35) translateY(2%)", position: "absolute" }}
+            />
           </div>
         </div>
 
-        <div className="text-center pt-5 pb-3">
+        <div className="text-center pt-4 pb-3">
           <h3 className="text-lg font-bold text-foreground mb-1 tracking-tight">Unlock AI Features</h3>
           <p className="text-xs text-muted-foreground">Sign in to enhance your note-taking experience.</p>
         </div>
@@ -210,19 +251,21 @@ export function AccountPopup({
   };
 
   return (
-    <div className="relative pt-6 px-4 pb-4">
+    <div className="relative pt-4 px-4 pb-4">
       {/* Floating Avatar */}
-      <div className="absolute left-1/2 -top-[56px] -translate-x-1/2 z-10">
-        <div className="w-[64px] h-[64px] rounded-full flex items-center justify-center overflow-hidden drop-shadow-md bg-muted border border-white/5">
-          {getUserAvatar(user) ? (
-            <img src={getUserAvatar(user)!} alt={firstName} className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-xl font-bold text-muted-foreground">{firstName.charAt(0).toUpperCase()}</span>
-          )}
+      <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10">
+        <div className="w-[84px] h-[84px] rounded-full flex items-center justify-center drop-shadow-md bg-background/40 backdrop-blur-md">
+          <div className="w-[76px] h-[76px] rounded-full overflow-hidden flex items-center justify-center bg-muted">
+            {getUserAvatar(user) ? (
+              <img src={getUserAvatar(user)!} alt={firstName} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-xl font-bold text-muted-foreground">{firstName.charAt(0).toUpperCase()}</span>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="flex items-start justify-between pt-4 pb-3.5 px-2">
+      <div className="flex items-start justify-between pt-2 pb-3.5 px-2">
         <div className="flex-1 min-w-0">
           <div className="text-[18px] font-bold text-foreground tracking-tight leading-snug">
             Hello, {firstName} 👋

@@ -12,6 +12,8 @@ import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 import { marked } from "marked";
+import { AudioNode } from "@/extensions/AudioNode";
+import { VideoNode } from "@/extensions/VideoNode";
 
 /** Minimal extension set matching NoteEditor's schema */
 const parserExtensions = [
@@ -25,6 +27,8 @@ const parserExtensions = [
   TableRow,
   TableHeader,
   TableCell,
+  AudioNode,
+  VideoNode,
 ];
 
 /**

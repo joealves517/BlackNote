@@ -1,3 +1,6 @@
+let offscreenReadyResolver: (() => void) | null = null;
+let offscreenReadyPromise: Promise<void> | null = null;
+
 export default defineBackground(() => {
   // Open side panel when extension icon is clicked
   browser.sidePanel
@@ -6,7 +9,7 @@ export default defineBackground(() => {
 
   // Route clip requests from sidepanel → content script in the active tab
   browser.runtime.onMessage.addListener(
-    (message: { type: string; targetExtensionId?: string; payload?: any }, _sender, sendResponse) => {
+    (message: { type: string; targetExtensionId?: string; payload?: any; url?: string }, _sender, sendResponse) => {
       if (message.type === "REQUEST_CLIP") {
         browser.tabs
           .query({ active: true, currentWindow: true })
@@ -24,6 +27,141 @@ export default defineBackground(() => {
       // Open a URL in a new tab (sidepanel has no chrome.tabs access)
       if (message.type === "OPEN_URL" && message.url) {
         chrome.tabs.create({ url: message.url });
+        return false;
+      }
+
+      if (message.type === "OFFSCREEN_READY") {
+        if (offscreenReadyResolver) {
+          offscreenReadyResolver();
+          offscreenReadyResolver = null;
+        }
+        return false;
+      }
+
+      // ── Recording Orchestration (Side Panel / Content Script → Offscreen) ──
+      
+      const setupOffscreen = async () => {
+        const offscreenUrl = chrome.runtime.getURL("offscreen.html");
+        // @ts-ignore
+        const existingContexts = await chrome.runtime.getContexts({
+          contextTypes: ["OFFSCREEN_DOCUMENT"],
+          documentUrls: [offscreenUrl],
+        });
+
+        if (existingContexts.length > 0) return;
+
+        offscreenReadyPromise = new Promise((resolve) => {
+          offscreenReadyResolver = resolve;
+        });
+
+        await chrome.offscreen.createDocument({
+          url: offscreenUrl,
+          reasons: ["USER_MEDIA", "DISPLAY_MEDIA", "AUDIO_PLAYBACK"],
+          justification: "Recording microphone and screen for BlackNote",
+        });
+
+        // Wait for OFFSCREEN_READY message with a timeout of 5 seconds
+        await Promise.race([
+          offscreenReadyPromise,
+          new Promise((resolve) => setTimeout(resolve, 5000))
+        ]);
+      };
+
+      if (message.type === "OFFSCREEN_STATE_UPDATE") {
+        // Offscreen doc doesn't have access to storage, so it delegates to background
+        chrome.storage.local.get("blacknote_recording", (res) => {
+          const current = res.blacknote_recording || {};
+          chrome.storage.local.set({
+            blacknote_recording: {
+              ...current,
+              ...message.payload,
+            },
+          });
+        });
+        return false;
+      }
+
+      if (message.type === "ENSURE_OFFSCREEN") {
+        setupOffscreen().then(() => sendResponse({ ready: true })).catch(() => sendResponse({ ready: false }));
+        return true;
+      }
+
+      if (message.type.startsWith("RECORDING_START_")) {
+        console.log("[BG] ▶ RECORDING_START received:", message.type, "streamId:", !!message.payload?.streamId);
+
+        const startOffscreen = async () => {
+          await setupOffscreen();
+          console.log("[BG] Offscreen ready, forwarding streamId:", !!message.payload?.streamId);
+          
+          return new Promise((resolve) => {
+            chrome.runtime.sendMessage({
+              type: message.type === "RECORDING_START_AUDIO" ? "OFFSCREEN_START_AUDIO" : "OFFSCREEN_START_SCREEN",
+              streamId: message.payload?.streamId,
+            }, resolve);
+          });
+        };
+
+        startOffscreen().then(res => sendResponse(res)).catch(err => {
+          console.error("[BG] Failed to start offscreen recording:", err);
+          sendResponse({ success: false, error: String(err) });
+        });
+        return true;
+      }
+
+      // ── ACTUAL COMMANDS FROM SIDE PANEL (use-recorder.ts) ──
+      if (["RECORDING_STOP", "RECORDING_PAUSE", "RECORDING_RESUME", "RECORDING_DISCARD"].includes(message.type)) {
+        const offscreenType = message.type.replace("RECORDING_", "OFFSCREEN_");
+        chrome.runtime.sendMessage({ type: offscreenType }, (res) => {
+          sendResponse?.(res);
+          // Close offscreen document after stop or discard to save memory
+          if (offscreenType === "OFFSCREEN_STOP" || offscreenType === "OFFSCREEN_DISCARD") {
+            setTimeout(() => {
+              chrome.offscreen.closeDocument().catch(() => {});
+            }, 500);
+          }
+        });
+        // We removed writing to blacknote_recording_command here to avoid infinite loops!
+        return true;
+      }
+
+      // ── UI REQUESTS FROM EXTERNAL CONTROLS (Popup Panel, Action Icon) ──
+      if (["UI_REQUEST_STOP", "UI_REQUEST_PAUSE", "UI_REQUEST_RESUME", "UI_REQUEST_DISCARD"].includes(message.type)) {
+        chrome.storage.local.get("blacknote_recording", (res) => {
+          const isVisible = res.blacknote_recording?._panelVisible;
+          if (isVisible) {
+            // Tell Side Panel to handle it so it can insert into note
+            const actionType = message.type.replace("UI_REQUEST_", "RECORDING_");
+            chrome.storage.local.set({
+              blacknote_recording_command: {
+                action: actionType,
+                timestamp: Date.now(),
+              },
+            });
+          } else {
+            // Side panel is closed, execute directly
+            const offscreenType = message.type.replace("UI_REQUEST_", "OFFSCREEN_");
+            chrome.runtime.sendMessage({ type: offscreenType }, () => {
+              if (offscreenType === "OFFSCREEN_STOP" || offscreenType === "OFFSCREEN_DISCARD") {
+                setTimeout(() => {
+                  chrome.offscreen.closeDocument().catch(() => {});
+                }, 500);
+              }
+            });
+          }
+        });
+        return false;
+      }
+
+      if (message.type === "OFFSCREEN_TRIGGER_STOP") {
+        // Offscreen document stream ended unexpectedly, write command for UI to handle
+        chrome.storage.local.set({
+          blacknote_recording_command: {
+            action: "RECORDING_STOP",
+            timestamp: Date.now(),
+          },
+        });
+        // Let the offscreen stop itself
+        chrome.runtime.sendMessage({ type: "OFFSCREEN_STOP" });
         return false;
       }
 
@@ -114,4 +252,5 @@ export default defineBackground(() => {
       }
     }
   );
+
 });

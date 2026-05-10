@@ -333,6 +333,32 @@ export function useNotes(userId: string | undefined) {
         return filtered;
       });
 
+      // Extract mediaIds to clean up before deleting the note
+      const noteToDelete = await db.notes.get(id);
+      if (noteToDelete && noteToDelete.content) {
+        try {
+          const doc = JSON.parse(noteToDelete.content);
+          const extractMediaIds = (node: any): string[] => {
+            let ids: string[] = [];
+            if (node.type === "audioNode" || node.type === "videoNode") {
+              if (node.attrs && node.attrs.mediaId) ids.push(node.attrs.mediaId);
+            }
+            if (node.content && Array.isArray(node.content)) {
+              for (const child of node.content) {
+                ids = ids.concat(extractMediaIds(child));
+              }
+            }
+            return ids;
+          };
+          const mediaIds = extractMediaIds(doc);
+          if (mediaIds.length > 0) {
+            await Promise.all(mediaIds.map((mediaId) => db.media_files.delete(mediaId)));
+          }
+        } catch (err) {
+          console.warn("Failed to parse note content for media cleanup", err);
+        }
+      }
+
       await db.notes.delete(id);
 
       // Background cloud delete

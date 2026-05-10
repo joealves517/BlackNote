@@ -1,4 +1,6 @@
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { DotLottieReact, type DotLottie } from "@lottiefiles/dotlottie-react";
 import { BadgeAlertIcon } from "@/components/ui/badge-alert";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { SparklesIcon } from "@/components/icons/sparkles";
@@ -37,6 +39,39 @@ export function AIErrorSheet({
   onLogin,
   onUpgrade,
 }: AIErrorSheetProps) {
+  const [dotLottie, setDotLottie] = useState<DotLottie | null>(null);
+
+  useEffect(() => {
+    if (!dotLottie) return;
+
+    const fireAlert = () => {
+      try {
+        if (typeof dotLottie.stateMachineFireEvent === "function") {
+          dotLottie.stateMachineFireEvent("alertClick");
+        }
+      } catch (err) {}
+    };
+
+    const fireNoClick = () => {
+      try {
+        if (typeof dotLottie.stateMachineFireEvent === "function") {
+          dotLottie.stateMachineFireEvent("noClick");
+        }
+      } catch (err) {}
+    };
+
+    let interval: NodeJS.Timeout;
+    const initialTimeout = setTimeout(() => {
+      fireAlert();
+      interval = setInterval(fireNoClick, 3000);
+    }, 200);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      if (interval) clearInterval(interval);
+    };
+  }, [dotLottie]);
+
   // Logic branches for content based on user state
   const isProWithQuota = isPremium && !isQuotaExhausted;
   
@@ -64,7 +99,8 @@ export function AIErrorSheet({
 
           <motion.div
             key="ai-error-sheet"
-            className="clipper-sheet mx-auto max-w-[800px]"
+            className="clipper-sheet account-sheet mx-auto"
+            style={{ maxWidth: 600 }}
             initial={{ bottom: "-100%" }}
             animate={{ bottom: 0 }}
             exit={{ bottom: "-100%" }}
@@ -75,17 +111,24 @@ export function AIErrorSheet({
               <div className="history-sheet-handle-bar" />
             </div>
 
-            <div className="clipper-sheet-content">
-              {/* Error Box (replacing the AI response preview) */}
-              <div className="ai-response-preview" style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                <div className="text-destructive shrink-0 flex items-center justify-center">
-                  <BadgeAlertIcon size={18} />
+            <div className="relative pt-4 px-4 pb-4">
+              <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10">
+                <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
+                  <DotLottieReact
+                    src={chrome.runtime.getURL("ai-robo.lottie")}
+                    autoplay
+                    loop
+                    stateMachineId="StateMachine1"
+                    dotLottieRefCallback={setDotLottie}
+                    backgroundColor="transparent"
+                    style={{ width: "150%", height: "150%", transform: "scale(1.35) translateY(2%)", position: "absolute" }}
+                  />
                 </div>
-                <div className="ai-response-content" style={{ padding: 0 }}>
-                  <p style={{ margin: 0, fontSize: "14px", lineHeight: "1.5" }}>
-                    {message}
-                  </p>
-                </div>
+              </div>
+
+              <div className="text-center pt-4 pb-3">
+                <h3 className="text-lg font-bold text-destructive mb-1 tracking-tight">AI Error</h3>
+                <p className="text-xs text-muted-foreground">{message}</p>
               </div>
 
               {/* Action Buttons */}

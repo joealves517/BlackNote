@@ -16,7 +16,7 @@ import { SparklesIcon } from "@/components/icons/sparkles";
 import { RedoDotIcon } from "@/components/icons/redo-dot";
 import { GripIcon } from "@/components/icons/grip";
 import { DownloadIcon } from "lucide-react";
-import { DynamicThinking } from "@/components/ui/dynamic-thinking";
+
 
 interface ImportExportSheetProps {
   noteId: string;
@@ -125,16 +125,25 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
     reader.readAsDataURL(file);
   };
 
+  useEffect(() => {
+    if (isProcessing) {
+      window.dispatchEvent(
+        new CustomEvent("ai-thinking-start", {
+          detail: { messages: ["Analyzing document", "Extracting structure", "Reading content", "Thinking"] },
+        })
+      );
+      return () => window.dispatchEvent(new CustomEvent("ai-thinking-stop"));
+    }
+  }, [isProcessing]);
+
   const handleExportPdf = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!editor) return;
 
-    // Open a new window to print the content
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(`
+    const htmlContent = `
         <html>
           <head>
+            <meta charset="UTF-8">
             <title>${noteTitle || "Note"}</title>
             <style>
               body { font-family: sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; line-height: 1.6; }
@@ -147,16 +156,17 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
           <body>
             <h1>${noteTitle || "Note"}</h1>
             ${editor.getHTML()}
+            <script>
+              setTimeout(() => { window.print(); }, 500);
+            </script>
           </body>
         </html>
-      `);
-      printWindow.document.close();
+    `;
 
-      // Wait for the new window to render, then trigger print
-      setTimeout(() => {
-        printWindow.print();
-      }, 500);
-    }
+    const blob = new Blob([htmlContent], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+
     onClose();
   };
 
@@ -185,17 +195,7 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
         <div className="flex flex-col gap-3 p-5">
           <AnimatePresence mode="wait">
             {isProcessing ? (
-              <motion.div
-                key="thinking"
-                className="ai-loading"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-              >
-                <GripIcon loop className="ai-loading-icon" />
-                <DynamicThinking messages={["Analyzing document", "Extracting structure", "Reading content", "Thinking"]} />
-              </motion.div>
+              <div key="thinking" className="ai-loading" style={{ height: "40px", opacity: 0 }}></div>
             ) : (
               <motion.div
                 key="content"
