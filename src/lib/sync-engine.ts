@@ -192,25 +192,20 @@ export async function fullSync(
         message: `Uploading ${toPushToCloud.length} notes...`,
       });
 
-      // Upload notes one by one to support standard REST backends
-      for (const note of toPushToCloud) {
-        const remoteNote = localToRemote(note);
-        try {
-          const pushRes = await fetch(`${AI_API_BASE}/api/notes`, {
-            method: "POST",
-            headers: await authHeaders(),
-            body: JSON.stringify(remoteNote),
-          });
+      const remoteNotes = toPushToCloud.map(localToRemote);
+      const pushRes = await fetch(`${AI_API_BASE}/api/notes/sync`, {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify({ notes: remoteNotes }),
+      });
 
-          if (!pushRes.ok) {
-            console.error(`[Sync] Push failed for ${note.id}:`, pushRes.status);
-          } else {
-            await db.notes.update(note.id, { syncedAt: Date.now() });
-          }
-        } catch (err) {
-          console.error(`[Sync] Push error for ${note.id}:`, err);
-        }
-        
+      if (!pushRes.ok) {
+        console.error("[Sync] Push failed:", pushRes.status);
+      }
+
+      // Mark as synced locally
+      for (const note of toPushToCloud) {
+        await db.notes.update(note.id, { syncedAt: Date.now() });
         completed++;
         report({
           current: completed,
@@ -258,10 +253,10 @@ export async function pushNote(
 ): Promise<void> {
   try {
     const remote = localToRemote(note);
-    const res = await fetch(`${AI_API_BASE}/api/notes`, {
+    const res = await fetch(`${AI_API_BASE}/api/notes/sync`, {
       method: "POST",
       headers: await authHeaders(),
-      body: JSON.stringify(remote),
+      body: JSON.stringify({ notes: [remote] }),
     });
 
     if (!res.ok) {
