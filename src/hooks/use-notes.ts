@@ -124,9 +124,9 @@ export function useNotes(userId: string | undefined) {
                         { type: "text", text: "Type " },
                         { type: "text", marks: [{ type: "textStyle", attrs: { color: "#fbbf24" } }, { type: "bold" }], text: "/" },
                         { type: "text", text: " to " },
-                        { type: "text", marks: [{ type: "highlight" }, { type: "bold" }], text: "record Audio" },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#fbbf24" } }, { type: "bold" }], text: "record Audio" },
                         { type: "text", text: " or " },
-                        { type: "text", marks: [{ type: "highlight" }, { type: "bold" }], text: "Screen Video" },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#fbbf24" } }, { type: "bold" }], text: "Screen Video" },
                         { type: "text", text: " directly into your note. Then, click the media block to transcribe, summarize, and even " },
                         { type: "text", marks: [{ type: "textStyle", attrs: { color: "#a855f7" } }, { type: "bold" }], text: "Chat with Video/Audio" },
                         { type: "text", text: " to extract key points." }
