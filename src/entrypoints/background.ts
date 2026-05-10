@@ -30,6 +30,12 @@ export default defineBackground(() => {
         return false;
       }
 
+      // Open Chrome settings for this extension
+      if (message.type === "OPEN_EXTENSION_SETTINGS") {
+        chrome.tabs.create({ url: `chrome://settings/content/siteDetails?site=chrome-extension://${chrome.runtime.id}` });
+        return false;
+      }
+
       if (message.type === "OFFSCREEN_READY") {
         if (offscreenReadyResolver) {
           offscreenReadyResolver();

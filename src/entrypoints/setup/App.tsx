@@ -41,6 +41,10 @@ export default function OptionsApp() {
     }
   };
 
+  const openSettings = () => {
+    chrome.runtime.sendMessage({ type: "OPEN_EXTENSION_SETTINGS" });
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8">
       <div className="max-w-md w-full space-y-8 p-8 border rounded-2xl bg-card text-card-foreground shadow-sm">
@@ -79,12 +83,22 @@ export default function OptionsApp() {
             </div>
           )}
 
-          {(permissionState === "prompt" || permissionState === "denied") && (
+          {permissionState === "prompt" && (
             <Button 
               className="w-full h-12 text-lg font-medium" 
               onClick={requestPermission}
             >
               Grant Permission
+            </Button>
+          )}
+
+          {permissionState === "denied" && (
+            <Button 
+              className="w-full h-12 text-lg font-medium" 
+              variant="destructive"
+              onClick={openSettings}
+            >
+              Open Site Settings
             </Button>
           )}
 
