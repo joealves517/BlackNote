@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { Mic, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/hooks/use-theme";
 
 export default function OptionsApp() {
+  const { theme } = useTheme();
   const [permissionState, setPermissionState] = useState<PermissionState | "unsupported">("prompt");
 
   useEffect(() => {
