@@ -13,14 +13,13 @@ export interface UseRecorderReturn {
   mode: RecordingMode | null;
   elapsed: number;
   analyserNode: AnalyserNode | null;
-  startAudioRecording: () => Promise<boolean>;
+  startAudioRecording: (skipMic?: boolean) => Promise<boolean>;
   startScreenRecording: () => Promise<boolean>;
   pauseRecording: () => void;
   resumeRecording: () => void;
   stopRecording: () => Promise<RecorderResult | null>;
   discardRecording: () => void;
   error: string | null;
-  lastRawError: any;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────
@@ -64,7 +63,6 @@ export function useRecorder(): UseRecorderReturn {
   const localStartTime = useRef(0);
   const localPausedElapsed = useRef(0);
   const isLocalRecording = useRef(false);
-  const lastRawError = useRef<any>(null);
   const elapsedRef = useRef(0);
 
   // Keep ref in sync with state
@@ -209,7 +207,7 @@ export function useRecorder(): UseRecorderReturn {
 
   // ── Actions ───────────────────────────────────────────────────────
 
-  const startAudioRecording = useCallback(async (): Promise<boolean> => {
+  const startAudioRecording = useCallback(async (skipMic = false): Promise<boolean> => {
     try {
       setError(null);
       setState("requesting");
@@ -219,23 +217,19 @@ export function useRecorder(): UseRecorderReturn {
       localChunks.current = [];
       localPausedElapsed.current = 0;
 
-      // Step 1: Get mic — required for audio recording
+      // Step 1: Get mic (skip if user chose to continue without mic)
       let micStream: MediaStream | null = null;
-      try {
+      if (!skipMic) {
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: true,
           video: false,
         });
         localStreams.current.push(micStream);
-      } catch (err: any) {
-        console.warn(`[useRecorder] Mic unavailable: ${err?.name} - ${err?.message}`, err);
-        // Bubble up the raw error for the UI to classify and display
-        throw err;
       }
 
       let finalStream: MediaStream | null = micStream;
 
-      // Step 2: Try to capture tab audio via desktopCapture (same-process, works!)
+      // Step 2: Try to capture tab/system audio via desktopCapture
       if (chrome.desktopCapture) {
         try {
           const desktopStreamId = await new Promise<string | null>((resolve) => {
@@ -320,13 +314,12 @@ export function useRecorder(): UseRecorderReturn {
       writeStorage("recording", 0);
       return true;
     } catch (err: any) {
-      lastRawError.current = err;
-      setError(err instanceof Error ? err.message : String(err));
+      // Cleanup internal state but RE-THROW for App.tsx to handle UI
       cleanupLocal();
       setState("idle");
       setMode(null);
       writeStorage("idle", 0);
-      return false;
+      throw err;
     }
   }, [startLocalTimer, writeStorage, cleanupLocal]);
 
@@ -581,6 +574,5 @@ export function useRecorder(): UseRecorderReturn {
     stopRecording,
     discardRecording,
     error,
-    lastRawError: lastRawError.current,
   };
 }

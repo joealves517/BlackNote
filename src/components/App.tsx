@@ -15,8 +15,7 @@ import { Mic, MicOff } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
 import { RecordingHeader } from "@/components/RecordingHeader";
 import { AIErrorSheet } from "@/components/AIErrorSheet";
-import { RecordingErrorSheet, classifyRecordingError } from "@/components/RecordingErrorSheet";
-import type { RecordingErrorInfo } from "@/components/RecordingErrorSheet";
+import { RecordingErrorSheet, classifyRecordingError, type RecordingErrorInfo } from "@/components/RecordingErrorSheet";
 import { HistorySheet } from "@/components/HistorySheet";
 import { MediaActionSheet } from "@/components/MediaActionSheet";
 import { AccountPopup } from "@/components/AccountPopup";
@@ -152,8 +151,21 @@ export function App() {
 
   // ── Recording slash command listeners ──
   useEffect(() => {
+    const removeEditorNode = (editor: any, nodeType: string, mediaId: string) => {
+      editor.state.doc.descendants((node: any, pos: number) => {
+        if (node.type.name === nodeType && node.attrs.mediaId === mediaId) {
+          editor.chain().focus().command(({ tr }: { tr: any }) => {
+            tr.delete(pos, pos + node.nodeSize);
+            return true;
+          }).run();
+          return false;
+        }
+      });
+    };
+
     const handleAudioRecording = async (e: Event) => {
       const detail = (e as CustomEvent).detail;
+      const skipMic = detail?.skipMic || false;
       let insertedMediaId = "";
       if (detail?.editor) {
         recordingEditorRef.current = detail.editor;
@@ -163,25 +175,17 @@ export function App() {
           attrs: { mediaId: insertedMediaId, status: "recording", duration: 0, fileName: "Recording..." },
         }).run();
       }
-      const success = await recorderRef2.current.startAudioRecording();
-      if (!success && detail?.editor && insertedMediaId) {
-        const editor = detail.editor;
-        editor.state.doc.descendants((node: any, pos: number) => {
-          if (node.type.name === "audioNode" && node.attrs.mediaId === insertedMediaId) {
-            editor.chain().focus().command(({ tr }: { tr: any }) => {
-              tr.delete(pos, pos + node.nodeSize);
-              return true;
-            }).run();
-            return false;
-          }
-        });
-        recordingEditorRef.current = null;
-
-        // Show error bottom sheet with classified error
-        const rawErr = recorderRef2.current.lastRawError;
-        if (rawErr) {
-          setRecErrorInfo({ info: classifyRecordingError(rawErr), retryMode: "audio" });
+      try {
+        await recorderRef2.current.startAudioRecording(skipMic);
+      } catch (err: any) {
+        console.warn("[App] Audio recording failed:", err?.name, err?.message);
+        // Remove the inserted node since recording failed
+        if (detail?.editor && insertedMediaId) {
+          removeEditorNode(detail.editor, "audioNode", insertedMediaId);
         }
+        recordingEditorRef.current = null;
+        // Show the error sheet
+        setRecErrorInfo({ info: classifyRecordingError(err), retryMode: "audio" });
       }
     };
 
@@ -196,19 +200,19 @@ export function App() {
           attrs: { mediaId: insertedMediaId, status: "recording", duration: 0, fileName: "Recording..." },
         }).run();
       }
-      const success = await recorderRef2.current.startScreenRecording();
-      if (!success && detail?.editor && insertedMediaId) {
-        const editor = detail.editor;
-        editor.state.doc.descendants((node: any, pos: number) => {
-          if (node.type.name === "videoNode" && node.attrs.mediaId === insertedMediaId) {
-            editor.chain().focus().command(({ tr }: { tr: any }) => {
-              tr.delete(pos, pos + node.nodeSize);
-              return true;
-            }).run();
-            return false;
-          }
-        });
+      try {
+        const success = await recorderRef2.current.startScreenRecording();
+        if (!success && detail?.editor && insertedMediaId) {
+          removeEditorNode(detail.editor, "videoNode", insertedMediaId);
+          recordingEditorRef.current = null;
+        }
+      } catch (err: any) {
+        console.warn("[App] Screen recording failed:", err?.name, err?.message);
+        if (detail?.editor && insertedMediaId) {
+          removeEditorNode(detail.editor, "videoNode", insertedMediaId);
+        }
         recordingEditorRef.current = null;
+        setRecErrorInfo({ info: classifyRecordingError(err), retryMode: "screen" });
       }
     };
 
@@ -290,6 +294,35 @@ export function App() {
       window.removeEventListener("toolbar-discard-recording", onToolbarDiscard);
     };
   }, [handleRecordingStop, handleRecordingDiscard]);
+
+  // Listen for STT errors to show the error sheet
+  useEffect(() => {
+    const handleSttError = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const code = detail?.code;
+      if (code === "NO_DEVICE") {
+        setRecErrorInfo({
+          info: {
+            code: "STT_NO_MIC",
+            title: "No Microphone Found",
+            message: "Speech-to-Text requires a microphone. Please connect a microphone and try again.",
+          },
+          retryMode: "audio",
+        });
+      } else if (code === "NOT_ALLOWED") {
+        setRecErrorInfo({
+          info: {
+            code: "NOT_ALLOWED",
+            title: "Microphone Permission Required",
+            message: "Speech-to-Text needs microphone access. Please grant permission and try again.",
+          },
+          retryMode: "audio",
+        });
+      }
+    };
+    window.addEventListener("stt-error", handleSttError);
+    return () => window.removeEventListener("stt-error", handleSttError);
+  }, []);
 
   const scrollProgressRef = useRef(0);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -831,6 +864,10 @@ export function App() {
           } else if (mode === "screen") {
             window.dispatchEvent(new CustomEvent("start-screen-recording"));
           }
+        }}
+        onContinueWithoutMic={() => {
+          setRecErrorInfo(null);
+          window.dispatchEvent(new CustomEvent("start-audio-recording", { detail: { skipMic: true } }));
         }}
         onOpenSettings={() => {
           chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });

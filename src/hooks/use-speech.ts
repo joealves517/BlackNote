@@ -51,8 +51,13 @@ export function useSpeech() {
       console.error("Speech recognition error:", event.error);
       if (event.error === "not-allowed") {
         shouldAutoRestartRef.current = false;
-        const setupUrl = chrome.runtime.getURL("setup.html");
-        chrome.tabs.create({ url: setupUrl });
+        // Dispatch event for UI to show error sheet instead of silently opening tab
+        window.dispatchEvent(new CustomEvent("stt-error", { detail: { code: "NOT_ALLOWED" } }));
+      }
+      if (event.error === "audio-capture") {
+        shouldAutoRestartRef.current = false;
+        // No mic available
+        window.dispatchEvent(new CustomEvent("stt-error", { detail: { code: "NO_DEVICE" } }));
       }
       // If error is network or no-speech, we might still want to auto-restart
       if (event.error === "aborted") {

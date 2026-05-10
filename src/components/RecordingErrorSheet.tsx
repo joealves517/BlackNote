@@ -4,7 +4,8 @@ import { DotLottieReact, type DotLottie } from "@lottiefiles/dotlottie-react";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { RefreshCCWDotIcon } from "@/components/icons/refresh-ccw-dot";
 import { DeleteIcon } from "@/components/icons/delete";
-import { Mic, MonitorUp, Settings } from "lucide-react";
+import { SparklesIcon } from "@/components/icons/sparkles";
+import { Mic, MonitorUp, Settings, Play } from "lucide-react";
 
 // ─── Error Classification ─────────────────────────────────────────
 
@@ -12,9 +13,11 @@ export type RecordingErrorCode =
   | "NO_DEVICE"
   | "NOT_ALLOWED"
   | "DEVICE_IN_USE"
+  | "NO_AUDIO_SOURCES"
+  | "STT_NO_MIC"
   | "UNKNOWN";
 
-interface RecordingErrorInfo {
+export interface RecordingErrorInfo {
   code: RecordingErrorCode;
   title: string;
   message: string;
@@ -28,15 +31,15 @@ export function classifyRecordingError(err: any): RecordingErrorInfo {
     return {
       code: "NO_DEVICE",
       title: "No Microphone Found",
-      message: "No microphone was detected on this device. Please connect a microphone (headset, USB mic, or AirPods) and try again.",
+      message: "No microphone was detected on this device. You can still record system/tab audio without a microphone.",
     };
   }
 
-  if (name === "NotAllowedError" || msg.includes("notallowederror") || msg.includes("permission")) {
+  if (name === "NotAllowedError" || msg.includes("notallowederror") || msg.includes("permission denied")) {
     return {
       code: "NOT_ALLOWED",
       title: "Permission Required",
-      message: "BlackNote needs microphone access to record audio. Please grant permission and try again.",
+      message: "BlackNote needs microphone access to record. Please grant permission and try again.",
     };
   }
 
@@ -44,14 +47,22 @@ export function classifyRecordingError(err: any): RecordingErrorInfo {
     return {
       code: "DEVICE_IN_USE",
       title: "Microphone Busy",
-      message: "Your microphone is being used by another app (Zoom, Discord, etc). Close other apps using the mic and try again.",
+      message: "Your microphone is being used by another app. Close other apps using the mic and try again.",
+    };
+  }
+
+  if (msg.includes("no audio sources")) {
+    return {
+      code: "NO_AUDIO_SOURCES",
+      title: "No Audio Available",
+      message: "No audio sources could be found. Please connect a microphone or select a tab/screen to capture audio from.",
     };
   }
 
   return {
     code: "UNKNOWN",
     title: "Recording Failed",
-    message: err?.message || "An unexpected error occurred while starting the recording. Please try again.",
+    message: err?.message || "An unexpected error occurred. Please try again.",
   };
 }
 
@@ -62,6 +73,7 @@ interface RecordingErrorSheetProps {
   errorInfo: RecordingErrorInfo | null;
   onDismiss: () => void;
   onRetry?: () => void;
+  onContinueWithoutMic?: () => void;
   onOpenSettings?: () => void;
 }
 
@@ -70,6 +82,7 @@ export function RecordingErrorSheet({
   errorInfo,
   onDismiss,
   onRetry,
+  onContinueWithoutMic,
   onOpenSettings,
 }: RecordingErrorSheetProps) {
   const [dotLottie, setDotLottie] = useState<DotLottie | null>(null);
@@ -107,16 +120,8 @@ export function RecordingErrorSheet({
 
   if (!errorInfo) return null;
 
-  const iconForCode = () => {
-    switch (errorInfo.code) {
-      case "NO_DEVICE":
-        return <Mic className="h-4 w-4" />;
-      case "DEVICE_IN_USE":
-        return <MonitorUp className="h-4 w-4" />;
-      default:
-        return <Mic className="h-4 w-4" />;
-    }
-  };
+  const showContinueWithoutMic = errorInfo.code === "NO_DEVICE" && onContinueWithoutMic;
+  const showGrantPermission = errorInfo.code === "NOT_ALLOWED" && onOpenSettings;
 
   return (
     <AnimatePresence>
@@ -169,6 +174,44 @@ export function RecordingErrorSheet({
               {/* Action Buttons */}
               <div className="ai-cmd-groups" style={{ marginTop: "16px" }}>
                 <div className="ai-cmd-group">
+                  {showContinueWithoutMic && (
+                    <button
+                      className="novel-slash-item w-full text-left"
+                      onClick={onContinueWithoutMic}
+                    >
+                      <div className="novel-slash-icon" style={{ borderColor: "hsl(var(--primary)/0.3)", color: "hsl(var(--primary))" }}>
+                        <AnimatedIcon animation="hover">
+                          <Play className="h-4 w-4" />
+                        </AnimatedIcon>
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-medium">Continue without Mic</p>
+                        <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                          Record system/tab audio only
+                        </p>
+                      </div>
+                    </button>
+                  )}
+
+                  {showGrantPermission && (
+                    <button
+                      className="novel-slash-item w-full text-left"
+                      onClick={onOpenSettings}
+                    >
+                      <div className="novel-slash-icon">
+                        <AnimatedIcon animation="hover">
+                          <Settings className="h-4 w-4" />
+                        </AnimatedIcon>
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-medium">Grant Permission</p>
+                        <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                          Open microphone permission settings
+                        </p>
+                      </div>
+                    </button>
+                  )}
+
                   {onRetry && (
                     <button
                       className="novel-slash-item w-full text-left"
@@ -188,25 +231,6 @@ export function RecordingErrorSheet({
                     </button>
                   )}
 
-                  {errorInfo.code === "NOT_ALLOWED" && onOpenSettings && (
-                    <button
-                      className="novel-slash-item w-full text-left"
-                      onClick={onOpenSettings}
-                    >
-                      <div className="novel-slash-icon">
-                        <AnimatedIcon animation="hover">
-                          <Settings className="h-4 w-4" />
-                        </AnimatedIcon>
-                      </div>
-                      <div>
-                        <p className="text-[13px] font-medium">Grant Permission</p>
-                        <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                          Open permission settings
-                        </p>
-                      </div>
-                    </button>
-                  )}
-
                   <button
                     className="novel-slash-item w-full text-left"
                     onClick={onDismiss}
@@ -217,7 +241,7 @@ export function RecordingErrorSheet({
                       </AnimatedIcon>
                     </div>
                     <div>
-                      <p className="text-[13px] font-medium text-destructive">Close</p>
+                      <p className="text-[13px] font-medium text-destructive">Cancel</p>
                       <p className="text-[11px]" style={{ color: "hsl(var(--destructive)/0.8)" }}>
                         Dismiss this notification
                       </p>
