@@ -37,13 +37,16 @@ const parserExtensions = [
  */
 export function markdownToProsemirror(md: string): string {
   try {
-    const html = marked.parse(md) as string;
+    // breaks: true ensures single newlines become <br> instead of being ignored
+    // gfm: true is standard for GitHub Flavored Markdown (tables, etc.)
+    const html = marked.parse(md, { breaks: true, gfm: true }) as string;
     const json = generateJSON(html, parserExtensions);
     return JSON.stringify(json);
   } catch (err) {
     console.error("Failed to parse markdown", err);
-    // Fallback to basic text if parsing fails entirely
-    const fallback = generateJSON(`<p>${md}</p>`, parserExtensions);
+    // Fallback: retain newlines by converting them to <br> so it doesn't become a single block of text
+    const fallbackHtml = md.replace(/\n/g, "<br>");
+    const fallback = generateJSON(`<p>${fallbackHtml}</p>`, parserExtensions);
     return JSON.stringify(fallback);
   }
 }
