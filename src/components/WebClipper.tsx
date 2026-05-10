@@ -102,15 +102,30 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
 
   useEffect(() => {
     // Toggle the 'account-sheet' class on the parent sheet to enable the cutout effect for the Lottie robot
+    // Also remove overflow-y so the robot isn't clipped by the scroll container
     const sheet = document.querySelector('.clipper-sheet');
+    const contentWrapper = document.querySelector('.clipper-sheet-content');
+    
     if (processing && processing !== "spark_sent") {
       sheet?.classList.add('account-sheet');
+      if (contentWrapper) {
+        (contentWrapper as HTMLElement).style.overflow = "visible";
+        (contentWrapper as HTMLElement).style.overflowY = "visible";
+      }
     } else {
       sheet?.classList.remove('account-sheet');
+      if (contentWrapper) {
+        (contentWrapper as HTMLElement).style.overflow = "";
+        (contentWrapper as HTMLElement).style.overflowY = "";
+      }
     }
     
     return () => {
       sheet?.classList.remove('account-sheet');
+      if (contentWrapper) {
+        (contentWrapper as HTMLElement).style.overflow = "";
+        (contentWrapper as HTMLElement).style.overflowY = "";
+      }
     };
   }, [processing]);
 

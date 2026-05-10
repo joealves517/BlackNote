@@ -162,7 +162,12 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
 
         <motion.div
           className="clipper-sheet-content"
-          style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}
+          style={{ 
+            display: "flex", 
+            flexDirection: "column", 
+            overflow: visualState === "thinking" ? "visible" : "hidden",
+            overflowY: visualState === "thinking" ? "visible" : "auto"
+          }}
         >
           {/* ─── Thinking State ─── */}
           <AnimatePresence mode="wait">
