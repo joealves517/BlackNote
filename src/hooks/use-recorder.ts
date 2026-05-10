@@ -318,12 +318,15 @@ export function useRecorder(): UseRecorderReturn {
       };
 
       // Auto-stop when Chrome's "Stop sharing" button is clicked
-      finalStream.getAudioTracks().forEach(track => {
-        track.onended = () => {
-          if (localRecorder.current?.state !== "inactive") {
-            window.dispatchEvent(new CustomEvent("toolbar-stop-recording"));
-          }
-        };
+      // Must listen on ORIGINAL source tracks, not the AudioContext destination
+      localStreams.current.forEach(stream => {
+        stream.getTracks().forEach(track => {
+          track.onended = () => {
+            if (localRecorder.current?.state !== "inactive") {
+              window.dispatchEvent(new CustomEvent("toolbar-stop-recording"));
+            }
+          };
+        });
       });
 
       rec.start(1000);

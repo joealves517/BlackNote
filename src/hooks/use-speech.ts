@@ -7,11 +7,23 @@ export function useSpeech() {
   const recognitionRef = useRef<any>(null);
   const shouldAutoRestartRef = useRef(false);
 
-  const startRecording = useCallback((onResult: (interim: string, isFinal: boolean) => void) => {
+  const startRecording = useCallback(async (onResult: (interim: string, isFinal: boolean) => void) => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Speech recognition is not supported in this browser.");
+      window.dispatchEvent(new CustomEvent("stt-error", { detail: { code: "NOT_SUPPORTED" } }));
       return;
+    }
+
+    // Pre-check: is there any microphone hardware available?
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const hasMic = devices.some(d => d.kind === "audioinput" && d.deviceId !== "");
+      if (!hasMic) {
+        window.dispatchEvent(new CustomEvent("stt-error", { detail: { code: "NO_DEVICE" } }));
+        return;
+      }
+    } catch {
+      // enumerateDevices not available — proceed and let SpeechRecognition handle it
     }
 
     if (recognitionRef.current) {
@@ -51,15 +63,12 @@ export function useSpeech() {
       console.error("Speech recognition error:", event.error);
       if (event.error === "not-allowed") {
         shouldAutoRestartRef.current = false;
-        // Dispatch event for UI to show error sheet instead of silently opening tab
         window.dispatchEvent(new CustomEvent("stt-error", { detail: { code: "NOT_ALLOWED" } }));
       }
       if (event.error === "audio-capture") {
         shouldAutoRestartRef.current = false;
-        // No mic available
         window.dispatchEvent(new CustomEvent("stt-error", { detail: { code: "NO_DEVICE" } }));
       }
-      // If error is network or no-speech, we might still want to auto-restart
       if (event.error === "aborted") {
          shouldAutoRestartRef.current = false;
       }
