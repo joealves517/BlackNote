@@ -191,6 +191,7 @@ export function App() {
 
     const handleScreenRecording = async (e: Event) => {
       const detail = (e as CustomEvent).detail;
+      const skipMic = detail?.skipMic || false;
       let insertedMediaId = "";
       if (detail?.editor) {
         recordingEditorRef.current = detail.editor;
@@ -201,7 +202,7 @@ export function App() {
         }).run();
       }
       try {
-        const success = await recorderRef2.current.startScreenRecording();
+        const success = await recorderRef2.current.startScreenRecording(skipMic);
         if (!success && detail?.editor && insertedMediaId) {
           removeEditorNode(detail.editor, "videoNode", insertedMediaId);
           recordingEditorRef.current = null;
@@ -866,8 +867,13 @@ export function App() {
           }
         }}
         onContinueWithoutMic={() => {
+          const mode = recErrorInfo?.retryMode;
           setRecErrorInfo(null);
-          window.dispatchEvent(new CustomEvent("start-audio-recording", { detail: { skipMic: true } }));
+          if (mode === "screen") {
+            window.dispatchEvent(new CustomEvent("start-screen-recording", { detail: { skipMic: true } }));
+          } else {
+            window.dispatchEvent(new CustomEvent("start-audio-recording", { detail: { skipMic: true } }));
+          }
         }}
         onOpenSettings={() => {
           chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });

@@ -14,7 +14,7 @@ export interface UseRecorderReturn {
   elapsed: number;
   analyserNode: AnalyserNode | null;
   startAudioRecording: (skipMic?: boolean) => Promise<boolean>;
-  startScreenRecording: () => Promise<boolean>;
+  startScreenRecording: (skipMic?: boolean) => Promise<boolean>;
   pauseRecording: () => void;
   resumeRecording: () => void;
   stopRecording: () => Promise<RecorderResult | null>;
@@ -217,14 +217,29 @@ export function useRecorder(): UseRecorderReturn {
       localChunks.current = [];
       localPausedElapsed.current = 0;
 
-      // Step 1: Get mic (skip if user chose to continue without mic)
+      // Step 1: Get mic
       let micStream: MediaStream | null = null;
+      let micError: any = null;
       if (!skipMic) {
-        micStream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: false,
-        });
-        localStreams.current.push(micStream);
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: false,
+          });
+          localStreams.current.push(micStream);
+        } catch (err: any) {
+          console.warn(`[useRecorder] Mic unavailable: ${err?.name} - ${err?.message}`);
+          micError = err;
+          // Don't throw — let user decide via the error sheet
+        }
+      }
+
+      // If mic failed and we're not in skipMic mode, throw for UI to handle
+      if (micError && !skipMic) {
+        cleanupLocal();
+        setState("idle");
+        setMode(null);
+        throw micError;
       }
 
       let finalStream: MediaStream | null = micStream;
@@ -249,7 +264,6 @@ export function useRecorder(): UseRecorderReturn {
               } as any,
             });
 
-            // Drop video tracks
             desktopStream.getVideoTracks().forEach(t => { t.stop(); desktopStream.removeTrack(t); });
             localStreams.current.push(desktopStream);
 
@@ -258,8 +272,6 @@ export function useRecorder(): UseRecorderReturn {
               if (ctx.state === "suspended") await ctx.resume();
               localAudioCtx.current = ctx;
               const destination = ctx.createMediaStreamDestination();
-
-              // Create analyser for waveform visualization
               const analyser = ctx.createAnalyser();
               analyser.fftSize = 256;
 
@@ -278,7 +290,7 @@ export function useRecorder(): UseRecorderReturn {
             }
           }
         } catch (err) {
-          console.warn("[useRecorder] Tab audio capture failed, mic-only:", err);
+          console.warn("[useRecorder] Tab audio capture failed:", err);
         }
       }
 
@@ -286,7 +298,7 @@ export function useRecorder(): UseRecorderReturn {
         throw new Error("No audio sources available");
       }
 
-      // If no AudioContext was created (mic-only), create analyser from mic stream
+      // If mic-only (no desktopCapture), create analyser
       if (!analyserNode && finalStream.getAudioTracks().length > 0) {
         const ctx = new AudioContext();
         if (ctx.state === "suspended") await ctx.resume();
@@ -298,11 +310,9 @@ export function useRecorder(): UseRecorderReturn {
         setAnalyserNode(analyser);
       }
 
-      // Step 3: Start MediaRecorder locally
       const mimeType = selectAudioMimeType();
       const rec = new MediaRecorder(finalStream, { mimeType });
       localRecorder.current = rec;
-
       rec.ondataavailable = (e) => {
         if (e.data.size > 0) localChunks.current.push(e.data);
       };
@@ -314,7 +324,6 @@ export function useRecorder(): UseRecorderReturn {
       writeStorage("recording", 0);
       return true;
     } catch (err: any) {
-      // Cleanup internal state but RE-THROW for App.tsx to handle UI
       cleanupLocal();
       setState("idle");
       setMode(null);
@@ -323,7 +332,7 @@ export function useRecorder(): UseRecorderReturn {
     }
   }, [startLocalTimer, writeStorage, cleanupLocal]);
 
-  const startScreenRecording = useCallback(async (): Promise<boolean> => {
+  const startScreenRecording = useCallback(async (skipMic = false): Promise<boolean> => {
     try {
       setError(null);
       setState("requesting");
@@ -333,11 +342,22 @@ export function useRecorder(): UseRecorderReturn {
       localChunks.current = [];
       localPausedElapsed.current = 0;
 
+      // Step 0: Pre-check mic availability (unless user chose to skip)
+      if (!skipMic) {
+        try {
+          const testStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          testStream.getTracks().forEach(t => t.stop());
+        } catch (err: any) {
+          console.warn(`[useRecorder] Mic pre-check failed for screen recording: ${err?.name}`);
+          cleanupLocal();
+          setState("idle");
+          setMode(null);
+          throw err; // Let App.tsx show the sheet
+        }
+      }
+
       if (!chrome.desktopCapture) {
-        setError("Desktop capture not supported.");
-        setState("idle");
-        setMode(null);
-        return false;
+        throw new Error("Desktop capture not supported.");
       }
 
       // Show screen/tab picker
@@ -367,46 +387,41 @@ export function useRecorder(): UseRecorderReturn {
 
       let finalStream = displayStream;
 
-      // Try to add mic audio mixed in
-      try {
-        const micStream = await navigator.mediaDevices.getUserMedia({
-          audio: true, // Simplified to prevent OverconstrainedError
-          video: false,
-        });
-        localStreams.current.push(micStream);
+      // Try to add mic audio (only if not skipping)
+      if (!skipMic) {
+        try {
+          const micStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: false,
+          });
+          localStreams.current.push(micStream);
 
-        const ctx = new AudioContext();
-        if (ctx.state === "suspended") await ctx.resume();
-        localAudioCtx.current = ctx;
-        const destination = ctx.createMediaStreamDestination();
+          const ctx = new AudioContext();
+          if (ctx.state === "suspended") await ctx.resume();
+          localAudioCtx.current = ctx;
+          const destination = ctx.createMediaStreamDestination();
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 256;
 
-        // Create analyser for waveform
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
+          const displayAudioTracks = displayStream.getAudioTracks();
+          if (displayAudioTracks.length > 0) {
+            const displayAudioStream = new MediaStream(displayAudioTracks);
+            const displaySource = ctx.createMediaStreamSource(displayAudioStream);
+            displaySource.connect(destination);
+            displaySource.connect(analyser);
+          }
 
-        // Mix display audio
-        const displayAudioTracks = displayStream.getAudioTracks();
-        if (displayAudioTracks.length > 0) {
-          const displayAudioStream = new MediaStream(displayAudioTracks);
-          const displaySource = ctx.createMediaStreamSource(displayAudioStream);
-          displaySource.connect(destination);
-          displaySource.connect(analyser);
+          const micSource = ctx.createMediaStreamSource(micStream);
+          micSource.connect(destination);
+          micSource.connect(analyser);
+          setAnalyserNode(analyser);
+
+          const videoTrack = displayStream.getVideoTracks()[0];
+          const mixedAudio = destination.stream.getAudioTracks();
+          finalStream = new MediaStream([videoTrack, ...mixedAudio]);
+        } catch (err: any) {
+          console.warn(`[useRecorder] Mic unavailable for screen recording (continuing without): ${err?.name}`);
         }
-
-        // Mix mic audio
-        const micSource = ctx.createMediaStreamSource(micStream);
-        micSource.connect(destination);
-        micSource.connect(analyser);
-
-        setAnalyserNode(analyser);
-
-        // Combine: video from display + mixed audio
-        const videoTrack = displayStream.getVideoTracks()[0];
-        const mixedAudio = destination.stream.getAudioTracks();
-        finalStream = new MediaStream([videoTrack, ...mixedAudio]);
-      } catch (err: any) {
-        // Mic is optional for screen recording — just log and continue with display audio only
-        console.warn(`[useRecorder] Mic unavailable for screen recording (continuing without mic): ${err?.name} - ${err?.message}`);
       }
 
       const mimeType = selectVideoMimeType();
@@ -417,7 +432,6 @@ export function useRecorder(): UseRecorderReturn {
         if (e.data.size > 0) localChunks.current.push(e.data);
       };
 
-      // Auto-stop when screen share ends
       displayStream.getVideoTracks().forEach(track => {
         track.onended = () => {
           if (localRecorder.current?.state !== "inactive") {
@@ -432,13 +446,12 @@ export function useRecorder(): UseRecorderReturn {
       startLocalTimer();
       writeStorage("recording", 0);
       return true;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+    } catch (err: any) {
       cleanupLocal();
       setState("idle");
       setMode(null);
       writeStorage("idle", 0);
-      return false;
+      throw err;
     }
   }, [startLocalTimer, writeStorage, cleanupLocal]);
 
