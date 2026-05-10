@@ -7,7 +7,7 @@ import { LogoutIcon } from "@/components/icons/logout";
 import { CircleCheckIcon } from "@/components/icons/circle-check";
 import { LoaderIcon } from "@/components/ui/loader";
 
-import { MessageSquare, PenLine, Mic, Wand2, Zap, Minus } from "lucide-react";
+import { MessageSquare, PenLine, Mic, Wand2, Zap, Minus, Video } from "lucide-react";
 import { CHECKOUT_BASE } from "@/lib/constants";
 import type { AppUser } from "@/lib/auth-client";
 
@@ -123,9 +123,9 @@ const FeatureList = ({ isPro, quotaExhausted, isGuest = false }: { isPro: boolea
       isGuest={isGuest}
     />
     <AIFeatureItem
-      icon={<AnimatedIcon animation="none"><PenLine className="text-purple-500 w-5 h-5 flex items-center justify-center" strokeWidth={1.5} /></AnimatedIcon>}
-      title="Smart Text Rewrite"
-      description={isPro && !quotaExhausted ? "Advanced analysis" : "Limited usage"}
+      icon={<AnimatedIcon animation="none"><Video className="text-purple-500 w-5 h-5 flex items-center justify-center" strokeWidth={1.5} /></AnimatedIcon>}
+      title="Chat with Video/Audio"
+      description={isPro && !quotaExhausted ? "Deep media insights" : "Limited usage"}
       available={true}
       colorRgb="168, 85, 247"
       isGuest={isGuest}

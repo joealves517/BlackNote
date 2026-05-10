@@ -95,7 +95,7 @@ export function useNotes(userId: string | undefined) {
           content: [
             {
               type: "paragraph",
-              content: [{ type: "text", text: "Here are some tips to get you started:" }]
+              content: [{ type: "text", text: "Welcome to your intelligent workspace! Here are some powerful features to get you started:" }]
             },
             {
               type: "bulletList",
@@ -106,9 +106,26 @@ export function useNotes(userId: string | undefined) {
                     {
                       type: "paragraph",
                       content: [
+                        { type: "text", marks: [{ type: "bold" }], text: "Chat with Note: " },
+                        { type: "text", text: "Click the " },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#3b82f6" } }, { type: "bold" }], text: "Sparkles icon" },
+                        { type: "text", text: " on the top right to talk directly with your document. Ask questions, extract insights, and get instant answers." }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: "listItem",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [
+                        { type: "text", marks: [{ type: "bold" }], text: "Audio & Video AI: " },
                         { type: "text", text: "Type " },
                         { type: "text", marks: [{ type: "textStyle", attrs: { color: "#fbbf24" } }, { type: "bold" }], text: "/" },
-                        { type: "text", text: " to open the command menu and access headings, lists, or Ask AI." }
+                        { type: "text", text: " to record Audio or Screen Video directly into your note. Then, click the media block to transcribe, summarize, and even " },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#a855f7" } }, { type: "bold" }], text: "Chat with Video/Audio" },
+                        { type: "text", text: " to extract key points." }
                       ]
                     }
                   ]
@@ -119,9 +136,24 @@ export function useNotes(userId: string | undefined) {
                     {
                       type: "paragraph",
                       content: [
+                        { type: "text", marks: [{ type: "bold" }], text: "Smart Commands: " },
+                        { type: "text", text: "Type " },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#fbbf24" } }, { type: "bold" }], text: "/" },
+                        { type: "text", text: " anywhere to quickly insert text formatting, headings, lists, or record media." }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: "listItem",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [
+                        { type: "text", marks: [{ type: "bold" }], text: "Contextual Magic: " },
                         { type: "text", text: "Highlight any text and press " },
                         { type: "text", marks: [{ type: "textStyle", attrs: { color: "#a855f7" } }, { type: "bold" }], text: "Ask AI" },
-                        { type: "text", text: " to instantly rewrite, summarize, or translate it." }
+                        { type: "text", text: " to effortlessly rewrite, translate, or polish your writing like a pro." }
                       ]
                     }
                   ]
@@ -132,7 +164,10 @@ export function useNotes(userId: string | undefined) {
                     {
                       type: "paragraph",
                       content: [
-                        { type: "text", text: "Connect your Google account to sync notes seamlessly across all your devices." }
+                        { type: "text", marks: [{ type: "bold" }], text: "Web Clipper: " },
+                        { type: "text", text: "Use the " },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#3b82f6" } }, { type: "bold" }], text: "Globe icon" },
+                        { type: "text", text: " in the toolbar (or while watching YouTube videos) to instantly capture content and save it directly into your notes." }
                       ]
                     }
                   ]
@@ -143,9 +178,8 @@ export function useNotes(userId: string | undefined) {
                     {
                       type: "paragraph",
                       content: [
-                        { type: "text", text: "Explore the " },
-                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#3b82f6" } }, { type: "bold" }], text: "Web Clipper" },
-                        { type: "text", text: " to save web pages directly into your notes." }
+                        { type: "text", marks: [{ type: "bold" }], text: "Seamless Sync: " },
+                        { type: "text", text: "Connect your Google account and never lose a thought. Your notes sync securely across all your devices." }
                       ]
                     }
                   ]
@@ -155,7 +189,7 @@ export function useNotes(userId: string | undefined) {
             {
               type: "paragraph",
               content: [
-                { type: "text", marks: [{ type: "textStyle", attrs: { color: "#10b981" } }, { type: "bold" }], text: "Happy writing! 🚀" }
+                { type: "text", marks: [{ type: "textStyle", attrs: { color: "#10b981" } }, { type: "bold" }], text: "Ready to elevate your productivity? Happy writing! 🚀" }
               ]
             }
           ]
