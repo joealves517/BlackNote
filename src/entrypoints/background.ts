@@ -36,6 +36,11 @@ export default defineBackground(() => {
         return false;
       }
 
+      if (message.type === "RELOAD_SIDEPANEL") {
+        chrome.runtime.sendMessage({ type: "DO_RELOAD_SIDEPANEL" }).catch(() => {});
+        return false;
+      }
+
       if (message.type === "OFFSCREEN_READY") {
         if (offscreenReadyResolver) {
           offscreenReadyResolver();

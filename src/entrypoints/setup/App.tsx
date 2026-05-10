@@ -35,6 +35,7 @@ export default function OptionsApp() {
       // Stop the tracks immediately since we only want permission
       stream.getTracks().forEach((track) => track.stop());
       setPermissionState("granted");
+      chrome.runtime.sendMessage({ type: "RELOAD_SIDEPANEL" });
     } catch (err) {
       console.error("Failed to get microphone permission", err);
       setPermissionState("denied");

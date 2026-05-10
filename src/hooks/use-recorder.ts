@@ -153,6 +153,16 @@ export function useRecorder(): UseRecorderReturn {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [mode]);
 
+  useEffect(() => {
+    const handleMsg = (msg: any) => {
+      if (msg.type === "DO_RELOAD_SIDEPANEL") {
+        window.location.reload();
+      }
+    };
+    chrome.runtime.onMessage.addListener(handleMsg);
+    return () => chrome.runtime.onMessage.removeListener(handleMsg);
+  }, []);
+
   // ── Local helpers ──
 
   const writeStorage = useCallback((s: RecordingState, e?: number) => {
