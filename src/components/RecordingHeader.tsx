@@ -152,17 +152,6 @@ export function RecordingHeader({
                 </button>
               )}
 
-              {/* Discard */}
-              {onDiscard && (
-                <button
-                  className="recording-ctrl-btn discard"
-                  onClick={onDiscard}
-                  title="Discard"
-                  type="button"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              )}
             </>
           )}
         </div>

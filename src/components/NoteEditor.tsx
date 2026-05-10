@@ -47,6 +47,7 @@ import {
   handleImagePaste,
   handleImageDrop,
   UploadImagesPlugin,
+  useEditor,
   type JSONContent,
   type SuggestionItem,
 } from "novel";
@@ -61,9 +62,62 @@ import { Button } from "@/components/ui/button";
 import { GenerativeMenuSwitch } from "@/components/generative/GenerativeMenuSwitch";
 import { AISelector } from "@/components/generative/AISelector";
 import { NoteChatSheet } from "@/components/generative/NoteChatSheet";
+import { MediaAIResultSheet } from "@/components/generative/MediaAIResultSheet";
 import { supabase } from "@/lib/supabase";
+import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
 import type { Note } from "@/hooks/use-notes";
 import { useSpeech } from "@/hooks/use-speech";
+
+/**
+ * Bridge: listens for content insertion events.
+ * - 'insert-ai-content': inserts at end of doc
+ * - 'media-ai-result': opens MediaAIResultSheet for review/insert
+ */
+function AIContentInsertBridge() {
+  const { editor } = useEditor();
+  const [mediaResult, setMediaResult] = useState<{ text: string; mediaId: string } | null>(null);
+
+  useEffect(() => {
+    const handleInsert = (e: Event) => {
+      const text = (e as CustomEvent).detail?.text;
+      if (!editor || !text) return;
+      try {
+        const jsonStr = markdownToProsemirror(text);
+        const json = JSON.parse(jsonStr);
+        const parsed = json.content || text;
+        editor.chain().focus().insertContentAt(editor.state.doc.content.size, parsed).run();
+      } catch {
+        editor.chain().focus().insertContentAt(editor.state.doc.content.size, text).run();
+      }
+    };
+
+    const handleMediaResult = (e: Event) => {
+      const { text, mediaId } = (e as CustomEvent).detail || {};
+      if (!text || !mediaId) return;
+      setMediaResult({ text, mediaId });
+    };
+
+    window.addEventListener("insert-ai-content", handleInsert);
+    window.addEventListener("media-ai-result", handleMediaResult);
+    return () => {
+      window.removeEventListener("insert-ai-content", handleInsert);
+      window.removeEventListener("media-ai-result", handleMediaResult);
+    };
+  }, [editor]);
+
+  return (
+    <>
+      {mediaResult && (
+        <MediaAIResultSheet
+          completion={mediaResult.text}
+          mediaId={mediaResult.mediaId}
+          onClose={() => setMediaResult(null)}
+        />
+      )}
+    </>
+  );
+}
+
 
 /**
  * Lightweight bridge: listens for 'open-ai-sheet' event
@@ -542,9 +596,16 @@ export function NoteEditor({
 
   return (
     <div
-      className="flex-1 flex flex-col h-full overflow-hidden"
+      className="flex-1 flex flex-col h-full overflow-hidden relative"
       style={{ backgroundColor: "hsl(var(--background))" }}
     >
+      {/* Apple-style Top Fade Overlay */}
+      <div 
+        className="absolute top-0 left-0 right-0 h-10 z-20 pointer-events-none"
+        style={{
+          background: "linear-gradient(to bottom, hsl(var(--background)) 10%, transparent 100%)"
+        }}
+      />
       {/* Scrollable Container for Title + Editor */}
       <div
         className="flex-1 overflow-y-auto novel-wrapper"
@@ -716,6 +777,7 @@ export function NoteEditor({
 
             {/* AI Bottom Sheet — inside EditorContent but portaled to prevent Prosemirror scroll jumps */}
             <AISheetTrigger />
+            <AIContentInsertBridge />
             <ChatSheetBridge note={note} noteTitle={titleValue} onUpdateNote={onUpdateNote} />
             <ImportExportSheetBridge 
               noteId={note.id} 

@@ -5,6 +5,7 @@ import { config } from "./config/index.js";
 import { rateLimit } from "./middleware/rate-limit.js";
 import aiRouter from "./routes/ai.js";
 import aiFreeRouter from "./routes/ai-free.js";
+import mediaAiRouter from "./routes/media-ai.js";
 import userRouter from "./routes/user.js";
 import webhookRouter from "./routes/webhook.js";
 
@@ -42,14 +43,19 @@ app.use(
   webhookRouter
 );
 
+// Media routes receive base64 audio — larger payload limit
+app.use("/api/media", express.json({ limit: "50mb" }));
+
 // All other routes use JSON parsing
 app.use(express.json({ limit: "2mb" }));
 
 // ─── Rate Limiting ──────────────────────────────────────────────────
+app.use("/api/media", rateLimit);
 app.use("/api/ai/free", rateLimit);
 app.use("/api/ai", rateLimit);
 
-// ─── Routes ─────────────────────────────────────────────────────────
+// ─── Routes ─────────────────────────────────────────────────────
+app.use("/api/media", mediaAiRouter);
 app.use("/api/ai/free", aiFreeRouter);
 app.use("/api/ai", aiRouter);
 app.use("/api/user", userRouter);

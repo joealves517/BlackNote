@@ -21,9 +21,18 @@ export interface MediaFile {
   fileName: string;
 }
 
+export interface MediaTranscript {
+  mediaId: string;
+  segments: { start: number; end: number; text: string }[];
+  transcript: string;
+  language: string;
+  analyzedAt: number;
+}
+
 const db = new Dexie("blacknote") as Dexie & {
   notes: EntityTable<LocalNote, "id">;
   media_files: EntityTable<MediaFile, "id">;
+  media_transcripts: EntityTable<MediaTranscript, "mediaId">;
 };
 
 db.version(1).stores({
@@ -33,6 +42,12 @@ db.version(1).stores({
 db.version(2).stores({
   notes: "id, updatedAt",
   media_files: "id, noteId, type, createdAt",
+});
+
+db.version(3).stores({
+  notes: "id, updatedAt",
+  media_files: "id, noteId, type, createdAt",
+  media_transcripts: "mediaId",
 });
 
 export { db };

@@ -24,6 +24,7 @@ import { ScanTextIcon } from "@/components/icons/scan-text";
 import { DynamicThinking } from "@/components/ui/dynamic-thinking";
 import { useAuth } from "@/hooks/use-auth";
 import { useCredits } from "@/hooks/use-credits";
+import { getTranscriptsForNote } from "@/lib/media-ai-service";
 
 interface ChatMessage {
   role: "user" | "ai";
@@ -37,6 +38,21 @@ interface NoteChatSheetProps {
   initialHistory: ChatMessage[];
   onHistoryChange: (newHistory: ChatMessage[]) => void;
   onClose: () => void;
+}
+
+// Helper to extract text from markdown nodes
+function extractMarkdownText(node: any): string {
+  if (typeof node === "string") return node;
+  if (Array.isArray(node)) return node.map(extractMarkdownText).join("");
+  if (node && node.props && node.props.children) return extractMarkdownText(node.props.children);
+  return "";
+}
+
+// Helper to extract text from ProseMirror JSON
+function extractProseMirrorText(node: any): string {
+  if (node.type === "text") return node.text || "";
+  if (node.content) return node.content.map(extractProseMirrorText).join(" ");
+  return "";
 }
 
 /* ===== NoteChatSheet ===== */
@@ -62,20 +78,38 @@ export function NoteChatSheet({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { editor } = useEditor();
 
+  // Load media transcripts for enriching AI context
+  const [mediaContext, setMediaContext] = useState("");
+  const [mediaTranscripts, setMediaTranscripts] = useState<Map<string, any>>(new Map());
+  useEffect(() => {
+    getTranscriptsForNote(noteContent).then((transcripts) => {
+      setMediaTranscripts(transcripts);
+      if (transcripts.size === 0) {
+        // Check if there are unanalyzed media nodes
+        try {
+          const doc = JSON.parse(noteContent);
+          const hasMedia = JSON.stringify(doc).includes('"audioNode"') || JSON.stringify(doc).includes('"videoNode"');
+          if (hasMedia) {
+            setMediaContext(
+              `\n\n--- MEDIA: Audio/Video recording(s) present in this note but NOT yet analyzed ---\nIf the user asks about any recording, respond: "This recording hasn't been analyzed yet. Please tap on the recording and select 'Analyze with AI' to transcribe it first."\n---`
+            );
+          }
+        } catch {}
+        return;
+      }
+      let ctx = "";
+      transcripts.forEach((t, mediaId) => {
+        ctx += `\n\n--- MEDIA TRANSCRIPT (ID: ${mediaId}) ---\n${t.transcript}\n--- END TRANSCRIPT ---`;
+      });
+      setMediaContext(ctx);
+    });
+  }, [noteContent]);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setToken(data.session?.access_token || null);
     });
   }, []);
-
-  useEffect(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({
-        top: scrollContainerRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
-  }, [messages]);
 
   const { completion, complete, isLoading } = useCompletion({
     api: token ? `${AI_API_BASE}/api/ai` : `${AI_API_BASE}/api/ai/free`,
@@ -104,6 +138,16 @@ export function NoteChatSheet({
     },
   });
 
+  // Auto-scroll to bottom on new messages or during AI streaming completion
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [messages, completion]);
+
   const handleSubmit = useCallback(() => {
     if (!input.trim() || isLoading) return;
     const currentInput = input.trim();
@@ -130,10 +174,10 @@ export function NoteChatSheet({
       body: {
         option: "chat",
         history: [...messages, userMsg],
-        noteContext: `--- STRICT SYSTEM RULES ---\n1. Always reply in the exact same language as the user's prompt.\n2. Whenever you answer a question, extract facts, fix grammar, or reference the note, you MUST quote the exact source text from the note.\n3. You MUST format these quotes using markdown blockquotes (e.g. > quote text).\n4. NEVER provide an answer without citing the exact blockquote from the note if your answer relies on it.\n5. When quoting multiple lines or lists, you MUST preserve the exact line breaks and list numbers from the original text (do not merge them into a single line).\n\n# NOTE TITLE: ${noteTitle}\n\n# NOTE CONTENT:\n${noteContent}`,
+        noteContext: `--- STRICT SYSTEM RULES ---\n1. Always reply in the exact same language as the user's prompt.\n2. Whenever you answer a question, extract facts, fix grammar, or reference the note, you MUST quote the exact source text from the note.\n3. You MUST format these quotes using markdown blockquotes (e.g. > quote text).\n4. NEVER provide an answer without citing the exact blockquote from the note if your answer relies on it.\n5. When quoting multiple lines or lists, you MUST preserve the exact line breaks and list numbers from the original text (do not merge them into a single line).\n6. IMPORTANT: If the information comes from a MEDIA TRANSCRIPT, you MUST cite it by outputting EXACTLY this format on a new line: > [MEDIA: mediaId] (replace mediaId with the actual ID shown in the transcript header). DO NOT output the raw transcript text inside the blockquote for media citations.\n\n# NOTE TITLE: ${noteTitle}\n\n# NOTE CONTENT:\n${noteContent}${mediaContext}`,
       },
     });
-  }, [input, isLoading, messages, noteTitle, noteContent, complete, user]);
+  }, [input, isLoading, messages, noteTitle, noteContent, mediaContext, complete, user]);
 
   const handleCopy = useCallback((text: string, idx: number) => {
     navigator.clipboard.writeText(text);
@@ -278,12 +322,7 @@ export function NoteChatSheet({
   let noteTextPreview = "";
   try {
     const parsed = JSON.parse(noteContent);
-    const extractText = (node: any): string => {
-      if (node.text) return node.text;
-      if (node.content) return node.content.map(extractText).join(" ");
-      return "";
-    };
-    noteTextPreview = extractText(parsed).slice(0, 120);
+    noteTextPreview = extractProseMirrorText(parsed).slice(0, 120);
   } catch {
     noteTextPreview = noteContent?.slice(0, 120) || "";
   }
@@ -352,7 +391,7 @@ export function NoteChatSheet({
                   body: {
                     option: "chat",
                     history: [userMsg],
-                    noteContext: `# ${noteTitle}\n\n${noteContent}\n\n--- System Instruction ---\nYou are a smart note assistant. When you analyze the note, if you are: 1) pointing out grammar/spelling mistakes, 2) extracting specific facts to answer questions, 3) suggesting sentence rewrites, or 4) referencing a specific section for restructuring, you MUST quote the exact relevant sentence from the note using a markdown blockquote (> quote). This allows the user to interact with the quote. Keep quotes precise and exact.`,
+                    noteContext: `# ${noteTitle}\n\n${noteContent}${mediaContext}\n\n--- System Instruction ---\nYou are a smart note assistant. When you analyze the note, if you are pointing out grammar mistakes or referencing facts, you MUST quote the exact relevant sentence from the note using a markdown blockquote (> quote). IMPORTANT: If the information comes from a MEDIA TRANSCRIPT, cite it EXACTLY as > [MEDIA: mediaId] (replace mediaId with the actual ID). DO NOT output raw transcript text in the blockquote.`,
                   },
                 });
               }}
@@ -397,15 +436,41 @@ export function NoteChatSheet({
                             <a target="_blank" rel="noopener noreferrer" {...props} />
                           ),
                           blockquote: ({ children, ...props }) => {
-                            const extractText = (node: any): string => {
-                              if (typeof node === "string") return node;
-                              if (Array.isArray(node)) return node.map(extractText).join("");
-                              if (node && node.props && node.props.children) return extractText(node.props.children);
-                              return "";
-                            };
+                            const plainText = extractMarkdownText(children);
                             
-                            const plainText = extractText(children);
+                            // Check if this is a media citation
+                            let isMedia = false;
                             
+                            if (plainText.trim().startsWith("[MEDIA:")) {
+                              isMedia = true;
+                            } else if (mediaTranscripts.size > 0) {
+                              // Fallback: if AI ignored the [MEDIA: id] instruction and outputted the raw text,
+                              // check if the quoted text matches any transcript
+                              const quoteStripped = plainText.toLowerCase().replace(/[^a-z0-9]/gi, '');
+                              if (quoteStripped.length > 20) {
+                                mediaTranscripts.forEach((t) => {
+                                  const tStripped = t.transcript.toLowerCase().replace(/[^a-z0-9]/gi, '');
+                                  if (tStripped.includes(quoteStripped)) {
+                                    isMedia = true;
+                                  }
+                                });
+                              }
+                            }
+
+                            if (isMedia) {
+                              return (
+                                <div style={{ margin: "6px 0", padding: "10px 12px", borderRadius: 12, backgroundColor: "hsl(var(--muted) / 0.8)", border: "1px solid hsl(var(--border) / 0.5)", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", userSelect: "none" }}>
+                                  <div style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: "hsl(var(--primary) / 0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "hsl(var(--primary))", flexShrink: 0 }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2 }}><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                  </div>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))", lineHeight: 1.2 }}>Media Source</div>
+                                    <div style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>Referenced from Recording</div>
+                                  </div>
+                                </div>
+                              );
+                            }
+
                             return (
                               <div
                                 style={{
@@ -489,6 +554,43 @@ export function NoteChatSheet({
                         p: ({ ...props }) => (
                           <p style={{ margin: "4px 0", fontSize: 14, lineHeight: 1.6 }} {...props} />
                         ),
+                        blockquote: ({ children }) => {
+                          const plainText = extractMarkdownText(children);
+                          
+                          let isMedia = false;
+                          if (plainText.trim().startsWith("[MEDIA:")) {
+                            isMedia = true;
+                          } else if (mediaTranscripts.size > 0) {
+                            const quoteStripped = plainText.toLowerCase().replace(/[^a-z0-9]/gi, '');
+                            if (quoteStripped.length > 20) {
+                              mediaTranscripts.forEach((t) => {
+                                const tStripped = t.transcript.toLowerCase().replace(/[^a-z0-9]/gi, '');
+                                if (tStripped.includes(quoteStripped)) {
+                                  isMedia = true;
+                                }
+                              });
+                            }
+                          }
+
+                          if (isMedia) {
+                            return (
+                              <div style={{ margin: "6px 0", padding: "10px 12px", borderRadius: 12, backgroundColor: "hsl(var(--muted) / 0.8)", border: "1px solid hsl(var(--border) / 0.5)", display: "flex", alignItems: "center", gap: 12 }}>
+                                <div style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: "hsl(var(--primary) / 0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "hsl(var(--primary))", flexShrink: 0 }}>
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2 }}><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))", lineHeight: 1.2 }}>Media Source</div>
+                                  <div style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>Referenced from Recording</div>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <blockquote style={{ margin: "6px 0", borderLeft: "2px solid hsl(var(--muted-foreground) / 0.4)", paddingLeft: 12, color: "hsl(var(--muted-foreground))", cursor: "pointer" }}>
+                              {children}
+                            </blockquote>
+                          );
+                        }
                       }}
                     >
                       {completion}
@@ -694,7 +796,20 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
           paddingBottom: 0,
         }}
       >
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 16 }}>
+          {/* Lottie Animation */}
+          <div className="w-[64px] h-[64px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
+            <DotLottieReact
+              src={chrome.runtime.getURL("ai-robo.lottie")}
+              autoplay
+              loop
+              stateMachineId="StateMachine1"
+              dotLottieRefCallback={setDotLottie}
+              backgroundColor="transparent"
+              style={{ width: "150%", height: "150%", transform: "scale(1.35) translateY(2%)", position: "absolute" }}
+            />
+          </div>
+          
           <div style={{ textAlign: "center", fontSize: 22, fontWeight: 600, color: "hsl(var(--foreground))" }}>
             Hi {userName} 👋<br />Where should we start?
           </div>

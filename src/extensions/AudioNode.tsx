@@ -306,9 +306,19 @@ export const AudioNode = Node.create({
 
   addKeyboardShortcuts() {
     return {
-      Backspace: () => this.editor.isActive(this.name),
-      Delete: () => this.editor.isActive(this.name),
-    }
+      Backspace: ({ editor }) => {
+        const { selection } = editor.state;
+        if (editor.isActive(this.name)) return true;
+        if (selection.empty && selection.$anchor.nodeBefore?.type.name === this.name) return true;
+        return false;
+      },
+      Delete: ({ editor }) => {
+        const { selection } = editor.state;
+        if (editor.isActive(this.name)) return true;
+        if (selection.empty && selection.$anchor.nodeAfter?.type.name === this.name) return true;
+        return false;
+      },
+    };
   },
 
   addAttributes() {

@@ -6,7 +6,7 @@ import { MoonIcon } from "@/components/icons/moon";
 import { SunIcon } from "@/components/icons/sun";
 import { AIDynamicIsland } from "@/components/ui/ai-dynamic-island";
 import { SparklesIcon } from "@/components/icons/sparkles";
-import { AttachFileIcon } from "@/components/icons/attach-file";
+import { BookmarkIcon } from "@/components/icons/bookmark";
 import { BlocksIcon } from "@/components/icons/blocks";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { motion, AnimatePresence } from "framer-motion";
@@ -38,10 +38,10 @@ import { openSparkAIWithContext } from "@/lib/ecosystem";
 function GoogleIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.16v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.16C1.43 8.55 1 10.22 1 12s.43 3.45 1.16 4.93l3.68-2.84z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.16 7.07l3.68 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.16v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.16C1.43 8.55 1 10.22 1 12s.43 3.45 1.16 4.93l3.68-2.84z" fill="#FBBC05" />
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.16 7.07l3.68 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
     </svg>
   );
 }
@@ -306,6 +306,8 @@ export function App() {
   const headerRef = useRef<HTMLDivElement>(null);
 
   const handleScrollProgress = useCallback((progress: number) => {
+    // --- DYNAMIC ISLAND LOGIC COMMENTED OUT FOR APPLE GLASS BLOCKS ---
+    /*
     scrollProgressRef.current = progress;
     const el = headerRef.current;
     if (!el) return;
@@ -355,28 +357,29 @@ export function App() {
     el.style.paddingLeft = `${paddingLeft}px`;
     el.style.paddingRight = `${paddingRight}px`;
     el.style.borderRadius = `${radius}px`;
-    el.style.backgroundColor = `hsl(var(--background) / ${bgAlpha})`;
-    const filterValue = blur > 0 ? `blur(${blur}px) saturate(180%)` : 'none';
+    el.style.backgroundColor = \`hsl(var(--background) / \${bgAlpha})\`;
+    const filterValue = blur > 0 ? \`blur(\${blur}px) saturate(180%)\` : 'none';
     el.style.backdropFilter = filterValue;
     (el.style as any).webkitBackdropFilter = filterValue;
     const isDark = document.documentElement.classList.contains("dark");
     if (shadow > 0) {
       if (isDark) {
-        el.style.boxShadow = `inset 0 0 0 1px rgba(255, 255, 255, ${t * 0.05}), 0 4px 16px rgba(0,0,0,${shadow * 1.5})`;
+        el.style.boxShadow = \`inset 0 0 0 1px rgba(255, 255, 255, \${t * 0.05}), 0 4px 16px rgba(0,0,0,\${shadow * 1.5})\`;
       } else {
-        el.style.boxShadow = `0 2px 12px rgba(0,0,0,${shadow})`;
+        el.style.boxShadow = \`0 2px 12px rgba(0,0,0,\${shadow})\`;
       }
     } else {
       el.style.boxShadow = 'none';
     }
     el.style.borderColor = 'transparent';
+    */
   }, []);
 
   // Recalculate island width if internal content resizes (e.g., hover expansions)
   useEffect(() => {
     const el = headerRef.current;
     if (!el || !el.children[0]) return;
-    
+
     let rafId: number;
     const observer = new ResizeObserver(() => {
       cancelAnimationFrame(rafId);
@@ -384,10 +387,10 @@ export function App() {
         handleScrollProgress(scrollProgressRef.current || 0);
       });
     });
-    
+
     observer.observe(el.children[0]);
     if (el.children[1]) observer.observe(el.children[1]);
-    
+
     return () => {
       observer.disconnect();
       cancelAnimationFrame(rafId);
@@ -571,124 +574,130 @@ export function App() {
           onDiscard={isRecording ? handleRecordingDiscard : undefined}
         />
       ) : (
-      <div 
-        ref={headerRef}
-        className="absolute z-30 flex items-center justify-between gap-1.5 pointer-events-none"
-        style={{
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 44,
-          paddingLeft: 10,
-          paddingRight: 8,
-          borderRadius: 0,
-          backgroundColor: 'transparent',
-          backdropFilter: 'none',
-          boxShadow: 'none',
-          willChange: 'top, left, right, height, border-radius, background-color, backdrop-filter, box-shadow',
-        }}
-      >
-        {/* Dynamic Island Overlay for AI */}
-        <AnimatePresence>
-          {globalAiThinking && (
-            <AIDynamicIsland key="ai-island" messages={globalAiMessages} />
-          )}
-        </AnimatePresence>
+        <div
+          ref={headerRef}
+          className="absolute z-30 flex items-center justify-between gap-1.5 pointer-events-none"
+          style={{
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 44,
+            paddingLeft: 10,
+            paddingRight: 8,
+            borderRadius: 0,
+            backgroundColor: 'transparent',
+            backdropFilter: 'none',
+            boxShadow: 'none',
+            willChange: 'top, left, right, height, border-radius, background-color, backdrop-filter, box-shadow',
+          }}
+        >
+          {/* Dynamic Island Overlay for AI */}
+          <AnimatePresence>
+            {globalAiThinking && (
+              <AIDynamicIsland key="ai-island" messages={globalAiMessages} />
+            )}
+          </AnimatePresence>
 
-        {/* Left Section (Hidden when thinking) */}
-        <div className="flex items-center gap-1.5 pointer-events-auto" style={{ opacity: globalAiThinking ? 0 : 1, transition: 'opacity 0.2s', pointerEvents: globalAiThinking ? 'none' : 'auto' }}>
-          {/* Identity Pill — Login / Avatar + Badge */}
-          <div className="relative">
-            <button
-              className="floating-header-btn"
-              style={{ opacity: 1 }}
-              onClick={() => setShowAccountMenu(!showAccountMenu)}
-              data-tooltip={!user ? "Sign in / Account" : "Account"}
-            >
-              {!user ? (
-                <GoogleIcon size={17} />
-              ) : getUserAvatar(user) ? (
-                <img
-                  src={getUserAvatar(user)!}
-                  alt=""
-                  width={17}
-                  height={17}
-                  style={{ borderRadius: "50%", flexShrink: 0, objectFit: "cover" }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 17,
-                    height: 17,
-                    borderRadius: "50%",
-                    backgroundColor: "hsl(var(--muted))",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 9,
-                    fontWeight: 600,
-                    flexShrink: 0,
-                  }}
-                >
-                  {(user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
-                </div>
-              )}
-            </button>
+          {/* Left Section (Hidden when thinking) */}
+          <div className="flex items-center gap-2 pointer-events-none" style={{ opacity: globalAiThinking ? 0 : 1, transition: 'opacity 0.2s', marginTop: 6 }}>
+            {/* Identity Pill — Login / Avatar + Badge */}
+            <div className="apple-glass-block">
+              <button
+                className="floating-header-btn"
+                onClick={() => setShowAccountMenu(!showAccountMenu)}
+                data-tooltip={!user ? "Sign in / Account" : "Account"}
+              >
+                {!user ? (
+                  <GoogleIcon size={17} />
+                ) : getUserAvatar(user) ? (
+                  <img
+                    src={getUserAvatar(user)!}
+                    alt=""
+                    width={26}
+                    height={26}
+                    style={{ borderRadius: "50%", flexShrink: 0, objectFit: "cover" }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: "50%",
+                      backgroundColor: "hsl(var(--muted))",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {(user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </button>
+            </div>
+
+            <div className="apple-glass-block">
+              {/* History */}
+              <button
+                className="floating-header-btn"
+                onClick={handleOpenHistory}
+                data-tooltip="History"
+              >
+                <HistoryIcon className="w-[17px] h-[17px]" />
+              </button>
+
+              {/* Web Clipper */}
+              <button
+                className="floating-header-btn"
+                onClick={() => setShowClipper(!showClipper)}
+                data-tooltip="Clip page"
+                style={{
+                  backgroundColor: showClipper ? "hsl(var(--muted))" : "transparent"
+                }}
+              >
+                <BookmarkIcon size={17} />
+              </button>
+
+              {/* Tools */}
+              <button
+                className="floating-header-btn"
+                onClick={() => window.dispatchEvent(new CustomEvent("open-import-export-sheet"))}
+                data-tooltip="Tools & Settings"
+              >
+                <BlocksIcon size={16} className="w-[17px] h-[17px]" />
+              </button>
+            </div>
           </div>
 
-          {/* History */}
-          <button
-            className="floating-header-btn"
-            onClick={handleOpenHistory}
-            data-tooltip="History"
-          >
-            <HistoryIcon className="w-[17px] h-[17px]" />
-          </button>
-
-          {/* Web Clipper */}
-          <button
-            className="floating-header-btn"
-            onClick={() => setShowClipper(!showClipper)}
-            data-tooltip="Clip page"
-            style={{
-              opacity: showClipper ? 1 : undefined,
-            }}
-          >
-            <div className="-rotate-[135deg]">
-              <AttachFileIcon size={18} />
+          {/* Right Section (Hidden when thinking or recording) */}
+          <div className="flex items-center gap-2 pointer-events-none" style={{ opacity: globalAiThinking ? 0 : 1, transition: 'opacity 0.2s', marginTop: 6 }}>
+            <div className="apple-glass-block">
+              <button
+                className="floating-header-btn"
+                onClick={() => window.dispatchEvent(new CustomEvent("open-note-chat"))}
+                data-tooltip="Ask AI"
+              >
+                <span style={{ fontSize: 18, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>✦</span>
+              </button>
             </div>
-          </button>
 
-          {/* Tools */}
-          <button
-            className="floating-header-btn"
-            onClick={() => window.dispatchEvent(new CustomEvent("open-import-export-sheet"))}
-            data-tooltip="Tools & Settings"
-          >
-            <AnimatedIcon animation="hover">
-              <BlocksIcon size={16} className="w-[17px] h-[17px]" />
-            </AnimatedIcon>
-          </button>
+            <div className="apple-glass-block">
+              <button
+                className="floating-header-btn"
+                onClick={handleCreateNote}
+                data-tooltip="New note"
+                style={{
+                  backgroundColor: "hsl(45 90% 55%)",
+                  color: "#000"
+                }}
+              >
+                <PlusIcon className="w-[17px] h-[17px]" />
+              </button>
+            </div>
+          </div>
         </div>
-
-        {/* Right Section (Hidden when thinking or recording) */}
-        <div className="flex items-center gap-1.5 pointer-events-auto" style={{ opacity: globalAiThinking ? 0 : 1, transition: 'opacity 0.2s', pointerEvents: globalAiThinking ? 'none' : 'auto' }}>
-          <button
-            className="floating-header-btn"
-            onClick={() => window.dispatchEvent(new CustomEvent("open-note-chat"))}
-            data-tooltip="Ask AI"
-          >
-            <span style={{ fontSize: 18, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>✦</span>
-          </button>
-          <button
-            className="floating-header-btn"
-            onClick={handleCreateNote}
-            data-tooltip="New note"
-          >
-            <PlusIcon className="w-[18px] h-[18px]" />
-          </button>
-        </div>
-      </div>
       )}
 
       {/* ─── Main Content ─── */}
@@ -825,6 +834,11 @@ export function App() {
           <MediaActionSheet
             {...mediaSheetConfig}
             onClose={() => setMediaSheetConfig(null)}
+            onInsertToNote={(text) => {
+              window.dispatchEvent(
+                new CustomEvent("insert-ai-content", { detail: { text } })
+              );
+            }}
           />
         )}
       </AnimatePresence>

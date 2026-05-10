@@ -161,29 +161,50 @@ body {
   background-color: hsl(var(--muted-foreground) / 0.4);
 }
 
+/* ===== Apple Glass Block (Header) ===== */
+.apple-glass-block {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9999px;
+  background-color: rgba(250, 250, 250, 0.95);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  pointer-events: auto;
+}
+
+.dark .apple-glass-block {
+  background-color: rgba(30, 30, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
 /* ===== Floating Header Toolbar ===== */
 .floating-header-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
   color: hsl(var(--foreground));
   background-color: transparent;
   border: none;
   cursor: pointer;
   transition: all 0.2s ease;
-  opacity: 0.5;
+  opacity: 1;
+  /* Fixed blurry opacity */
 }
 
 .floating-header-btn:hover {
-  background-color: hsl(var(--muted));
-  opacity: 1;
+  background-color: hsl(var(--muted) / 0.8);
 }
 
 .floating-header-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.92);
 }
 
 /* ===== Identity Pill (Header Left) ===== */
@@ -412,16 +433,38 @@ body {
   animation: css-waveform-bounce 1s ease-in-out infinite;
 }
 
-.ai-css-waveform .bar1 { height: 40%; animation-delay: 0s; }
-.ai-css-waveform .bar2 { height: 80%; animation-delay: -0.2s; }
-.ai-css-waveform .bar3 { height: 100%; animation-delay: -0.4s; }
-.ai-css-waveform .bar4 { height: 60%; animation-delay: -0.6s; }
-.ai-css-waveform .bar5 { height: 30%; animation-delay: -0.8s; }
+.ai-css-waveform .bar1 {
+  height: 40%;
+  animation-delay: 0s;
+}
+
+.ai-css-waveform .bar2 {
+  height: 80%;
+  animation-delay: -0.2s;
+}
+
+.ai-css-waveform .bar3 {
+  height: 100%;
+  animation-delay: -0.4s;
+}
+
+.ai-css-waveform .bar4 {
+  height: 60%;
+  animation-delay: -0.6s;
+}
+
+.ai-css-waveform .bar5 {
+  height: 30%;
+  animation-delay: -0.8s;
+}
 
 @keyframes css-waveform-bounce {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scaleY(0.5);
   }
+
   50% {
     transform: scaleY(1);
   }
@@ -704,7 +747,8 @@ body {
 }
 
 /* ===== Account Sheet with Cutout ===== */
-.account-sheet, .dark .account-sheet {
+.account-sheet,
+.dark .account-sheet {
   background: transparent !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -744,7 +788,7 @@ body {
 
 /* ===== BlackNote Title ===== */
 .blacknote-title-area {
-  padding: 44px 16px 4px 16px;
+  padding: 56px 16px 4px 16px;
 }
 
 .blacknote-title-input {
@@ -1938,11 +1982,19 @@ button:active>.lucide,
 }
 
 @keyframes blink-cursor {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
 }
 
 @media print {
+
   .blacknote-sidebar,
   .blacknote-floating-header,
   .history-sheet-backdrop,
@@ -1952,14 +2004,16 @@ button:active>.lucide,
   .account-popup {
     display: none !important;
   }
-  
-  body, .blacknote-container, .flex-1 {
+
+  body,
+  .blacknote-container,
+  .flex-1 {
     background-color: white !important;
     color: black !important;
     height: auto !important;
     overflow: visible !important;
   }
-  
+
   .novel-wrapper {
     overflow: visible !important;
     height: auto !important;
@@ -2013,8 +2067,15 @@ button:active>.lucide,
 }
 
 @keyframes recordPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
-  50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
 }
 
 .audio-node-info {
@@ -2250,6 +2311,7 @@ button:active>.lucide,
     opacity: 0;
     transform: scale(0.8);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -2279,10 +2341,12 @@ button:active>.lucide,
     opacity: 0.5;
     transform: scale(0.6);
   }
+
   60% {
     opacity: 1;
     transform: scale(1.04);
   }
+
   100% {
     transform: scale(1);
   }
@@ -2310,8 +2374,15 @@ button:active>.lucide,
 }
 
 @keyframes recDotBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
 }
 
 .recording-timer {
@@ -2402,10 +2473,12 @@ button:active>.lucide,
     opacity: 0;
     transform: scale(0) translateX(-8px);
   }
+
   60% {
     opacity: 1;
     transform: scale(1.12) translateX(0);
   }
+
   100% {
     transform: scale(1) translateX(0);
   }
@@ -2419,7 +2492,13 @@ button:active>.lucide,
 }
 
 @keyframes savingPulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
-}
 
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}

@@ -125,12 +125,14 @@ export default defineBackground(() => {
       }
 
       // ── UI REQUESTS FROM EXTERNAL CONTROLS (Popup Panel, Action Icon) ──
-      if (["UI_REQUEST_STOP", "UI_REQUEST_PAUSE", "UI_REQUEST_RESUME", "UI_REQUEST_DISCARD"].includes(message.type)) {
+      if (["UI_REQUEST_STOP", "UI_REQUEST_PAUSE", "UI_REQUEST_RESUME", "UI_REQUEST_DISCARD", "OFFSCREEN_TRIGGER_STOP"].includes(message.type)) {
         chrome.storage.local.get("blacknote_recording", (res) => {
           const isVisible = res.blacknote_recording?._panelVisible;
           if (isVisible) {
             // Tell Side Panel to handle it so it can insert into note
-            const actionType = message.type.replace("UI_REQUEST_", "RECORDING_");
+            const actionType = message.type === "OFFSCREEN_TRIGGER_STOP" 
+              ? "RECORDING_STOP" 
+              : message.type.replace("UI_REQUEST_", "RECORDING_");
             chrome.storage.local.set({
               blacknote_recording_command: {
                 action: actionType,
@@ -139,7 +141,9 @@ export default defineBackground(() => {
             });
           } else {
             // Side panel is closed, execute directly
-            const offscreenType = message.type.replace("UI_REQUEST_", "OFFSCREEN_");
+            const offscreenType = message.type === "OFFSCREEN_TRIGGER_STOP"
+              ? "OFFSCREEN_STOP"
+              : message.type.replace("UI_REQUEST_", "OFFSCREEN_");
             chrome.runtime.sendMessage({ type: offscreenType }, () => {
               if (offscreenType === "OFFSCREEN_STOP" || offscreenType === "OFFSCREEN_DISCARD") {
                 setTimeout(() => {
@@ -149,19 +153,6 @@ export default defineBackground(() => {
             });
           }
         });
-        return false;
-      }
-
-      if (message.type === "OFFSCREEN_TRIGGER_STOP") {
-        // Offscreen document stream ended unexpectedly, write command for UI to handle
-        chrome.storage.local.set({
-          blacknote_recording_command: {
-            action: "RECORDING_STOP",
-            timestamp: Date.now(),
-          },
-        });
-        // Let the offscreen stop itself
-        chrome.runtime.sendMessage({ type: "OFFSCREEN_STOP" });
         return false;
       }
 

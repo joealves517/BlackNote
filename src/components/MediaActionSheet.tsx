@@ -1,9 +1,29 @@
-import { motion } from "framer-motion";
-import { Mic, Monitor } from "lucide-react";
-import { XIcon } from "@/components/icons/x";
-import { CheckIcon } from "@/components/icons/check";
-import { useState } from "react";
+/**
+ * MediaActionSheet — Clone AccountPopup design with 3 states:
+ * 1. Not Analyzed: Robot jump+alert, Play button
+ * 2. Processing: Robot thinking, Bouncing Fruits animation, fake status text
+ * 3. Analyzed: Robot jump+yes, AI feature list
+ *
+ * Results displayed via event → AISelector-style result panel (not a separate sheet).
+ */
+
+import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { DotLottieReact, type DotLottie } from "@lottiefiles/dotlottie-react";
+import { Mic, Monitor, PenLine, Wand2, BookOpen, Tag, Play, ChevronRight, MessageSquare } from "lucide-react";
+import { ArrowUpIcon } from "@/components/icons/arrow-up";
+import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
+import { CircleCheckIcon } from "@/components/icons/circle-check";
+import { DeleteIcon } from "@/components/icons/delete";
 import { db } from "@/lib/local-db";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  analyzeMedia,
+  summarizeMedia,
+  generateTitle,
+  hasTranscript,
+  type SummarizeStyle,
+} from "@/lib/media-ai-service";
 
 interface MediaActionSheetProps {
   mediaId: string;
@@ -12,38 +32,195 @@ interface MediaActionSheetProps {
   duration: number;
   onDeleteNode: () => void;
   onClose: () => void;
+  onInsertToNote?: (text: string) => void;
 }
 
-const formatTime = (seconds: number): string => {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-};
+type SheetPhase = "idle" | "processing" | "analyzed";
+
+const PROCESSING_MESSAGES = [
+  "Extracting audio track",
+  "Compressing audio",
+  "Sending to AI",
+  "Transcribing content",
+  "Processing segments",
+  "Analyzing speech patterns",
+  "Building transcript",
+  "Almost done",
+];
+
+const AI_FEATURES = [
+  { id: "summary", label: "Summary", desc: "Concise overview of the recording", icon: PenLine },
+  { id: "keypoints", label: "Key Points", desc: "Important insights as bullet points", icon: Wand2 },
+  { id: "action_items", label: "Action Items", desc: "Extract tasks and to-dos", icon: CircleCheckIcon },
+  { id: "chapters", label: "Chapters", desc: "Section breakdown with timestamps", icon: BookOpen },
+  { id: "chat", label: "Chat with Recording", desc: "Ask AI anything about this recording", icon: MessageSquare },
+  { id: "title", label: "Smart Title", desc: "AI-generated title and tags", icon: Tag },
+];
+
+const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+
+
+// ─── Main Component ──────────────────────────────────────────────
 
 export function MediaActionSheet({
-  mediaId,
-  type,
-  fileName,
-  duration,
-  onDeleteNode,
-  onClose,
+  mediaId, type, fileName, duration, onDeleteNode, onClose, onInsertToNote,
 }: MediaActionSheetProps) {
-  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const { user } = useAuth();
+  const [phase, setPhase] = useState<SheetPhase>("idle");
+  const [statusMsg, setStatusMsg] = useState(PROCESSING_MESSAGES[0]);
+  const [statusIdx, setStatusIdx] = useState(0);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [dotLottie, setDotLottie] = useState<DotLottie | null>(null);
+  
+  const [inputValue, setInputValue] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Check analyzed on mount
+  useEffect(() => {
+    hasTranscript(mediaId).then((yes) => { if (yes) setPhase("analyzed"); });
+  }, [mediaId]);
+
+  // Dev: force phase from console
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const p = (e as CustomEvent).detail as SheetPhase;
+      if (p) { setPhase(p); setStatusIdx(0); setStatusMsg(PROCESSING_MESSAGES[0]); }
+    };
+    window.addEventListener("__test-media-phase", handler);
+    return () => window.removeEventListener("__test-media-phase", handler);
+  }, []);
+
+  // ─── Robot Lottie state machine ────────────────────────────────
+
+  useEffect(() => {
+    if (!dotLottie) return;
+    const fire = (evt: string) => {
+      try { dotLottie.stateMachineFireEvent?.(evt); } catch {}
+    };
+
+    let interval: NodeJS.Timeout;
+    if (phase === "idle") {
+      const t = setTimeout(() => { fire("jumpClick"); interval = setInterval(() => fire("alertClick"), 3000); }, 200);
+      return () => { clearTimeout(t); clearInterval(interval); };
+    }
+    if (phase === "processing") {
+      const t = setTimeout(() => { fire("thinkClick"); interval = setInterval(() => fire("thinkClick"), 1500); }, 500);
+      return () => { clearTimeout(t); clearInterval(interval); };
+    }
+    if (phase === "analyzed") {
+      const t = setTimeout(() => { fire("jumpClick"); interval = setInterval(() => fire("yesClick"), 3000); }, 200);
+      return () => { clearTimeout(t); clearInterval(interval); };
+    }
+  }, [dotLottie, phase]);
+
+  // ─── Fake processing messages ──────────────────────────────────
+
+  useEffect(() => {
+    if (phase !== "processing") return;
+    const timer = setInterval(() => {
+      setStatusIdx((prev) => {
+        const next = Math.min(prev + 1, PROCESSING_MESSAGES.length - 1);
+        setStatusMsg(PROCESSING_MESSAGES[next]);
+        return next;
+      });
+    }, 2200);
+    return () => clearInterval(timer);
+  }, [phase]);
+
+  // ─── Handlers ──────────────────────────────────────────────────
+
+  const handleAnalyze = useCallback(async () => {
+    if (!user) {
+      onClose();
+      window.dispatchEvent(new CustomEvent("ai-error"));
+      return;
+    }
+    setPhase("processing");
+    setStatusIdx(0);
+    setStatusMsg(PROCESSING_MESSAGES[0]);
+    try {
+      await analyzeMedia(mediaId);
+      setPhase("analyzed");
+    } catch {
+      setPhase("idle");
+      onClose();
+      window.dispatchEvent(new CustomEvent("ai-error"));
+    }
+  }, [mediaId, user, onClose]);
+
+  const handleFeature = useCallback(async (id: string, customPrompt?: string) => {
+    if (id === "chat" || customPrompt) {
+      onClose();
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("open-note-chat"));
+        if (customPrompt) {
+          // Pre-fill the chat input via a new event that NoteChatSheet will listen to
+          setTimeout(() => window.dispatchEvent(new CustomEvent("set-chat-input", { detail: customPrompt })), 100);
+        }
+      }, 150);
+      return;
+    }
+
+    // Close this sheet → show Dynamic Island thinking → get result → open result sheet
+    onClose();
+    window.dispatchEvent(new CustomEvent("ai-thinking-start", {
+      detail: { messages: ["Analyzing recording", "Generating insights", "Formatting result"] },
+    }));
+
+    try {
+      let resultText = "";
+      if (id === "title") {
+        const d = await generateTitle(mediaId);
+        resultText = `# ${d.title}\n\n${d.description}\n\n**Tags:** ${d.tags.join(", ")}`;
+      } else {
+        const d = await summarizeMedia(mediaId, id as SummarizeStyle, type);
+        resultText = d.text;
+      }
+
+      window.dispatchEvent(new CustomEvent("ai-thinking-stop"));
+
+      // Open result sheet with the AI output
+      window.dispatchEvent(new CustomEvent("media-ai-result", {
+        detail: { text: resultText, mediaId },
+      }));
+    } catch {
+      window.dispatchEvent(new CustomEvent("ai-thinking-stop"));
+      window.dispatchEvent(new CustomEvent("ai-error"));
+    }
+  }, [mediaId, type, onClose]);
 
   const handleDelete = () => {
-    if (isConfirmingDelete) {
-      // Actually delete
+    if (deleteConfirm) {
       onDeleteNode();
-      db.media_files.delete(mediaId).catch(console.error);
+      db.media_files.delete(mediaId).catch(() => {});
+      db.media_transcripts.delete(mediaId).catch(() => {});
       onClose();
     } else {
-      // Show confirm state
-      setIsConfirmingDelete(true);
-      setTimeout(() => {
-        setIsConfirmingDelete(false);
-      }, 3000);
+      setDeleteConfirm(true);
+      setTimeout(() => setDeleteConfirm(false), 3000);
     }
   };
+
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, []);
+
+  useEffect(() => { autoResize(); }, [inputValue, autoResize]);
+
+  // Focus text area when changing to analyzed phase
+  useEffect(() => {
+    if (phase === "analyzed") {
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus({ preventScroll: true });
+      });
+    }
+  }, [phase]);
+
+  // ─── Render ────────────────────────────────────────────────────
 
   return (
     <>
@@ -55,9 +232,10 @@ export function MediaActionSheet({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
       />
+
       <motion.div
-        className="history-sheet ai-shadow"
-        style={{ height: "auto", paddingBottom: "24px" }}
+        className={`clipper-sheet mx-auto ${phase !== "analyzed" ? "account-sheet" : ""}`}
+        style={{ maxWidth: 600 }}
         initial={{ bottom: "-100%" }}
         animate={{ bottom: 0 }}
         exit={{ bottom: "-100%" }}
@@ -67,63 +245,147 @@ export function MediaActionSheet({
           <div className="history-sheet-handle-bar" />
         </div>
 
-        <div className="history-sheet-content" style={{ padding: "0 16px" }}>
-          <div className="history-sheet-section-label" style={{ marginTop: "12px", marginBottom: "8px" }}>
-            <span>Media Options</span>
-          </div>
+        <div className={`relative px-4 pb-4 ${phase !== "analyzed" ? "pt-4" : "pt-1"}`}>
+          {/* ─── Floating Robot (Idle & Processing Only) ─── */}
+          {phase !== "analyzed" && (
+            <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10">
+              <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
+                <DotLottieReact
+                  src={chrome.runtime.getURL("ai-robo.lottie")}
+                  autoplay
+                  loop
+                  stateMachineId="StateMachine1"
+                  dotLottieRefCallback={setDotLottie}
+                  backgroundColor="transparent"
+                  style={{ width: "150%", height: "150%", transform: "scale(1.35) translateY(2%)", position: "absolute" }}
+                />
+              </div>
+            </div>
+          )}
 
-          <div className="history-sheet-list" style={{ marginTop: 0 }}>
-            <button
-              className="history-sheet-item group"
-              style={{ cursor: "default" }}
-            >
-              <div className="history-sheet-item-left relative flex items-center">
-                <div className="flex items-center justify-center shrink-0 w-8 h-8 rounded-full bg-muted/50">
-                  {type === "audio" ? (
-                    <Mic className="w-4 h-4 text-muted-foreground" />
-                  ) : (
-                    <Monitor className="w-4 h-4 text-muted-foreground" />
-                  )}
-                </div>
-                <div className="flex flex-col items-start ml-3">
-                  <span className="text-sm font-medium text-foreground">
-                    {fileName || (type === "audio" ? "Audio Recording" : "Screen Recording")}
-                  </span>
-                  <span className="text-xs text-muted-foreground mt-0.5">
+          {/* ─── Header ─── */}
+          {phase !== "analyzed" && (
+            <div className="text-center pt-4 pb-3">
+              <h3 className="text-lg font-bold text-foreground mb-1 tracking-tight">
+                {phase === "processing" ? "Analyzing" : (fileName || (type === "audio" ? "Audio Recording" : "Screen Recording"))}
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                {phase === "processing" ? statusMsg + "..." : (
+                  <>
                     {type === "audio" ? "Audio" : "Video"} • {formatTime(duration)}
-                  </span>
-                </div>
+                  </>
+                )}
+              </p>
+            </div>
+          )}
+
+          {/* ─── Phase: Idle (Not Analyzed) ─── */}
+          {phase === "idle" && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingBottom: 8 }}>
+              <button
+                onClick={handleAnalyze}
+                style={{
+                  position: "relative", width: 72, height: 72, borderRadius: "50%", border: "none",
+                  background: "transparent", cursor: "pointer", transition: "transform 0.2s",
+                  padding: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.transform = "scale(1.08)"; }}
+                onMouseOut={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+                onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.95)"; }}
+                onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1.08)"; }}
+              >
+                <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2.5px solid rgba(52,211,153,0.35)", background: "radial-gradient(circle, rgba(52,211,153,0.08) 0%, transparent 70%)" }} />
+                <div style={{ position: "absolute", inset: 4, borderRadius: "50%", border: "2px solid rgba(52,211,153,0.15)" }} />
+                <Play size={30} fill="rgb(52,211,153)" color="rgb(52,211,153)" style={{ marginLeft: 3, filter: "drop-shadow(0 0 8px rgba(52,211,153,0.4))" }} />
+              </button>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "hsl(var(--foreground))" }}>Analyze with AI</div>
+              <div style={{ fontSize: 11.5, color: "hsl(var(--muted-foreground))" }}>Transcribe to unlock AI features</div>
+            </div>
+          )}
+
+          {/* ─── Phase: Processing ─── */}
+          {phase === "processing" && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingBottom: 8 }}>
+              <div style={{ width: 160, height: 160 }}>
+                <DotLottieReact
+                  src={chrome.runtime.getURL("bouncing-fruits.json")}
+                  autoplay loop backgroundColor="transparent"
+                  style={{ width: "100%", height: "100%" }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ─── Phase: Analyzed (Feature List + Prompt) ─── */}
+          {phase === "analyzed" && (
+            <motion.div>
+              <div className="ai-input-row">
+                <textarea
+                  ref={textareaRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  rows={1}
+                  placeholder="Ask AI to edit, translate, summarize..."
+                  className="ai-input"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && inputValue.trim()) {
+                      e.preventDefault();
+                      handleFeature("chat", inputValue);
+                    }
+                  }}
+                />
+                <button
+                  className="ai-send-btn"
+                  onClick={() => handleFeature("chat", inputValue)}
+                  disabled={!inputValue.trim()}
+                >
+                  <ArrowUpIcon className="h-3.5 w-3.5" />
+                </button>
               </div>
 
-              <div className="history-sheet-item-right">
-                <span
-                  className="history-sheet-item-delete"
-                  onClick={handleDelete}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 32,
-                    height: 32,
-                    padding: 0,
-                    borderRadius: "50%",
-                    cursor: "pointer",
-                    backgroundColor: isConfirmingDelete ? "hsl(var(--destructive) / 0.15)" : "transparent",
-                    color: isConfirmingDelete ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))",
-                    opacity: 1,
-                    transition: "all 0.2s"
-                  }}
-                  title={isConfirmingDelete ? "Confirm Delete" : "Delete Media"}
-                >
-                  {isConfirmingDelete ? (
-                    <CheckIcon style={{ width: 16, height: 16 }} />
-                  ) : (
-                    <XIcon style={{ width: 16, height: 16 }} />
-                  )}
-                </span>
+              <div className="ai-cmd-groups" style={{ marginBottom: 14 }}>
+                <div className="ai-cmd-group">
+                {AI_FEATURES.map((option) => (
+                  <button
+                    key={option.id}
+                    className="novel-slash-item w-full text-left"
+                    onClick={() => handleFeature(option.id)}
+                  >
+                    <div className="novel-slash-icon">
+                      <AnimatedIcon animation="hover">
+                        <option.icon className="h-4 w-4" />
+                      </AnimatedIcon>
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-medium">{option.label}</p>
+                      <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                        {option.desc}
+                      </p>
+                    </div>
+                  </button>
+                ))}
               </div>
+            </div>
+            </motion.div>
+          )}
+
+          {/* ─── Delete Button (not during processing) ─── */}
+          {phase !== "processing" && (
+            <button
+              onClick={handleDelete}
+              className="w-full h-10 flex items-center justify-center gap-2 rounded-full text-[13px] font-semibold transition-all"
+              style={{
+                background: deleteConfirm ? "hsl(var(--destructive) / 0.1)" : "transparent",
+                color: deleteConfirm ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))",
+                border: deleteConfirm ? "1px solid hsl(var(--destructive) / 0.2)" : "1px solid hsl(var(--border))",
+              }}
+              onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
+              onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+            >
+              <AnimatedIcon animation="none"><DeleteIcon className="w-4 h-4" /></AnimatedIcon>
+              {deleteConfirm ? "Confirm Delete" : "Delete Recording"}
             </button>
-          </div>
+          )}
         </div>
       </motion.div>
     </>
