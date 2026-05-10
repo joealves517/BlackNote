@@ -14,16 +14,31 @@ export function useSpeech() {
       return;
     }
 
-    // Pre-check: is there any microphone hardware available?
+    // Pre-check: distinguish "no hardware" from "no permission"
     try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const hasMic = devices.some(d => d.kind === "audioinput" && d.deviceId !== "");
-      if (!hasMic) {
-        window.dispatchEvent(new CustomEvent("stt-error", { detail: { code: "NO_DEVICE" } }));
+      const perm = await navigator.permissions.query({ name: "microphone" as PermissionName });
+      if (perm.state === "denied") {
+        // Permission explicitly denied → show permission sheet
+        window.dispatchEvent(new CustomEvent("stt-error", { detail: { code: "NOT_ALLOWED" } }));
         return;
       }
+      if (perm.state === "granted") {
+        // Permission granted but mic might be missing → quick test
+        try {
+          const testStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          testStream.getTracks().forEach(t => t.stop());
+        } catch (hwErr: any) {
+          if (hwErr.name === "NotFoundError") {
+            window.dispatchEvent(new CustomEvent("stt-error", { detail: { code: "NO_DEVICE" } }));
+          } else {
+            window.dispatchEvent(new CustomEvent("stt-error", { detail: { code: "NOT_ALLOWED" } }));
+          }
+          return;
+        }
+      }
+      // "prompt" state → SpeechRecognition will trigger Chrome's permission dialog
     } catch {
-      // enumerateDevices not available — proceed and let SpeechRecognition handle it
+      // permissions.query not available — proceed and let SpeechRecognition handle it
     }
 
     if (recognitionRef.current) {
