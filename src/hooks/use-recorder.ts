@@ -217,6 +217,10 @@ export function useRecorder(): UseRecorderReturn {
         localStreams.current.push(micStream);
       } catch (err) {
         console.warn("[useRecorder] Mic unavailable:", err);
+        if (err instanceof DOMException || String(err).includes("DOMException") || String(err).toLowerCase().includes("notallowederror")) {
+          chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
+          throw new Error("Microphone permission required. Please grant permission in the newly opened tab and try again.");
+        }
       }
 
       let finalStream: MediaStream | null = micStream;
@@ -398,6 +402,11 @@ export function useRecorder(): UseRecorderReturn {
         finalStream = new MediaStream([videoTrack, ...mixedAudio]);
       } catch (err) {
         console.warn("[useRecorder] Mic unavailable for screen recording:", err);
+        if (err instanceof DOMException || String(err).includes("DOMException") || String(err).toLowerCase().includes("notallowederror")) {
+          chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
+          // We don't throw here so screen recording can still continue without mic if they choose to, 
+          // or they can grant it for next time.
+        }
       }
 
       const mimeType = selectVideoMimeType();
