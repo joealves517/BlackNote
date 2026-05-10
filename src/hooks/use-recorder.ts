@@ -212,148 +212,43 @@ export function useRecorder(): UseRecorderReturn {
       setError(null);
       setState("requesting");
       setMode("audio");
-      isLocalRecording.current = true;
-      localMediaId.current = generateId();
+      isLocalRecording.current = false;
       localChunks.current = [];
       localPausedElapsed.current = 0;
 
-      // Step 1: Get mic
-      let micStream: MediaStream | null = null;
-      try {
-        micStream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-          video: false,
-        });
-        localStreams.current.push(micStream);
-      } catch (err) {
-        console.warn("[useRecorder] Mic unavailable:", err);
-        const isNotAllowed = err instanceof DOMException && err.name === "NotAllowedError" || String(err).toLowerCase().includes("notallowederror");
-        if (isNotAllowed) {
-          const perm = await navigator.permissions.query({ name: "microphone" as PermissionName }).catch(() => null);
-          if (perm?.state === "granted") {
-            console.warn("[useRecorder] Chrome Side Panel cache bug detected. Reloading panel...");
-            window.location.reload();
-            return false;
-          }
-        }
+      const res = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+        chrome.runtime.sendMessage({ type: "RECORDING_START_AUDIO" }, resolve);
+      });
 
-        if (err instanceof DOMException || String(err).includes("DOMException") || isNotAllowed) {
-          chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
-          throw new Error("Microphone permission required. Please grant permission in the newly opened tab and try again.");
-        }
+      if (!res?.success) {
+        throw new Error(res?.error || "Failed to start offscreen recording");
       }
 
-      let finalStream: MediaStream | null = micStream;
-
-      // Step 2: Try to capture tab audio via desktopCapture (same-process, works!)
-      if (chrome.desktopCapture) {
-        try {
-          const desktopStreamId = await new Promise<string | null>((resolve) => {
-            chrome.desktopCapture.chooseDesktopMedia(["tab", "audio"], (streamId: string) => {
-              if (!streamId || chrome.runtime.lastError) resolve(null);
-              else resolve(streamId);
-            });
-          });
-
-          if (desktopStreamId) {
-            const desktopStream = await navigator.mediaDevices.getUserMedia({
-              audio: {
-                mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: desktopStreamId }
-              } as any,
-              video: {
-                mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: desktopStreamId }
-              } as any,
-            });
-
-            // Drop video tracks
-            desktopStream.getVideoTracks().forEach(t => { t.stop(); desktopStream.removeTrack(t); });
-            localStreams.current.push(desktopStream);
-
-            if (desktopStream.getAudioTracks().length > 0) {
-              const ctx = new AudioContext();
-              if (ctx.state === "suspended") await ctx.resume();
-              localAudioCtx.current = ctx;
-              const destination = ctx.createMediaStreamDestination();
-
-              // Create analyser for waveform visualization
-              const analyser = ctx.createAnalyser();
-              analyser.fftSize = 256;
-
-              const desktopSrc = ctx.createMediaStreamSource(desktopStream);
-              desktopSrc.connect(destination);
-              desktopSrc.connect(analyser);
-
-              if (micStream) {
-                const micSrc = ctx.createMediaStreamSource(micStream);
-                micSrc.connect(destination);
-                micSrc.connect(analyser);
-              }
-
-              setAnalyserNode(analyser);
-              finalStream = destination.stream;
-            }
-          }
-        } catch (err) {
-          console.warn("[useRecorder] Tab audio capture failed, mic-only:", err);
-        }
-      }
-
-      if (!finalStream || finalStream.getAudioTracks().length === 0) {
-        throw new Error("No audio sources available");
-      }
-
-      // If no AudioContext was created (mic-only), create analyser from mic stream
-      if (!analyserNode && finalStream.getAudioTracks().length > 0) {
-        const ctx = new AudioContext();
-        if (ctx.state === "suspended") await ctx.resume();
-        localAudioCtx.current = ctx;
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
-        const src = ctx.createMediaStreamSource(finalStream);
-        src.connect(analyser);
-        setAnalyserNode(analyser);
-      }
-
-      // Step 3: Start MediaRecorder locally
-      const mimeType = selectAudioMimeType();
-      const rec = new MediaRecorder(finalStream, { mimeType });
-      localRecorder.current = rec;
-
-      rec.ondataavailable = (e) => {
-        if (e.data.size > 0) localChunks.current.push(e.data);
-      };
-
-      rec.start(1000);
-      setState("recording");
-      setElapsed(0);
-      startLocalTimer();
-      writeStorage("recording", 0);
       return true;
-    } catch (err) {
+    } catch (err: any) {
+      console.warn("[useRecorder] startAudioRecording failed:", err);
+      if (err.message?.includes("Failed to start offscreen recording") || err.message?.includes("Permission")) {
+         chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
+      }
       setError(err instanceof Error ? err.message : String(err));
       cleanupLocal();
       setState("idle");
       setMode(null);
-      writeStorage("idle", 0);
       return false;
     }
-  }, [startLocalTimer, writeStorage, cleanupLocal]);
+  }, [cleanupLocal]);
 
   const startScreenRecording = useCallback(async (): Promise<boolean> => {
     try {
       setError(null);
       setState("requesting");
       setMode("screen");
-      isLocalRecording.current = true;
-      localMediaId.current = generateId();
+      isLocalRecording.current = false;
       localChunks.current = [];
       localPausedElapsed.current = 0;
 
       if (!chrome.desktopCapture) {
-        setError("Desktop capture not supported.");
-        setState("idle");
-        setMode(null);
-        return false;
+        throw new Error("Desktop capture not supported.");
       }
 
       // Show screen/tab picker
@@ -370,107 +265,27 @@ export function useRecorder(): UseRecorderReturn {
         return false;
       }
 
-      // Capture screen + audio from the selected source
-      const displayStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: desktopStreamId }
-        } as any,
-        video: {
-          mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: desktopStreamId }
-        } as any,
+      const res = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+        chrome.runtime.sendMessage({ type: "RECORDING_START_SCREEN", payload: { streamId: desktopStreamId } }, resolve);
       });
-      localStreams.current.push(displayStream);
 
-      let finalStream = displayStream;
-
-      // Try to add mic audio mixed in
-      try {
-        const micStream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true },
-          video: false,
-        });
-        localStreams.current.push(micStream);
-
-        const ctx = new AudioContext();
-        if (ctx.state === "suspended") await ctx.resume();
-        localAudioCtx.current = ctx;
-        const destination = ctx.createMediaStreamDestination();
-
-        // Create analyser for waveform
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
-
-        // Mix display audio
-        const displayAudioTracks = displayStream.getAudioTracks();
-        if (displayAudioTracks.length > 0) {
-          const displayAudioStream = new MediaStream(displayAudioTracks);
-          const displaySource = ctx.createMediaStreamSource(displayAudioStream);
-          displaySource.connect(destination);
-          displaySource.connect(analyser);
-        }
-
-        // Mix mic audio
-        const micSource = ctx.createMediaStreamSource(micStream);
-        micSource.connect(destination);
-        micSource.connect(analyser);
-
-        setAnalyserNode(analyser);
-
-        // Combine: video from display + mixed audio
-        const videoTrack = displayStream.getVideoTracks()[0];
-        const mixedAudio = destination.stream.getAudioTracks();
-        finalStream = new MediaStream([videoTrack, ...mixedAudio]);
-      } catch (err) {
-        console.warn("[useRecorder] Mic unavailable for screen recording:", err);
-        const isNotAllowed = err instanceof DOMException && err.name === "NotAllowedError" || String(err).toLowerCase().includes("notallowederror");
-        if (isNotAllowed) {
-          const perm = await navigator.permissions.query({ name: "microphone" as PermissionName }).catch(() => null);
-          if (perm?.state === "granted") {
-            console.warn("[useRecorder] Chrome Side Panel cache bug detected. Reloading panel...");
-            window.location.reload();
-            return false;
-          }
-        }
-
-        if (err instanceof DOMException || String(err).includes("DOMException") || isNotAllowed) {
-          chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
-          // We don't throw here so screen recording can still continue without mic if they choose to, 
-          // or they can grant it for next time.
-        }
+      if (!res?.success) {
+        throw new Error(res?.error || "Failed to start offscreen recording");
       }
 
-      const mimeType = selectVideoMimeType();
-      const rec = new MediaRecorder(finalStream, { mimeType });
-      localRecorder.current = rec;
-
-      rec.ondataavailable = (e) => {
-        if (e.data.size > 0) localChunks.current.push(e.data);
-      };
-
-      // Auto-stop when screen share ends
-      displayStream.getVideoTracks().forEach(track => {
-        track.onended = () => {
-          if (localRecorder.current?.state !== "inactive") {
-            window.dispatchEvent(new CustomEvent("toolbar-stop-recording"));
-          }
-        };
-      });
-
-      rec.start(1000);
-      setState("recording");
-      setElapsed(0);
-      startLocalTimer();
-      writeStorage("recording", 0);
       return true;
-    } catch (err) {
+    } catch (err: any) {
+      console.warn("[useRecorder] startScreenRecording failed:", err);
+      if (err.message?.includes("Failed to start offscreen recording") || err.message?.includes("Permission")) {
+         chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
+      }
       setError(err instanceof Error ? err.message : String(err));
       cleanupLocal();
       setState("idle");
       setMode(null);
-      writeStorage("idle", 0);
       return false;
     }
-  }, [startLocalTimer, writeStorage, cleanupLocal]);
+  }, [cleanupLocal]);
 
   const pauseRecording = useCallback(() => {
     if (isLocalRecording.current && localRecorder.current?.state === "recording") {
