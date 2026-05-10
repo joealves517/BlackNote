@@ -39,7 +39,8 @@ export function markdownToProsemirror(md: string): string {
   try {
     // breaks: true ensures single newlines become <br> instead of being ignored
     // gfm: true is standard for GitHub Flavored Markdown (tables, etc.)
-    const html = marked.parse(md, { breaks: true, gfm: true }) as string;
+    // silent: false ensures marked throws an error instead of returning HTML with the error string
+    const html = marked.parse(md, { breaks: true, gfm: true, silent: false }) as string;
     const json = generateJSON(html, parserExtensions);
     return JSON.stringify(json);
   } catch (err) {

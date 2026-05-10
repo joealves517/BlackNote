@@ -46,8 +46,16 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
   }, []);
 
   const { completion, complete, isLoading } = useCompletion({
-    api: token ? `${AI_API_BASE}/api/ai` : `${AI_API_BASE}/api/ai/free`,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    api: "/api/ai", // Overridden by custom fetch below
+    fetch: async (url, options) => {
+      const currentToken = await getAuthToken();
+      const endpoint = currentToken ? `${AI_API_BASE}/api/ai` : `${AI_API_BASE}/api/ai/free`;
+      const headers = {
+        ...options?.headers,
+        ...(currentToken ? { Authorization: `Bearer ${currentToken}` } : {})
+      };
+      return fetch(endpoint, { ...options, headers });
+    },
     streamProtocol: "text",
     onError: (err: Error) => {
       console.error("AI error:", err.message);
@@ -260,7 +268,9 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
               ) : (
                 <AISelectorCommands
                   onSelect={(value, option) =>
-                    complete(value, { body: { option } })
+                    complete(value, { 
+                      body: { option }
+                    })
                   }
                 />
               )}

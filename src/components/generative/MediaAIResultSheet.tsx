@@ -47,8 +47,16 @@ export function MediaAIResultSheet({ completion: initialResult, mediaId, onClose
   }, []);
 
   const { completion: followUp, complete, isLoading } = useCompletion({
-    api: token ? `${AI_API_BASE}/api/ai` : `${AI_API_BASE}/api/ai/free`,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    api: "/api/ai", // Overridden by custom fetch below
+    fetch: async (url, options) => {
+      const currentToken = await getAuthToken();
+      const endpoint = currentToken ? `${AI_API_BASE}/api/ai` : `${AI_API_BASE}/api/ai/free`;
+      const headers = {
+        ...options?.headers,
+        ...(currentToken ? { Authorization: `Bearer ${currentToken}` } : {})
+      };
+      return fetch(endpoint, { ...options, headers });
+    },
     streamProtocol: "text",
     onError: () => {
       window.dispatchEvent(new CustomEvent("ai-error"));
@@ -66,6 +74,7 @@ export function MediaAIResultSheet({ completion: initialResult, mediaId, onClose
     if (!inputValue.trim() || isLoading) return;
     complete(displayText, {
       body: { option: "zap", command: inputValue },
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     }).then(() => setInputValue(""));
   };
 
