@@ -149,7 +149,7 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
 
       {/* Sheet with slide-up — layout animation handles height changes */}
       <motion.div
-        className="clipper-sheet"
+        className={`clipper-sheet ${visualState === "thinking" ? "account-sheet" : ""}`}
         style={{ maxHeight: "calc(100% - 56px)" }}
         initial={{ bottom: "-100%" }}
         animate={{ bottom: 0 }}

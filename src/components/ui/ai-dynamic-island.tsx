@@ -44,24 +44,17 @@ export const AIDynamicIsland = React.forwardRef<HTMLDivElement, AIDynamicIslandP
   useEffect(() => {
     if (!dotLottie) return;
 
-    const fireThinking = () => {
+    const fire = (evt: string) => {
       try {
-        if (typeof dotLottie.stateMachineFireEvent === "function") {
-          // Available states from StateMachine1:
-          // - yesClick / yesComplete
-          // - noClick / noComplete
-          // - alertClick / alertComplete
-          // - thinkClick / thinkingComplete
-          // - jumpClick
-          dotLottie.stateMachineFireEvent("thinkClick");
-        }
-      } catch (err) {}
+        dotLottie.stateMachineFireEvent?.(evt);
+      } catch {}
     };
 
+    // Initial jump entrance, then transition to thinking loop
     let interval: NodeJS.Timeout;
     const initialTimeout = setTimeout(() => {
-      fireThinking();
-      interval = setInterval(fireThinking, 1500); // 1.5s loop để animation kịp chạy hết + delay
+      fire("jumpClick");
+      interval = setInterval(() => fire("thinkClick"), 1500);
     }, 200);
 
     return () => {

@@ -173,7 +173,7 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
         exit={{ opacity: 0 }}
       />
       <motion.div
-        className="history-sheet ai-shadow"
+        className={`history-sheet ai-shadow ${isProcessing ? "account-sheet" : ""}`}
         style={{ display: "flex", flexDirection: "column", maxWidth: 800, margin: "0 auto", height: "auto" }}
         initial={{ y: "100%" }}
         animate={{ y: 0 }}

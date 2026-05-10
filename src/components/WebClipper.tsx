@@ -101,7 +101,17 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
   const [processError, setProcessError] = useState("");
 
   useEffect(() => {
-    // Left empty since we no longer dispatch ai-thinking events globally.
+    // Toggle the 'account-sheet' class on the parent sheet to enable the cutout effect for the Lottie robot
+    const sheet = document.querySelector('.clipper-sheet');
+    if (processing && processing !== "spark_sent") {
+      sheet?.classList.add('account-sheet');
+    } else {
+      sheet?.classList.remove('account-sheet');
+    }
+    
+    return () => {
+      sheet?.classList.remove('account-sheet');
+    };
   }, [processing]);
 
   // Auto-clip on mount

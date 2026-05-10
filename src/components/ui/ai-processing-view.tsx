@@ -20,17 +20,18 @@ export function AIProcessingView({ title, messages }: AIProcessingViewProps) {
       } catch {}
     };
 
+    // Initial jump entrance, then transition to thinking loop
+    let interval: NodeJS.Timeout;
     const t = setTimeout(() => {
-      fire("thinkClick");
-    }, 500);
-    
-    const interval = setInterval(() => {
-      fire("thinkClick");
-    }, 1500);
+      fire("jumpClick");
+      interval = setInterval(() => {
+        fire("thinkClick");
+      }, 1500);
+    }, 200);
 
     return () => {
       clearTimeout(t);
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
     };
   }, [dotLottie]);
 
@@ -47,6 +48,7 @@ export function AIProcessingView({ title, messages }: AIProcessingViewProps) {
 
   return (
     <motion.div
+      className="relative pt-4 px-4 pb-4"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}

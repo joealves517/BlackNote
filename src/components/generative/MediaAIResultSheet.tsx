@@ -117,7 +117,7 @@ export function MediaAIResultSheet({ completion: initialResult, mediaId, onClose
       />
 
       <motion.div
-        className="clipper-sheet"
+        className={`clipper-sheet ${isThinking ? "account-sheet" : ""}`}
         style={{ maxHeight: "calc(100% - 56px)" }}
         initial={{ bottom: "-100%" }}
         animate={{ bottom: 0 }}
