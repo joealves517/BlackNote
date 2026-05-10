@@ -2586,3 +2586,9 @@ button:active .hover-zoom-icon,
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-origin: center center;
 }
+
+/* ===== GapCursor Override ===== */
+/* Fix invisible horizontal gap cursor between media blocks in dark mode */
+.ProseMirror-gapcursor:after {
+  border-top-color: hsl(var(--foreground)) !important;
+}
