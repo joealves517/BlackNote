@@ -217,7 +217,17 @@ export function useRecorder(): UseRecorderReturn {
         localStreams.current.push(micStream);
       } catch (err) {
         console.warn("[useRecorder] Mic unavailable:", err);
-        if (err instanceof DOMException || String(err).includes("DOMException") || String(err).toLowerCase().includes("notallowederror")) {
+        const isNotAllowed = err instanceof DOMException && err.name === "NotAllowedError" || String(err).toLowerCase().includes("notallowederror");
+        if (isNotAllowed) {
+          const perm = await navigator.permissions.query({ name: "microphone" as PermissionName }).catch(() => null);
+          if (perm?.state === "granted") {
+            console.warn("[useRecorder] Chrome Side Panel cache bug detected. Reloading panel...");
+            window.location.reload();
+            return false;
+          }
+        }
+
+        if (err instanceof DOMException || String(err).includes("DOMException") || isNotAllowed) {
           chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
           throw new Error("Microphone permission required. Please grant permission in the newly opened tab and try again.");
         }
@@ -402,7 +412,17 @@ export function useRecorder(): UseRecorderReturn {
         finalStream = new MediaStream([videoTrack, ...mixedAudio]);
       } catch (err) {
         console.warn("[useRecorder] Mic unavailable for screen recording:", err);
-        if (err instanceof DOMException || String(err).includes("DOMException") || String(err).toLowerCase().includes("notallowederror")) {
+        const isNotAllowed = err instanceof DOMException && err.name === "NotAllowedError" || String(err).toLowerCase().includes("notallowederror");
+        if (isNotAllowed) {
+          const perm = await navigator.permissions.query({ name: "microphone" as PermissionName }).catch(() => null);
+          if (perm?.state === "granted") {
+            console.warn("[useRecorder] Chrome Side Panel cache bug detected. Reloading panel...");
+            window.location.reload();
+            return false;
+          }
+        }
+
+        if (err instanceof DOMException || String(err).includes("DOMException") || isNotAllowed) {
           chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
           // We don't throw here so screen recording can still continue without mic if they choose to, 
           // or they can grant it for next time.
