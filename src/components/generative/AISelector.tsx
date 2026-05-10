@@ -280,11 +280,12 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
                 />
               ) : (
                 <AISelectorCommands
-                  onSelect={(value, option) =>
-                    complete(value, { 
+                  onSelect={(option, overrideText) => {
+                    const textToSend = overrideText ?? getSelectedText();
+                    complete(textToSend, { 
                       body: { option }
-                    })
-                  }
+                    });
+                  }}
                 />
               )}
             </motion.div>

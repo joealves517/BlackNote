@@ -10,7 +10,7 @@ import { getPrevText, useEditor } from "novel";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 
 interface AISelectorCommandsProps {
-  onSelect: (value: string, option: string) => void;
+  onSelect: (option: string, overrideText?: string) => void;
 }
 
 const editOptions = [
@@ -25,15 +25,6 @@ const editOptions = [
 export function AISelectorCommands({ onSelect }: AISelectorCommandsProps) {
   const { editor } = useEditor();
 
-  const getSelectedText = (): string => {
-    if (!editor) return "";
-    const slice = editor.state.selection.content();
-    return (
-      editor.storage.markdown?.serializer?.serialize(slice.content) ||
-      slice.content.textBetween(0, slice.content.size, "\n")
-    );
-  };
-
   return (
     <div className="ai-cmd-groups">
       <div className="ai-cmd-group">
@@ -41,7 +32,7 @@ export function AISelectorCommands({ onSelect }: AISelectorCommandsProps) {
           <button
             key={option.value}
             className="novel-slash-item w-full text-left"
-            onClick={() => onSelect(getSelectedText(), option.value)}
+            onClick={() => onSelect(option.value)}
           >
             <div className="novel-slash-icon">
               <AnimatedIcon animation="hover">
@@ -62,7 +53,7 @@ export function AISelectorCommands({ onSelect }: AISelectorCommandsProps) {
             if (!editor) return;
             const pos = editor.state.selection.from;
             const text = getPrevText(editor, pos);
-            onSelect(text, "continue");
+            onSelect("continue", text);
           }}
         >
           <div className="novel-slash-icon">
