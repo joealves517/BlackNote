@@ -108,7 +108,7 @@ export function App() {
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
   const [aiErrorVisible, setAiErrorVisible] = useState(false);
-  const [recErrorInfo, setRecErrorInfo] = useState<{ info: RecordingErrorInfo; retryMode: "audio" | "screen" } | null>(null);
+  const [recErrorInfo, setRecErrorInfo] = useState<{ info: RecordingErrorInfo; retryMode: "audio" | "screen"; editor?: any } | null>(null);
   const [isSTTActive, setIsSTTActive] = useState(false);
   const [sttElapsed, setSttElapsed] = useState(0);
 
@@ -184,8 +184,8 @@ export function App() {
           removeEditorNode(detail.editor, "audioNode", insertedMediaId);
         }
         recordingEditorRef.current = null;
-        // Show the error sheet
-        setRecErrorInfo({ info: classifyRecordingError(err), retryMode: "audio" });
+        // Show the error sheet — preserve editor ref for retry
+        setRecErrorInfo({ info: classifyRecordingError(err), retryMode: "audio", editor: detail?.editor });
       }
     };
 
@@ -213,7 +213,7 @@ export function App() {
           removeEditorNode(detail.editor, "videoNode", insertedMediaId);
         }
         recordingEditorRef.current = null;
-        setRecErrorInfo({ info: classifyRecordingError(err), retryMode: "screen" });
+        setRecErrorInfo({ info: classifyRecordingError(err), retryMode: "screen", editor: detail?.editor });
       }
     };
 
@@ -859,20 +859,22 @@ export function App() {
         onDismiss={() => setRecErrorInfo(null)}
         onRetry={() => {
           const mode = recErrorInfo?.retryMode;
+          const editor = recErrorInfo?.editor;
           setRecErrorInfo(null);
           if (mode === "audio") {
-            window.dispatchEvent(new CustomEvent("start-audio-recording"));
+            window.dispatchEvent(new CustomEvent("start-audio-recording", { detail: { editor } }));
           } else if (mode === "screen") {
-            window.dispatchEvent(new CustomEvent("start-screen-recording"));
+            window.dispatchEvent(new CustomEvent("start-screen-recording", { detail: { editor } }));
           }
         }}
         onContinueWithoutMic={() => {
           const mode = recErrorInfo?.retryMode;
+          const editor = recErrorInfo?.editor;
           setRecErrorInfo(null);
           if (mode === "screen") {
-            window.dispatchEvent(new CustomEvent("start-screen-recording", { detail: { skipMic: true } }));
+            window.dispatchEvent(new CustomEvent("start-screen-recording", { detail: { skipMic: true, editor } }));
           } else {
-            window.dispatchEvent(new CustomEvent("start-audio-recording", { detail: { skipMic: true } }));
+            window.dispatchEvent(new CustomEvent("start-audio-recording", { detail: { skipMic: true, editor } }));
           }
         }}
         onOpenSettings={() => {

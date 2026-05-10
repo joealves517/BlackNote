@@ -317,6 +317,15 @@ export function useRecorder(): UseRecorderReturn {
         if (e.data.size > 0) localChunks.current.push(e.data);
       };
 
+      // Auto-stop when Chrome's "Stop sharing" button is clicked
+      finalStream.getAudioTracks().forEach(track => {
+        track.onended = () => {
+          if (localRecorder.current?.state !== "inactive") {
+            window.dispatchEvent(new CustomEvent("toolbar-stop-recording"));
+          }
+        };
+      });
+
       rec.start(1000);
       setState("recording");
       setElapsed(0);
