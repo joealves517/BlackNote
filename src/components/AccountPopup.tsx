@@ -20,6 +20,8 @@ interface AccountPopupProps {
   isLoggingIn?: boolean;
   onClose: () => void;
   onRefreshCredits?: () => void;
+  guestTitle?: string;
+  guestSubtitle?: string;
 }
 
 const GoogleLogo = () => (
@@ -156,6 +158,8 @@ export function AccountPopup({
   onSignOut,
   onLogin,
   isLoggingIn,
+  guestTitle,
+  guestSubtitle,
 }: AccountPopupProps) {
   const isPremium = credits?.tier === "premium";
   const isQuotaExhausted = isPremium && credits?.credits !== undefined && credits.credits <= 0;
@@ -212,8 +216,8 @@ export function AccountPopup({
         </div>
 
         <div className="text-center pt-4 pb-3">
-          <h3 className="text-lg font-bold text-foreground mb-1 tracking-tight">Unlock AI Features</h3>
-          <p className="text-xs text-muted-foreground">Sign in to enhance your note-taking experience.</p>
+          <h3 className="text-lg font-bold text-foreground mb-1 tracking-tight">{guestTitle || "Unlock AI Features"}</h3>
+          <p className="text-xs text-muted-foreground">{guestSubtitle || "Sign in to enhance your note-taking experience."}</p>
         </div>
 
         <FeatureList isPro={false} quotaExhausted={false} isGuest={true} />

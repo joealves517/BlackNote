@@ -95,6 +95,7 @@ export function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [showClipper, setShowClipper] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [accountGuestText, setAccountGuestText] = useState<{ title?: string; subtitle?: string } | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [proIconIndex, setProIconIndex] = useState(() => Math.floor(Math.random() * 3));
   const headerProIconRef = useRef<any>(null);
@@ -151,17 +152,6 @@ export function App() {
     return () => window.removeEventListener("stt-state-changed", handleSTTState);
   }, []);
 
-  useEffect(() => {
-    const handleSTTStart = (e: Event) => {
-      // Auth guard — require login, block event from reaching NoteEditor
-      if (!userRef.current) {
-        e.stopImmediatePropagation();
-        setShowAccountMenu(true);
-      }
-    };
-    window.addEventListener("start-speech-to-text", handleSTTStart);
-    return () => window.removeEventListener("start-speech-to-text", handleSTTStart);
-  }, []);
 
   // ── Recording slash command listeners ──
   useEffect(() => {
@@ -180,6 +170,7 @@ export function App() {
     const handleAudioRecording = async (e: Event) => {
       // Auth guard — require login
       if (!userRef.current) {
+        setAccountGuestText({ title: "Unlock Recording", subtitle: "Sign in to record audio and capture your ideas." });
         setShowAccountMenu(true);
         return;
       }
@@ -211,6 +202,7 @@ export function App() {
     const handleScreenRecording = async (e: Event) => {
       // Auth guard — require login
       if (!userRef.current) {
+        setAccountGuestText({ title: "Unlock Screen Capture", subtitle: "Sign in to record your screen and create video notes." });
         setShowAccountMenu(true);
         return;
       }
@@ -823,7 +815,7 @@ export function App() {
             <motion.div
               key="history-backdrop"
               className="history-sheet-backdrop"
-              onClick={() => setShowAccountMenu(false)}
+              onClick={() => { setShowAccountMenu(false); setAccountGuestText(null); }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -836,7 +828,7 @@ export function App() {
               exit={{ bottom: "-100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 350, mass: 0.8 }}
             >
-              <div className="history-sheet-handle" onClick={() => setShowAccountMenu(false)}>
+              <div className="history-sheet-handle" onClick={() => { setShowAccountMenu(false); setAccountGuestText(null); }}>
                 <div className="history-sheet-handle-bar" />
               </div>
               <div style={{ padding: 0, overflow: "visible" }}>
@@ -851,8 +843,10 @@ export function App() {
                   }}
                   onLogin={handleLogin}
                   isLoggingIn={isLoggingIn}
-                  onClose={() => setShowAccountMenu(false)}
+                  onClose={() => { setShowAccountMenu(false); setAccountGuestText(null); }}
                   onRefreshCredits={refreshCredits}
+                  guestTitle={accountGuestText?.title}
+                  guestSubtitle={accountGuestText?.subtitle}
                 />
               </div>
             </motion.div>
