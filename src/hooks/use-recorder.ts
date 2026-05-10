@@ -20,6 +20,7 @@ export interface UseRecorderReturn {
   stopRecording: () => Promise<RecorderResult | null>;
   discardRecording: () => void;
   error: string | null;
+  lastRawError: any;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────
@@ -63,6 +64,7 @@ export function useRecorder(): UseRecorderReturn {
   const localStartTime = useRef(0);
   const localPausedElapsed = useRef(0);
   const isLocalRecording = useRef(false);
+  const lastRawError = useRef<any>(null);
   const elapsedRef = useRef(0);
 
   // Keep ref in sync with state
@@ -217,34 +219,18 @@ export function useRecorder(): UseRecorderReturn {
       localChunks.current = [];
       localPausedElapsed.current = 0;
 
-      // Step 1: Get mic
+      // Step 1: Get mic — required for audio recording
       let micStream: MediaStream | null = null;
       try {
         micStream = await navigator.mediaDevices.getUserMedia({
-          audio: true, // Simplified to prevent OverconstrainedError
+          audio: true,
           video: false,
         });
         localStreams.current.push(micStream);
       } catch (err: any) {
         console.warn(`[useRecorder] Mic unavailable: ${err?.name} - ${err?.message}`, err);
-        
-        const isNotAllowed = err instanceof DOMException && err.name === "NotAllowedError" || String(err).toLowerCase().includes("notallowederror");
-        const perm = await navigator.permissions.query({ name: "microphone" as PermissionName }).catch(() => null);
-        
-        if (isNotAllowed) {
-          if (perm?.state === "granted") {
-            console.warn("[useRecorder] Chrome Side Panel cache bug detected. Reloading panel...");
-            window.location.reload();
-            return false;
-          }
-        }
-
-        if (perm?.state === "granted") {
-          throw new Error(`Microphone error: ${err?.name || "Unknown"}. It might be in use by another app. Please close other tabs using the mic and try again.`);
-        }
-
-        chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
-        throw new Error("Microphone permission required. Please grant permission in the newly opened tab and try again.");
+        // Bubble up the raw error for the UI to classify and display
+        throw err;
       }
 
       let finalStream: MediaStream | null = micStream;
@@ -333,7 +319,8 @@ export function useRecorder(): UseRecorderReturn {
       startLocalTimer();
       writeStorage("recording", 0);
       return true;
-    } catch (err) {
+    } catch (err: any) {
+      lastRawError.current = err;
       setError(err instanceof Error ? err.message : String(err));
       cleanupLocal();
       setState("idle");
@@ -425,24 +412,8 @@ export function useRecorder(): UseRecorderReturn {
         const mixedAudio = destination.stream.getAudioTracks();
         finalStream = new MediaStream([videoTrack, ...mixedAudio]);
       } catch (err: any) {
-        console.warn(`[useRecorder] Mic unavailable for screen recording: ${err?.name} - ${err?.message}`, err);
-        
-        const isNotAllowed = err instanceof DOMException && err.name === "NotAllowedError" || String(err).toLowerCase().includes("notallowederror");
-        const perm = await navigator.permissions.query({ name: "microphone" as PermissionName }).catch(() => null);
-        
-        if (isNotAllowed) {
-          if (perm?.state === "granted") {
-            console.warn("[useRecorder] Chrome Side Panel cache bug detected. Reloading panel...");
-            window.location.reload();
-            return false;
-          }
-        }
-
-        if (perm?.state !== "granted") {
-          chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
-        }
-        // We don't throw here so screen recording can still continue without mic if they choose to, 
-        // or they can grant it for next time.
+        // Mic is optional for screen recording — just log and continue with display audio only
+        console.warn(`[useRecorder] Mic unavailable for screen recording (continuing without mic): ${err?.name} - ${err?.message}`);
       }
 
       const mimeType = selectVideoMimeType();
@@ -610,5 +581,6 @@ export function useRecorder(): UseRecorderReturn {
     stopRecording,
     discardRecording,
     error,
+    lastRawError: lastRawError.current,
   };
 }

@@ -15,6 +15,8 @@ import { Mic, MicOff } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
 import { RecordingHeader } from "@/components/RecordingHeader";
 import { AIErrorSheet } from "@/components/AIErrorSheet";
+import { RecordingErrorSheet, classifyRecordingError } from "@/components/RecordingErrorSheet";
+import type { RecordingErrorInfo } from "@/components/RecordingErrorSheet";
 import { HistorySheet } from "@/components/HistorySheet";
 import { MediaActionSheet } from "@/components/MediaActionSheet";
 import { AccountPopup } from "@/components/AccountPopup";
@@ -107,6 +109,7 @@ export function App() {
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
   const [aiErrorVisible, setAiErrorVisible] = useState(false);
+  const [recErrorInfo, setRecErrorInfo] = useState<{ info: RecordingErrorInfo; retryMode: "audio" | "screen" } | null>(null);
   const [isSTTActive, setIsSTTActive] = useState(false);
   const [sttElapsed, setSttElapsed] = useState(0);
 
@@ -173,6 +176,12 @@ export function App() {
           }
         });
         recordingEditorRef.current = null;
+
+        // Show error bottom sheet with classified error
+        const rawErr = recorderRef2.current.lastRawError;
+        if (rawErr) {
+          setRecErrorInfo({ info: classifyRecordingError(rawErr), retryMode: "audio" });
+        }
       }
     };
 
@@ -806,6 +815,26 @@ export function App() {
             const url = `${CHECKOUT_BASE}?checkout[email]=${encodeURIComponent(user.email)}&checkout[custom][user_id]=${user.id}`;
             chrome.tabs.create({ url });
           }
+        }}
+      />
+
+      {/* ─── Recording Error Sheet ─── */}
+      <RecordingErrorSheet
+        visible={!!recErrorInfo}
+        errorInfo={recErrorInfo?.info ?? null}
+        onDismiss={() => setRecErrorInfo(null)}
+        onRetry={() => {
+          const mode = recErrorInfo?.retryMode;
+          setRecErrorInfo(null);
+          if (mode === "audio") {
+            window.dispatchEvent(new CustomEvent("start-audio-recording"));
+          } else if (mode === "screen") {
+            window.dispatchEvent(new CustomEvent("start-screen-recording"));
+          }
+        }}
+        onOpenSettings={() => {
+          chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
+          setRecErrorInfo(null);
         }}
       />
 
