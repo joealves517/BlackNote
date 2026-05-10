@@ -84,6 +84,8 @@ export function App() {
   const recorder = useRecorder();
   const recorderRef2 = useRef(recorder);
   recorderRef2.current = recorder;
+  const userRef = useRef(user);
+  userRef.current = user;
 
   const isRecording = recorder.state === "requesting" || recorder.state === "recording" || recorder.state === "paused" || recorder.state === "saving";
 
@@ -149,6 +151,18 @@ export function App() {
     return () => window.removeEventListener("stt-state-changed", handleSTTState);
   }, []);
 
+  useEffect(() => {
+    const handleSTTStart = (e: Event) => {
+      // Auth guard — require login, block event from reaching NoteEditor
+      if (!userRef.current) {
+        e.stopImmediatePropagation();
+        setShowAccountMenu(true);
+      }
+    };
+    window.addEventListener("start-speech-to-text", handleSTTStart);
+    return () => window.removeEventListener("start-speech-to-text", handleSTTStart);
+  }, []);
+
   // ── Recording slash command listeners ──
   useEffect(() => {
     const removeEditorNode = (editor: any, nodeType: string, mediaId: string) => {
@@ -164,6 +178,11 @@ export function App() {
     };
 
     const handleAudioRecording = async (e: Event) => {
+      // Auth guard — require login
+      if (!userRef.current) {
+        setShowAccountMenu(true);
+        return;
+      }
       const detail = (e as CustomEvent).detail;
       const skipMic = detail?.skipMic || false;
       let insertedMediaId = "";
@@ -190,6 +209,11 @@ export function App() {
     };
 
     const handleScreenRecording = async (e: Event) => {
+      // Auth guard — require login
+      if (!userRef.current) {
+        setShowAccountMenu(true);
+        return;
+      }
       const detail = (e as CustomEvent).detail;
       const skipMic = detail?.skipMic || false;
       let insertedMediaId = "";
