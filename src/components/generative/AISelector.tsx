@@ -79,6 +79,9 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
     if (!editor) return "";
     const slice = editor.state.selection.content();
     const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
+    
+    // Disable escaping so 1. stays 1. and ** stays **
+    turndown.escape = (text) => text;
 
     if (slice.size === 0) {
       return turndown.turndown(editor.getHTML());
@@ -89,10 +92,20 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
       const dom = DOMSerializer.fromSchema(editor.schema).serializeFragment(slice.content);
       const div = document.createElement("div");
       div.appendChild(dom);
+
+      // Fix orphan <li> tags (common when selecting partial lists in Tiptap)
+      const children = Array.from(div.children);
+      if (children.length > 0 && children.every(c => c.nodeName === "LI")) {
+        const ul = document.createElement("ul");
+        children.forEach(c => ul.appendChild(c));
+        div.innerHTML = "";
+        div.appendChild(ul);
+      }
+
       return turndown.turndown(div.innerHTML);
     } catch {
       // Fallback
-      return slice.content.textBetween(0, slice.content.size, "\n");
+      return slice.content.textBetween(0, slice.content.size, "\n\n");
     }
   };
 
