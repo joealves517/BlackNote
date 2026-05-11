@@ -211,6 +211,38 @@ function preCleanDOM(doc: Document): void {
 }
 
 /**
+ * Manually convert relative URLs to absolute URLs.
+ * This avoids the CSP "base-uri" violations caused by injecting a <base> tag.
+ */
+function fixRelativeUris(doc: Document, baseUri: string): void {
+  try {
+    const baseUrl = new URL(baseUri);
+    
+    // Fix links
+    doc.querySelectorAll("a[href]").forEach((el) => {
+      const href = el.getAttribute("href");
+      if (href && !href.startsWith("http") && !href.startsWith("data:") && !href.startsWith("#")) {
+        try {
+          el.setAttribute("href", new URL(href, baseUrl).href);
+        } catch (e) { /* ignore invalid urls */ }
+      }
+    });
+
+    // Fix images
+    doc.querySelectorAll("img[src]").forEach((el) => {
+      const src = el.getAttribute("src");
+      if (src && !src.startsWith("http") && !src.startsWith("data:")) {
+        try {
+          el.setAttribute("src", new URL(src, baseUrl).href);
+        } catch (e) { /* ignore invalid urls */ }
+      }
+    });
+  } catch (e) {
+    console.warn("Invalid base URI provided for URL resolution", e);
+  }
+}
+
+/**
  * Extract main content from an HTML string and convert to Markdown.
  *
  * @param html - Full HTML of the page (from content script)
@@ -225,10 +257,9 @@ export function extractPageContent(
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "text/html");
 
-  // Readability needs a base URI for resolving relative links
-  const base = doc.createElement("base");
-  base.href = url;
-  doc.head.prepend(base);
+  // Instead of injecting a <base> tag which triggers CSP "base-uri 'none'" violations,
+  // we manually resolve relative URLs so Readability doesn't discard important nodes.
+  fixRelativeUris(doc, url);
 
   // Pre-clean noise before Readability
   preCleanDOM(doc);

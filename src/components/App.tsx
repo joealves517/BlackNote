@@ -10,19 +10,25 @@ import { GlobeIcon } from "@/components/icons/globe";
 import { BlocksIcon } from "@/components/icons/blocks";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { motion, AnimatePresence } from "framer-motion";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Mic, MicOff } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
 import { RecordingHeader } from "@/components/RecordingHeader";
 import { AIErrorSheet } from "@/components/AIErrorSheet";
 import { RecordingErrorSheet, classifyRecordingError, type RecordingErrorInfo } from "@/components/RecordingErrorSheet";
+import { RecordingLimitSheet } from "@/components/RecordingLimitSheet";
+import { SignOutConfirmSheet } from "@/components/SignOutConfirmSheet";
 import { HistorySheet } from "@/components/HistorySheet";
 import { MediaActionSheet } from "@/components/MediaActionSheet";
 import { AccountPopup } from "@/components/AccountPopup";
+import { SupportActionSheet } from "@/components/SupportActionSheet";
 import { WebClipper } from "@/components/WebClipper";
+import { ImageClipper } from "@/components/ImageClipper";
 import { LoaderIcon } from "@/components/ui/loader";
 import { GripIcon } from "@/components/icons/grip";
 import { GlobalTooltip } from "@/components/Tooltip";
+import { db } from "@/lib/local-db";
 import { useNotes } from "@/hooks/use-notes";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
@@ -35,6 +41,7 @@ import { HeartHandshakeIcon } from "@/components/icons/heart-handshake";
 
 import { CHECKOUT_BASE } from "@/lib/constants";
 import { openSparkAIWithContext } from "@/lib/ecosystem";
+import { analyzeMedia } from "@/lib/media-ai-service";
 
 function GoogleIcon({ size = 20 }: { size?: number }) {
   return (
@@ -51,18 +58,49 @@ function getUserAvatar(user: any): string | null {
   return user?.picture || user?.user_metadata?.avatar_url || null;
 }
 
+const GuestAvatarIcon = () => {
+  const [lottie, setLottie] = useState<any>(null);
+  return (
+    <div
+      className="w-[26px] h-[26px] rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+      onMouseDown={() => {
+        if (lottie) {
+          lottie.setFrame(0);
+          lottie.play();
+        }
+      }}
+    >
+      <div style={{ width: "100%", height: "100%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", transform: "scale(2.2)" }}>
+        <DotLottieReact
+          src={chrome.runtime.getURL("guest-avatar.json")}
+          autoplay={false}
+          loop={false}
+          backgroundColor="transparent"
+          dotLottieRefCallback={setLottie}
+          style={{ width: "100%", height: "100%" }}
+        />
+      </div>
+    </div>
+  );
+};
+
 export function App() {
   const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
-  const handleLogin = async () => {
-    setIsLoggingIn(true);
-    try {
-      await signInWithGoogle();
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
+  useEffect(() => {
+    const handleMessage = (msg: any) => {
+      if (msg.type === "REGION_CAPTURED" && msg.dataUrl) {
+        setCapturedImage(msg.dataUrl);
+      }
+    };
+    browser.runtime.onMessage.addListener(handleMessage);
+    return () => {
+      browser.runtime.onMessage.removeListener(handleMessage);
+    };
+  }, []);
 
   const {
     notes,
@@ -79,8 +117,33 @@ export function App() {
     createNoteWithContent,
   } = useNotes(user?.id);
 
+  // Check for welcome note to show overlay
+  useEffect(() => {
+    const hasSeenWelcome = localStorage.getItem("blacknote_seen_welcome_overlay");
+    if (!hasSeenWelcome && notes.length > 0) {
+      const hasWelcomeNote = notes.some((n: any) => n.title.toLowerCase().includes("welcome"));
+      if (hasWelcomeNote) {
+        setShowWelcomeOverlay(true);
+      }
+    }
+  }, [notes]);
+
+  const handleLogin = async () => {
+    setIsLoggingIn(true);
+    try {
+      await signInWithGoogle();
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+
+
   const { theme, toggleTheme } = useTheme();
   const { credits, refreshCredits } = useCredits(user?.id);
+  const isPremium = credits?.tier === "premium";
+  const isQuotaExhausted = isPremium && credits?.credits !== undefined && credits.credits <= 0;
+
   const recorder = useRecorder();
   const recorderRef2 = useRef(recorder);
   recorderRef2.current = recorder;
@@ -92,9 +155,21 @@ export function App() {
   // Store editor ref for inserting media nodes after recording stops
   const recordingEditorRef = useRef<any>(null);
 
+  const previousRecorderState = useRef(recorder.state);
+  // Remove region overlay when recording stops
+  useEffect(() => {
+    if ((previousRecorderState.current === "recording" || previousRecorderState.current === "paused") && (recorder.state === "idle" || recorder.state === "saving")) {
+      chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
+        if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: "STOP_REGION_SELECTION" }).catch(() => { });
+      });
+    }
+    previousRecorderState.current = recorder.state;
+  }, [recorder.state]);
+
   const [showHistory, setShowHistory] = useState(false);
   const [showClipper, setShowClipper] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showSupportSheet, setShowSupportSheet] = useState(false);
   const [accountGuestText, setAccountGuestText] = useState<{ title?: string; subtitle?: string } | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [proIconIndex, setProIconIndex] = useState(() => Math.floor(Math.random() * 3));
@@ -110,10 +185,42 @@ export function App() {
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
+
+  useEffect(() => {
+    const handler = () => setShowSupportSheet(true);
+    window.addEventListener("open-support-sheet", handler);
+    return () => window.removeEventListener("open-support-sheet", handler);
+  }, []);
+
   const [aiErrorVisible, setAiErrorVisible] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [recErrorInfo, setRecErrorInfo] = useState<{ info: RecordingErrorInfo; retryMode: "audio" | "screen"; editor?: any } | null>(null);
   const [isSTTActive, setIsSTTActive] = useState(false);
   const [sttElapsed, setSttElapsed] = useState(0);
+
+  // --- Recording Limit Logic ---
+  const FREE_LIMIT_SECONDS = 1200; // 20 minutes
+  const WARNING_SECONDS = 1140; // 19 minutes
+  const [recordingLimitTimeLeft, setRecordingLimitTimeLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isPremium && isRecording) {
+      if (recorder.elapsed >= FREE_LIMIT_SECONDS) {
+        setRecordingLimitTimeLeft(0);
+        // Force stop recording only if it's currently recording
+        if (recorder.state === "recording" || recorder.state === "paused") {
+          recorder.stopRecording();
+        }
+      } else if (recorder.elapsed >= WARNING_SECONDS) {
+        setRecordingLimitTimeLeft(FREE_LIMIT_SECONDS - recorder.elapsed);
+      } else {
+        setRecordingLimitTimeLeft(null);
+      }
+    } else if (!isRecording && recordingLimitTimeLeft !== 0) {
+      // Clear warning when recording stops manually, unless we hit the limit
+      setRecordingLimitTimeLeft(null);
+    }
+  }, [recorder.elapsed, isRecording, isPremium, recorder.state]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -126,6 +233,7 @@ export function App() {
   const [mediaSheetConfig, setMediaSheetConfig] = useState<{
     mediaId: string;
     type: "audio" | "video";
+    noteId: string;
     fileName: string;
     duration: number;
     onDeleteNode: () => void;
@@ -150,6 +258,36 @@ export function App() {
     const handleSTTState = (e: any) => setIsSTTActive(e.detail);
     window.addEventListener("stt-state-changed", handleSTTState);
     return () => window.removeEventListener("stt-state-changed", handleSTTState);
+  }, []);
+
+  useEffect(() => {
+    const handleSaveTranscript = async (e: Event) => {
+      const { noteId, transcriptRecord } = (e as CustomEvent).detail;
+      if (!noteId || !transcriptRecord) return;
+      const note = await db.notes.get(noteId);
+      if (note) {
+        const currentTranscripts = note.mediaTranscripts ? JSON.parse(note.mediaTranscripts) : {};
+        currentTranscripts[transcriptRecord.mediaId] = transcriptRecord;
+        updateNote(noteId, { mediaTranscripts: JSON.stringify(currentTranscripts) });
+      }
+    };
+    window.addEventListener("save-transcript", handleSaveTranscript);
+    return () => window.removeEventListener("save-transcript", handleSaveTranscript);
+  }, [updateNote]);
+
+  // Listen for real-time background chunk transcription events
+  useEffect(() => {
+    const handler = (msg: any) => {
+      if (msg.type === "TRANSCRIBE_CHUNK" && msg.payload) {
+        const { mediaId, chunkId } = msg.payload;
+        // Import dynamically to avoid top-level dependencies if needed, or just call it:
+        import("@/lib/media-ai-service").then((mod) => {
+          mod.transcribeChunk(mediaId, chunkId).catch(console.error);
+        });
+      }
+    };
+    chrome.runtime.onMessage.addListener(handler);
+    return () => chrome.runtime.onMessage.removeListener(handler);
   }, []);
 
 
@@ -186,7 +324,7 @@ export function App() {
         }).run();
       }
       try {
-        await recorderRef2.current.startAudioRecording(skipMic);
+        await recorderRef2.current.startAudioRecording(skipMic, isPremium);
       } catch (err: any) {
         console.warn("[App] Audio recording failed:", err?.name, err?.message);
         // Remove the inserted node since recording failed
@@ -218,7 +356,7 @@ export function App() {
         }).run();
       }
       try {
-        const success = await recorderRef2.current.startScreenRecording(skipMic);
+        const success = await recorderRef2.current.startScreenRecording(skipMic, isPremium);
         if (!success && detail?.editor && insertedMediaId) {
           removeEditorNode(detail.editor, "videoNode", insertedMediaId);
           recordingEditorRef.current = null;
@@ -232,6 +370,7 @@ export function App() {
         setRecErrorInfo({ info: classifyRecordingError(err), retryMode: "screen", editor: detail?.editor });
       }
     };
+
 
     window.addEventListener("start-audio-recording", handleAudioRecording);
     window.addEventListener("start-screen-recording", handleScreenRecording);
@@ -273,8 +412,26 @@ export function App() {
           .run();
       }
       recordingEditorRef.current = null;
+
+      // Auto-transcribe in background (so AI menu is ready when user clicks the node)
+      if (result && activeNoteId) {
+        analyzeMedia(result.mediaId, activeNoteId, (prog) => {
+          window.dispatchEvent(
+            new CustomEvent("bg-transcribe-progress", {
+              detail: { mediaId: result.mediaId, ...prog },
+            })
+          );
+        }).catch((err) => {
+          console.warn("[Auto-transcribe]", err?.message);
+          window.dispatchEvent(
+            new CustomEvent("bg-transcribe-progress", {
+              detail: { mediaId: result.mediaId, step: "error", message: err?.message || "Transcription failed", percent: 0 },
+            })
+          );
+        });
+      }
     }
-  }, [recorder]);
+  }, [recorder, activeNoteId]);
 
   const handleRecordingDiscard = useCallback(() => {
     const currentMode = recorder.mode;
@@ -436,10 +593,6 @@ export function App() {
     };
   }, [handleScrollProgress]);
 
-  const isPremium = credits?.tier === "premium";
-  const isQuotaExhausted =
-    isPremium && credits?.credits !== undefined && credits.credits <= 0;
-
   // Listen for AI error events from the editor
   useEffect(() => {
     const handler = () => setAiErrorVisible(true);
@@ -600,6 +753,27 @@ export function App() {
         )}
       </AnimatePresence>
 
+      {/* ─── Welcome Overlay ─── */}
+      <AnimatePresence>
+        {showWelcomeOverlay && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-background/80 backdrop-blur-md cursor-pointer px-6"
+            onClick={() => {
+              setShowWelcomeOverlay(false);
+              localStorage.setItem("blacknote_seen_welcome_overlay", "true");
+            }}
+          >
+            <div className="w-full max-w-[500px] aspect-square flex items-center justify-center pointer-events-none">
+              <DotLottieReact src={chrome.runtime.getURL("welcome.json")} autoplay loop backgroundColor="transparent" style={{ width: "100%", height: "100%" }} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ─── Header Bar ─── */}
       {isRecording || isSTTActive ? (
         <RecordingHeader
@@ -647,7 +821,7 @@ export function App() {
                 data-tooltip={!user ? "Sign in / Account" : "Account"}
               >
                 {!user ? (
-                  <GoogleIcon size={17} />
+                  <GuestAvatarIcon />
                 ) : getUserAvatar(user) ? (
                   <img
                     src={getUserAvatar(user)!}
@@ -786,6 +960,38 @@ export function App() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {capturedImage && (
+          <>
+            <motion.div
+              className="history-sheet-backdrop"
+              onClick={() => setCapturedImage(null)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            />
+            <motion.div
+              className="clipper-sheet"
+              initial={{ bottom: "-100%" }}
+              animate={{ bottom: 0 }}
+              exit={{ bottom: "-100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 350, mass: 0.8 }}
+            >
+              <div className="history-sheet-handle" onClick={() => setCapturedImage(null)}>
+                <div className="history-sheet-handle-bar" />
+              </div>
+              <div className="clipper-sheet-content">
+                <ImageClipper
+                  dataUrl={capturedImage}
+                  onSaveAsNote={handleClipSaveAsNote}
+                  onClose={() => setCapturedImage(null)}
+                />
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* ─── History Bottom Sheet ─── */}
       <AnimatePresence>
         {showHistory && (
@@ -838,8 +1044,7 @@ export function App() {
                   proIconIndex={proIconIndex}
                   onSignOut={async () => {
                     setShowAccountMenu(false);
-                    setIsSigningOut(true);
-                    await signOut();
+                    setShowSignOutConfirm(true);
                   }}
                   onLogin={handleLogin}
                   isLoggingIn={isLoggingIn}
@@ -854,6 +1059,12 @@ export function App() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {showSupportSheet && (
+          <SupportActionSheet onClose={() => setShowSupportSheet(false)} />
+        )}
+      </AnimatePresence>
+
       {/* ─── AI Error Sheet ─── */}
       <AIErrorSheet
         visible={aiErrorVisible}
@@ -861,8 +1072,23 @@ export function App() {
         user={user}
         isPremium={isPremium}
         isQuotaExhausted={isQuotaExhausted}
-        onLogin={handleLogin}
+        onLogin={() => { setAiErrorVisible(false); signInWithGoogle(); }}
         onUpgrade={() => {
+          setAiErrorVisible(false);
+          if (user?.email) {
+            const url = `${CHECKOUT_BASE}?checkout[email]=${encodeURIComponent(user.email)}&checkout[custom][user_id]=${user.id}`;
+            chrome.tabs.create({ url });
+          }
+        }}
+      />
+
+      {/* Recording Limit Countdown/Error Sheet */}
+      <RecordingLimitSheet
+        visible={recordingLimitTimeLeft !== null}
+        timeLeft={recordingLimitTimeLeft || 0}
+        onDismiss={() => setRecordingLimitTimeLeft(null)}
+        onUpgrade={() => {
+          setRecordingLimitTimeLeft(null);
           if (user?.email) {
             const url = `${CHECKOUT_BASE}?checkout[email]=${encodeURIComponent(user.email)}&checkout[custom][user_id]=${user.id}`;
             chrome.tabs.create({ url });
@@ -874,7 +1100,12 @@ export function App() {
       <RecordingErrorSheet
         visible={!!recErrorInfo}
         errorInfo={recErrorInfo?.info ?? null}
-        onDismiss={() => setRecErrorInfo(null)}
+        onDismiss={() => {
+          setRecErrorInfo(null);
+          chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
+            if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: "STOP_REGION_SELECTION" }).catch(() => { });
+          });
+        }}
         onRetry={() => {
           const mode = recErrorInfo?.retryMode;
           const editor = recErrorInfo?.editor;
@@ -898,6 +1129,17 @@ export function App() {
         onOpenSettings={() => {
           chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
           setRecErrorInfo(null);
+        }}
+      />
+
+      {/* ─── Sign Out Confirm Sheet ─── */}
+      <SignOutConfirmSheet
+        visible={showSignOutConfirm}
+        onDismiss={() => setShowSignOutConfirm(false)}
+        onConfirm={async () => {
+          setShowSignOutConfirm(false);
+          setIsSigningOut(true);
+          await signOut();
         }}
       />
 

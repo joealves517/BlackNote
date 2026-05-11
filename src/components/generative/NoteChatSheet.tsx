@@ -77,24 +77,24 @@ export function NoteChatSheet({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { editor } = useEditor();
+  const lastSentContextRef = useRef<string>("");
 
   // Load media transcripts for enriching AI context
   const [mediaContext, setMediaContext] = useState("");
   const [mediaTranscripts, setMediaTranscripts] = useState<Map<string, any>>(new Map());
   useEffect(() => {
-    getTranscriptsForNote(noteContent).then((transcripts) => {
+    if (!editor) return;
+    const docStr = JSON.stringify(editor.getJSON());
+    getTranscriptsForNote(noteId, docStr).then((transcripts) => {
       setMediaTranscripts(transcripts);
       if (transcripts.size === 0) {
         // Check if there are unanalyzed media nodes
-        try {
-          const doc = JSON.parse(noteContent);
-          const hasMedia = JSON.stringify(doc).includes('"audioNode"') || JSON.stringify(doc).includes('"videoNode"');
-          if (hasMedia) {
-            setMediaContext(
-              `\n\n--- MEDIA: Audio/Video recording(s) present in this note but NOT yet analyzed ---\nIf the user asks about any recording, respond: "This recording hasn't been analyzed yet. Please tap on the recording and select 'Analyze with AI' to transcribe it first."\n---`
-            );
-          }
-        } catch {}
+        const hasMedia = docStr.includes('"audioNode"') || docStr.includes('"videoNode"');
+        if (hasMedia) {
+          setMediaContext(
+            `\n\n--- MEDIA: Audio/Video recording(s) present in this note but NOT yet analyzed ---\nIf the user asks about any recording, respond: "This recording hasn't been analyzed yet. Please tap on the recording and select 'Analyze with AI' to transcribe it first."\n---`
+          );
+        }
         return;
       }
       let ctx = "";
@@ -103,7 +103,7 @@ export function NoteChatSheet({
       });
       setMediaContext(ctx);
     });
-  }, [noteContent]);
+  }, [editor, noteId]);
 
   useEffect(() => {
     getAuthToken().then(setToken);
@@ -118,11 +118,26 @@ export function NoteChatSheet({
         ...options?.headers,
         ...(currentToken ? { Authorization: `Bearer ${currentToken}` } : {})
       };
-      return fetch(endpoint, { ...options, headers });
+      const response = await fetch(endpoint, { ...options, headers });
+
+      // Surface HTTP errors so useCompletion triggers onError
+      if (!response.ok) {
+        console.error("[NoteChatSheet] HTTP error:", response.status, response.statusText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response;
     },
     streamProtocol: "text",
     onFinish: (_prompt, comp) => {
-      if (!comp || comp.includes("busy")) return;
+      console.log("[NoteChatSheet] onFinish:", comp?.substring(0, 100));
+      if (!comp || !comp.trim()) {
+        setMessages((prev) => {
+          const updated = [...prev, { role: "ai", content: "Sorry, I couldn't generate a response. Please try again." }];
+          onHistoryChange(updated);
+          return updated;
+        });
+        return;
+      }
       const newMsg: ChatMessage = { role: "ai", content: comp };
       setMessages((prev) => {
         const updated = [...prev, newMsg];
@@ -131,7 +146,7 @@ export function NoteChatSheet({
       });
     },
     onError: (err) => {
-      console.error("[NoteChatSheet] AI error:", err);
+      console.error("[NoteChatSheet] onError called:", err);
       const errorMsg = isPremium
         ? "An error occurred, please try again."
         : "We are facing high traffic, consider upgrading to PRO to enjoy the best experience.";
@@ -154,7 +169,7 @@ export function NoteChatSheet({
     }
   }, [messages, completion]);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (!input.trim() || isLoading) return;
     const currentInput = input.trim();
     setInput("");
@@ -176,14 +191,41 @@ export function NoteChatSheet({
       return;
     }
 
-    complete(currentInput, {
-      body: {
-        option: "chat",
-        history: [...messages, userMsg],
-        noteContext: `--- STRICT SYSTEM RULES ---\n1. Always reply in the exact same language as the user's prompt.\n2. Whenever you answer a question, extract facts, fix grammar, or reference the note, you MUST quote the exact source text from the note.\n3. You MUST format these quotes using markdown blockquotes (e.g. > quote text).\n4. NEVER provide an answer without citing the exact blockquote from the note if your answer relies on it.\n5. When quoting multiple lines or lists, you MUST preserve the exact line breaks and list numbers from the original text (do not merge them into a single line).\n6. IMPORTANT: If the information comes from a MEDIA TRANSCRIPT, you MUST cite it by outputting EXACTLY this format on a new line: > [MEDIA: mediaId] (replace mediaId with the actual ID shown in the transcript header). DO NOT output the raw transcript text inside the blockquote for media citations.\n\n# NOTE TITLE: ${noteTitle}\n\n# NOTE CONTENT:\n${noteContent}${mediaContext}`,
-      },
-    });
-  }, [input, isLoading, messages, noteTitle, noteContent, mediaContext, complete, user]);
+    const allHistory = [...messages, userMsg];
+    // Keep only last 10 messages to avoid exceeding token limits
+    const trimmedHistory = allHistory.slice(-10);
+
+    // Only send full noteContext on first message or when content changes
+    const currentContextFingerprint = `${noteTitle}|${noteContent}|${mediaContext}`;
+    const isFirstOrChanged = lastSentContextRef.current !== currentContextFingerprint;
+
+    const fullContext = `--- STRICT SYSTEM RULES ---\n1. Always reply in the exact same language as the user's prompt.\n2. When referencing TEXT from the note, you MUST quote the exact source text using markdown blockquotes (e.g. > quote text). NEVER provide an answer without citing the exact blockquote if your answer relies on TEXT from the note.\n3. When quoting multiple lines or lists of TEXT, you MUST preserve the exact line breaks and list numbers from the original text.\n4. IMPORTANT: The note may contain appended MEDIA TRANSCRIPT sections at the end. You MUST read and use them to answer questions about the recordings. Ignore any dummy text like 'Video Transcript Unavailable' if a MEDIA TRANSCRIPT is actually provided below it.\n5. STRICT RULE FOR MEDIA: If your answer relies on a MEDIA TRANSCRIPT, NEVER quote or regurgitate the raw transcript text. Just summarize the information naturally in your own words to answer the user's question. DO NOT use blockquotes or media citations for information coming from the transcript.\n\n# NOTE TITLE: ${noteTitle}\n\n# NOTE CONTENT:\n${noteContent}${mediaContext}`;
+
+    const lightContext = `--- SYSTEM RULES ---\nContinue the conversation. The note context was already provided. Refer to conversation history for note content.\nAlways reply in the same language as the user. If referencing the note, use blockquotes. For MEDIA TRANSCRIPT info, summarize naturally without quoting raw text.\n\n# NOTE TITLE: ${noteTitle}`;
+
+    const contextToSend = isFirstOrChanged ? fullContext : lightContext;
+    lastSentContextRef.current = currentContextFingerprint;
+
+    try {
+      await complete(currentInput, {
+        body: {
+          option: "chat",
+          history: trimmedHistory,
+          noteContext: contextToSend,
+        },
+      });
+    } catch (err) {
+      console.error("[NoteChatSheet] complete() failed:", err);
+      const errorMsg = isPremium
+        ? "An error occurred, please try again."
+        : "We are facing high traffic, consider upgrading to PRO.";
+      setMessages((prev) => {
+        const updated = [...prev, { role: "ai", content: errorMsg }];
+        onHistoryChange(updated);
+        return updated;
+      });
+    }
+  }, [input, isLoading, messages, noteTitle, noteContent, mediaContext, complete, user, isPremium]);
 
   const handleCopy = useCallback((text: string, idx: number) => {
     navigator.clipboard.writeText(text);
@@ -397,7 +439,7 @@ export function NoteChatSheet({
                   body: {
                     option: "chat",
                     history: [userMsg],
-                    noteContext: `# ${noteTitle}\n\n${noteContent}${mediaContext}\n\n--- System Instruction ---\nYou are a smart note assistant. When you analyze the note, if you are pointing out grammar mistakes or referencing facts, you MUST quote the exact relevant sentence from the note using a markdown blockquote (> quote). IMPORTANT: If the information comes from a MEDIA TRANSCRIPT, cite it EXACTLY as > [MEDIA: mediaId] (replace mediaId with the actual ID). DO NOT output raw transcript text in the blockquote.`,
+                    noteContext: `# ${noteTitle}\n\n${noteContent}${mediaContext}\n\n--- System Instruction ---\nYou are a smart note assistant. When referencing TEXT from the note, you MUST quote the exact source text using markdown blockquotes (e.g. > quote text). IMPORTANT: The note may contain appended MEDIA TRANSCRIPT sections at the end. You MUST read and use them to answer questions about the recordings. Ignore any dummy text like 'Video Transcript Unavailable' if a MEDIA TRANSCRIPT is actually provided below it. STRICT RULE FOR MEDIA: If your answer relies on a MEDIA TRANSCRIPT, NEVER quote or regurgitate the raw transcript text. Just summarize the information naturally in your own words. DO NOT use blockquotes or media citations for information coming from the transcript.`,
                   },
                 });
               }}
@@ -449,40 +491,6 @@ export function NoteChatSheet({
                           ),
                           blockquote: ({ children, ...props }) => {
                             const plainText = extractMarkdownText(children);
-                            
-                            // Check if this is a media citation
-                            let isMedia = false;
-                            
-                            if (plainText.trim().startsWith("[MEDIA:")) {
-                              isMedia = true;
-                            } else if (mediaTranscripts.size > 0) {
-                              // Fallback: if AI ignored the [MEDIA: id] instruction and outputted the raw text,
-                              // check if the quoted text matches any transcript
-                              const quoteStripped = plainText.toLowerCase().replace(/[^a-z0-9]/gi, '');
-                              if (quoteStripped.length > 20) {
-                                mediaTranscripts.forEach((t) => {
-                                  const tStripped = t.transcript.toLowerCase().replace(/[^a-z0-9]/gi, '');
-                                  if (tStripped.includes(quoteStripped)) {
-                                    isMedia = true;
-                                  }
-                                });
-                              }
-                            }
-
-                            if (isMedia) {
-                              return (
-                                <div style={{ margin: "6px 0", padding: "10px 12px", borderRadius: 12, backgroundColor: "hsl(var(--muted) / 0.8)", border: "1px solid hsl(var(--border) / 0.5)", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", userSelect: "none" }}>
-                                  <div style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: "hsl(var(--primary) / 0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "hsl(var(--primary))", flexShrink: 0 }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2 }}><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                                  </div>
-                                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))", lineHeight: 1.2 }}>Media Source</div>
-                                    <div style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>Referenced from Recording</div>
-                                  </div>
-                                </div>
-                              );
-                            }
-
                             return (
                               <div
                                 style={{
@@ -572,41 +580,32 @@ export function NoteChatSheet({
                         h1: ({ ...props }) => <h1 style={{ fontWeight: 600, fontSize: "1.2em", margin: "8px 0 4px 0" }} {...props} />,
                         h2: ({ ...props }) => <h2 style={{ fontWeight: 600, fontSize: "1.1em", margin: "8px 0 4px 0" }} {...props} />,
                         h3: ({ ...props }) => <h3 style={{ fontWeight: 600, fontSize: "1.05em", margin: "8px 0 4px 0" }} {...props} />,
-                        blockquote: ({ children }) => {
+                        blockquote: ({ children, ...props }) => {
                           const plainText = extractMarkdownText(children);
-                          
-                          let isMedia = false;
-                          if (plainText.trim().startsWith("[MEDIA:")) {
-                            isMedia = true;
-                          } else if (mediaTranscripts.size > 0) {
-                            const quoteStripped = plainText.toLowerCase().replace(/[^a-z0-9]/gi, '');
-                            if (quoteStripped.length > 20) {
-                              mediaTranscripts.forEach((t) => {
-                                const tStripped = t.transcript.toLowerCase().replace(/[^a-z0-9]/gi, '');
-                                if (tStripped.includes(quoteStripped)) {
-                                  isMedia = true;
-                                }
-                              });
-                            }
-                          }
-
-                          if (isMedia) {
-                            return (
-                              <div style={{ margin: "6px 0", padding: "10px 12px", borderRadius: 12, backgroundColor: "hsl(var(--muted) / 0.8)", border: "1px solid hsl(var(--border) / 0.5)", display: "flex", alignItems: "center", gap: 12 }}>
-                                <div style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: "hsl(var(--primary) / 0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "hsl(var(--primary))", flexShrink: 0 }}>
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2 }}><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                                </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))", lineHeight: 1.2 }}>Media Source</div>
-                                  <div style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>Referenced from Recording</div>
-                                </div>
-                              </div>
-                            );
-                          }
                           return (
-                            <blockquote style={{ margin: "6px 0", borderLeft: "2px solid hsl(var(--muted-foreground) / 0.4)", paddingLeft: 12, color: "hsl(var(--muted-foreground))", cursor: "pointer" }}>
-                              {children}
-                            </blockquote>
+                            <div style={{ margin: "6px 0" }}>
+                              <blockquote
+                                {...props}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleLocateQuote(plainText);
+                                }}
+                                style={{
+                                  margin: 0,
+                                  borderLeft: "2px solid hsl(var(--muted-foreground) / 0.4)",
+                                  paddingLeft: 10,
+                                  fontSize: 13,
+                                  color: "hsl(var(--muted-foreground))",
+                                  lineHeight: 1.5,
+                                  cursor: "pointer",
+                                  transition: "opacity 0.2s",
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.7"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+                              >
+                                {children}
+                              </blockquote>
+                            </div>
                           );
                         }
                       }}

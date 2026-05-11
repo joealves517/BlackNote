@@ -33,10 +33,15 @@ router.post(
     const authReq = req as AuthenticatedRequest;
     const body = req.body as AIRequestBody;
 
-    if (!body.prompt || body.prompt.trim().length < 2) {
+    const option = body.option || "improve";
+    const isImageOption = option === "describe_image" || option === "extract_text";
+
+    if (!isImageOption && (!body.prompt || body.prompt.trim().length < 2)) {
       res.status(400).json({ error: "invalid_prompt" });
       return;
     }
+
+    const safePrompt = body.prompt || "Please process this image.";
 
     const user = await createOrUpdateUser(authReq.userId, {
       email: authReq.userEmail,
@@ -44,7 +49,6 @@ router.post(
       picture: authReq.userPicture,
     }, "BlackNote");
 
-    const option = body.option || "improve";
     const command = body.command;
 
     // Vercel AI SDK expects plain text streaming
@@ -56,7 +60,7 @@ router.post(
     // Fallback to free API when quota exhausted (same experience as free users)
     if (user.credits <= 0) {
       await streamFreeWritingAI(
-        body.prompt,
+        safePrompt,
         option,
         {
           onToken: (token: string) => {
@@ -67,7 +71,11 @@ router.post(
           },
           onError: (error: Error) => {
             console.error("[AI] Gemini Free fallback error:", error.message);
-            res.write("⚠️ Server is currently busy. Please try again.");
+            if (error.message.includes("429") || error.message.includes("RESOURCE_EXHAUSTED")) {
+              res.write("⚠️ API rate limit reached. Please wait a moment and try again.");
+            } else {
+              res.write("⚠️ An error occurred while generating the response. Please try again.");
+            }
             res.end();
           },
         },
@@ -82,7 +90,7 @@ router.post(
 
     // Premium path — deduct based on actual token usage after completion
     await streamWritingAI(
-      body.prompt,
+      safePrompt,
       option,
       {
         onToken: (token: string) => {
@@ -107,7 +115,11 @@ router.post(
         onError: (error: Error) => {
           console.error("[AI Premium] Vertex AI error:", error.message);
           // No credits deducted on error — fair billing
-          res.write("⚠️ Server is currently busy. Please try again.");
+          if (error.message.includes("429") || error.message.includes("RESOURCE_EXHAUSTED")) {
+            res.write("⚠️ API rate limit reached. Please wait a moment and try again.");
+          } else {
+            res.write("⚠️ An error occurred while generating the response. Please try again.");
+          }
           res.end();
         },
       },

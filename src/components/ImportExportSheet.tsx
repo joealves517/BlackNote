@@ -87,6 +87,11 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
       setFileError("File is too large. Max size is 5MB.");
       return;
     }
+    if (file.type.startsWith("image/")) {
+      setFileError("Images are not supported for import. Please use PDF or DOCX.");
+      return;
+    }
+
     setFileError(null);
 
     setIsProcessing(true);
@@ -205,7 +210,7 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
                   type="file"
                   ref={fileInputRef}
                   className="hidden"
-                  accept=".pdf,.docx,.png,.jpg,.jpeg"
+                  accept=".pdf,.docx"
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
                       handleFileUpload(e.target.files[0]);
@@ -232,7 +237,7 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
                           <p className="text-[11px] text-destructive">{fileError}</p>
                         ) : (
                           <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                            PDF, DOCX, Images
+                            PDF, DOCX
                           </p>
                         )}
                       </div>

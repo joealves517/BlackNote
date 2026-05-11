@@ -2,7 +2,8 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import { useEffect, useRef, useState } from "react";
 import { db } from "@/lib/local-db";
-import { Mic, Play, Pause, AlertCircle } from "lucide-react";
+import { hasTranscript as hasTranscriptCheck } from "@/lib/media-ai-service";
+import { Mic, Play, Pause, AlertCircle, Loader2, CheckCircle } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
 
 // ─── Live Waveform Component ──────────────────────────────────────
@@ -129,6 +130,10 @@ function AudioNodeView({ node, deleteNode }: AudioNodeViewProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [loadError, setLoadError] = useState(false);
+  const [hasTranscript, setHasTranscript] = useState(false);
+  const [bgStatus, setBgStatus] = useState<"idle" | "processing" | "retrying" | "done" | "error">("idle");
+  const [bgMessage, setBgMessage] = useState<string>("");
+  const [errorMessage, setErrorMessage] = useState<string>("");
   
   const waveformRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
@@ -147,15 +152,60 @@ function AudioNodeView({ node, deleteNode }: AudioNodeViewProps) {
           setAudioUrl(url);
         } else {
           setLoadError(true);
+          // Check if transcript exists to allow AI features even if file is gone
+          const noteId = window.location.pathname.split("/").pop();
+          db.media_transcripts.get(mediaId).then((transcript) => {
+            if (!revoked && transcript) setHasTranscript(true);
+          });
+          if (noteId) {
+            hasTranscriptCheck(mediaId, noteId).then((has) => {
+              if (!revoked && has) setHasTranscript(true);
+            });
+          }
         }
       })
       .catch(() => {
-        if (!revoked) setLoadError(true);
+        if (!revoked) {
+          setLoadError(true);
+          const noteId = window.location.pathname.split("/").pop();
+          db.media_transcripts.get(mediaId).then((transcript) => {
+            if (!revoked && transcript) setHasTranscript(true);
+          });
+          if (noteId) {
+            hasTranscriptCheck(mediaId, noteId).then((has) => {
+              if (!revoked && has) setHasTranscript(true);
+            });
+          }
+        }
       });
 
     return () => {
       revoked = true;
     };
+  }, [mediaId, status]);
+
+  // Listen for background auto-transcription progress
+  useEffect(() => {
+    if (status !== "saved" || !mediaId) return;
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.mediaId !== mediaId) return;
+      if (detail?.step === "done") {
+        setHasTranscript(true);
+        setBgStatus("done");
+        setTimeout(() => setBgStatus("idle"), 3000);
+      } else if (detail?.step === "error") {
+        setBgStatus("error");
+        setErrorMessage(detail?.message);
+      } else if (detail?.step === "retrying") {
+        setBgStatus("retrying");
+        setBgMessage(detail?.message);
+      } else {
+        setBgStatus("processing");
+      }
+    };
+    window.addEventListener("bg-transcribe-progress", handler);
+    return () => window.removeEventListener("bg-transcribe-progress", handler);
   }, [mediaId, status]);
 
   // Cleanup object URL on unmount
@@ -231,13 +281,48 @@ function AudioNodeView({ node, deleteNode }: AudioNodeViewProps) {
   if (loadError) {
     return (
       <NodeViewWrapper className="audio-node-wrapper" data-type="audioNode">
-        <div className="audio-node error">
+        <div 
+          className={`audio-node error group relative ${hasTranscript ? "clickable" : ""}`}
+          data-drag-handle
+          onClick={hasTranscript ? (e) => {
+            e.preventDefault();
+            const currentNoteId = window.location.pathname.split("/").pop() || "";
+            window.dispatchEvent(new CustomEvent("open-media-sheet", {
+              detail: {
+                type: "audio",
+                mediaId,
+                noteId: currentNoteId,
+                fileName,
+                duration,
+                onDeleteNode: deleteNode,
+                missingBlob: true
+              }
+            }));
+          } : undefined}
+          style={{ cursor: hasTranscript ? "pointer" : "default" }}
+        >
+          {!hasTranscript && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                deleteNode();
+              }}
+              className="absolute top-1/2 -translate-y-1/2 right-4 p-1.5 rounded-full bg-black/10 hover:bg-black/20 dark:bg-white/10 dark:hover:bg-white/20 text-foreground transition-opacity z-10"
+              title="Delete media"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          )}
           <div className="audio-node-icon error-icon">
             <AlertCircle className="w-4 h-4" />
           </div>
-          <div className="audio-node-info">
-            <span className="audio-node-title">Media unavailable</span>
-            <span className="audio-node-subtitle">This audio is stored locally on another device.</span>
+          <div className="audio-node-info" style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <span className="audio-node-title">Media unavailable</span>
+              <span className="audio-node-subtitle" style={{ fontSize: "11px", opacity: 0.8 }}>
+                This audio is stored locally on another device.
+              </span>
+            </div>
           </div>
         </div>
       </NodeViewWrapper>
@@ -253,11 +338,14 @@ function AudioNodeView({ node, deleteNode }: AudioNodeViewProps) {
     <NodeViewWrapper className="audio-node-wrapper" data-type="audioNode">
       <div 
         className="audio-node saved"
+        data-drag-handle
         onClick={() => {
+          const currentNoteId = window.location.pathname.split("/").pop() || "";
           window.dispatchEvent(new CustomEvent("open-media-sheet", {
             detail: {
               type: "audio",
               mediaId,
+              noteId: currentNoteId,
               fileName,
               duration,
               onDeleteNode: deleteNode
@@ -282,7 +370,31 @@ function AudioNodeView({ node, deleteNode }: AudioNodeViewProps) {
 
         <div className="audio-node-body">
           <div className="audio-node-meta">
-            <span className="audio-node-title">{fileName || "Audio Recording"}</span>
+            <span className="audio-node-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              {bgStatus === "processing" ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                  <span className="text-primary font-medium animate-pulse">AI Processing...</span>
+                </>
+              ) : bgStatus === "retrying" ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
+                  <span className="text-amber-500 font-medium">{bgMessage || "Retrying..."}</span>
+                </>
+              ) : bgStatus === "done" ? (
+                <>
+                  <CheckCircle className="w-3 h-3 text-green-500" />
+                  <span className="text-green-500 font-medium">Transcript Ready</span>
+                </>
+              ) : bgStatus === "error" ? (
+                <>
+                  <AlertCircle className="w-3 h-3 text-destructive" />
+                  <span className="text-destructive font-medium truncate max-w-[150px]">{errorMessage || "Analysis Failed"}</span>
+                </>
+              ) : (
+                fileName || "Audio Recording"
+              )}
+            </span>
             <span className="audio-node-duration">
               {formatTime(isPlaying ? currentTime : duration)}
             </span>
@@ -290,6 +402,23 @@ function AudioNodeView({ node, deleteNode }: AudioNodeViewProps) {
           <div className="audio-node-waveform-container" onClick={(e) => e.stopPropagation()}>
             <div ref={waveformRef} className="w-full" style={{ height: "24px" }} />
           </div>
+          
+          {hasTranscript && bgStatus === "idle" && (
+            <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "2px" }}>
+              <span style={{
+                background: "hsl(var(--primary)/0.1)",
+                color: "hsl(var(--primary))",
+                padding: "2px 6px",
+                borderRadius: "8px",
+                fontSize: "9px",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px"
+              }}>
+                Transcript Ready
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </NodeViewWrapper>

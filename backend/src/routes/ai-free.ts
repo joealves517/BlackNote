@@ -28,10 +28,15 @@ router.post(
     const authReq = req as AuthenticatedRequest;
     const body = req.body as FreeAIRequestBody;
 
-    if (!body.prompt || body.prompt.trim().length < 2) {
+    const option = body.option || "improve";
+    const isImageOption = option === "describe_image" || option === "extract_text";
+
+    if (!isImageOption && (!body.prompt || body.prompt.trim().length < 2)) {
       res.status(400).json({ error: "invalid_prompt" });
       return;
     }
+
+    const safePrompt = body.prompt || "Please process this image.";
 
     // Vercel AI SDK expects plain text streaming
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
@@ -39,11 +44,10 @@ router.post(
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no");
 
-    const option = body.option || "improve";
     const command = body.command;
 
     await streamFreeWritingAI(
-      body.prompt,
+      safePrompt,
       option,
       {
         onToken: (token: string) => {
@@ -53,8 +57,8 @@ router.post(
           res.end();
         },
         onError: (error: Error) => {
-          console.error("[AI Free] Gemini error:", error.message);
-          res.write("⚠️ The Free AI server is temporarily busy (rate limited). Please wait 30 seconds before trying again.");
+          console.error("[AI Free] Error:", error.message);
+          res.write("We are facing high traffic, consider upgrading to PRO to enjoy the best experience.");
           res.end();
         },
       },

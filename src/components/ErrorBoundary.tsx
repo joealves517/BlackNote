@@ -1,5 +1,9 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { PlugZapIcon, type PlugZapIconHandle } from "@/components/icons/plug-zap";
+import { SupportActionSheet } from "@/components/SupportActionSheet";
+import { MessageCircleIcon, HomeIcon } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
+import { getCurrentUser } from "@/lib/auth-client";
 
 interface Props {
   children?: ReactNode;
@@ -7,11 +11,15 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  showSupportSheet: boolean;
+  hasUser: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
-    hasError: false
+    hasError: false,
+    showSupportSheet: false,
+    hasUser: false
   };
   
   private iconRef = React.createRef<PlugZapIconHandle>();
@@ -19,6 +27,11 @@ export class ErrorBoundary extends Component<Props, State> {
   public componentDidMount() {
     window.addEventListener("error", this.handleGlobalError);
     window.addEventListener("unhandledrejection", this.handleGlobalPromiseRejection);
+    getCurrentUser().then(user => {
+      if (user) {
+        this.setState({ hasUser: true });
+      }
+    });
   }
 
   public componentWillUnmount() {
@@ -65,17 +78,35 @@ export class ErrorBoundary extends Component<Props, State> {
       }, 50);
       
       return (
-        <div className="flex flex-col items-center justify-center w-full h-screen bg-background text-center p-6">
+        <div className="flex flex-col items-center justify-center w-full h-screen bg-background text-center p-6 relative overflow-hidden">
+          <AnimatePresence>
+            {this.state.showSupportSheet && (
+              <SupportActionSheet onClose={() => this.setState({ showSupportSheet: false })} />
+            )}
+          </AnimatePresence>
+
           <PlugZapIcon ref={this.iconRef} size={64} className="text-muted-foreground mb-4" />
           <p className="text-lg font-medium text-muted-foreground mb-6">
             Oops, something went wrong
           </p>
-          <button
-            onClick={this.handleReset}
-            className="px-6 py-2 bg-primary text-primary-foreground font-medium rounded-full shadow-sm hover:opacity-90 transition-opacity active:scale-95 border border-zinc-200 dark:border-zinc-800"
-          >
-            Return Home
-          </button>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={this.handleReset}
+              className="px-6 py-[10px] min-w-[160px] bg-primary text-primary-foreground font-medium rounded-full flex items-center justify-center gap-2 shadow-sm hover:opacity-90 transition-opacity active:scale-95 border border-zinc-200 dark:border-zinc-800"
+            >
+              <HomeIcon size={16} />
+              Return Home
+            </button>
+            {this.state.hasUser && (
+              <button
+                onClick={() => this.setState({ showSupportSheet: true })}
+                className="px-6 py-[10px] min-w-[160px] bg-transparent text-muted-foreground font-medium rounded-full flex items-center justify-center gap-2 hover:bg-muted/50 transition-colors active:scale-95 border border-border/80"
+              >
+                <MessageCircleIcon size={16} />
+                Contact Support
+              </button>
+            )}
+          </div>
         </div>
       );
     }

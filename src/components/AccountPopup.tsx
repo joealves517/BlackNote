@@ -7,7 +7,7 @@ import { LogoutIcon } from "@/components/icons/logout";
 import { CircleCheckIcon } from "@/components/icons/circle-check";
 import { LoaderIcon } from "@/components/ui/loader";
 
-import { MessageSquare, PenLine, Mic, Wand2, Zap, Minus, Video } from "lucide-react";
+import { MessageSquare, PenLine, Mic, Wand2, Zap, Minus, Video, MessageCircleIcon } from "lucide-react";
 import { CHECKOUT_BASE } from "@/lib/constants";
 import type { AppUser } from "@/lib/auth-client";
 
@@ -160,11 +160,21 @@ export function AccountPopup({
   isLoggingIn,
   guestTitle,
   guestSubtitle,
+  onClose,
 }: AccountPopupProps) {
   const isPremium = credits?.tier === "premium";
   const isQuotaExhausted = isPremium && credits?.credits !== undefined && credits.credits <= 0;
   const [logoutHovered, setLogoutHovered] = useState(false);
   const [dotLottie, setDotLottie] = useState<DotLottie | null>(null);
+  const [showHeart, setShowHeart] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => {
+      setShowHeart(prev => !prev);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   useEffect(() => {
     if (!dotLottie || user) return;
@@ -225,7 +235,7 @@ export function AccountPopup({
         <button
           onClick={onLogin}
           disabled={isLoggingIn}
-          className="w-full h-[40px] rounded-[20px] text-[13.5px] font-medium flex items-center justify-center gap-2 border border-border/80 text-muted-foreground bg-transparent hover:bg-muted/30 hover:text-foreground transition-all active:scale-[0.98] disabled:opacity-70 mt-1"
+          className="relative z-10 w-full h-[40px] rounded-[20px] text-[13.5px] font-medium flex items-center justify-center gap-2 border border-border/80 text-muted-foreground bg-transparent hover:bg-muted/30 hover:text-foreground transition-all active:scale-[0.98] disabled:opacity-70 mt-1"
         >
           {isLoggingIn ? (
             <motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="flex">
@@ -251,20 +261,53 @@ export function AccountPopup({
 
   return (
     <div className="relative pt-4 px-4 pb-4">
+      {/* Floating Support Button */}
+      <button 
+        onClick={() => {
+          onClose();
+          setTimeout(() => window.dispatchEvent(new CustomEvent("open-support-sheet")), 200);
+        }}
+        className="absolute right-4 -top-[68px] z-20 w-[34px] h-[34px] rounded-full bg-[hsl(var(--background))] flex items-center justify-center border border-border/80 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:scale-105 active:scale-95 transition-all shadow-sm"
+        title="Contact Support"
+      >
+        <MessageCircleIcon className="w-[18px] h-[18px]" />
+      </button>
+
       {/* Floating Avatar */}
-      <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10">
-        <div className="w-[84px] h-[84px] rounded-full flex items-center justify-center drop-shadow-md bg-background/40 backdrop-blur-md">
-          <div className="w-[76px] h-[76px] rounded-full overflow-hidden flex items-center justify-center bg-muted">
-            {getUserAvatar(user) ? (
-              <img src={getUserAvatar(user)!} alt={firstName} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-xl font-bold text-muted-foreground">{firstName.charAt(0).toUpperCase()}</span>
-            )}
+      <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10" style={{ perspective: "1000px" }}>
+        <div 
+          className="w-[84px] h-[84px] relative"
+          style={{
+            transformStyle: "preserve-3d",
+            transition: "transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1)",
+            transform: showHeart ? "rotateY(180deg)" : "rotateY(0deg)"
+          }}
+        >
+          {/* Front - Avatar with Halo */}
+          <div 
+            className="absolute inset-0 rounded-full flex items-center justify-center drop-shadow-md bg-background/40 backdrop-blur-md"
+            style={{ backfaceVisibility: "hidden" }}
+          >
+            <div className="w-[76px] h-[76px] rounded-full overflow-hidden bg-muted flex items-center justify-center">
+              {getUserAvatar(user) ? (
+                <img src={getUserAvatar(user)!} alt={firstName} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xl font-bold text-muted-foreground w-full h-full flex items-center justify-center">{firstName.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Back - Heart Face (completely transparent) */}
+          <div 
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+          >
+            <DotLottieReact src={chrome.runtime.getURL("heart-face.json")} autoplay loop backgroundColor="transparent" style={{ width: "115%", height: "115%" }} />
           </div>
         </div>
       </div>
 
-      <div className="flex items-start justify-between pt-2 pb-3.5 px-2">
+      <div className="flex items-start justify-between pt-2 pb-3.5 px-2 relative z-10">
         <div className="flex-1 min-w-0">
           <div className="text-[18px] font-bold text-foreground tracking-tight leading-snug">
             Hello, {firstName} 👋
@@ -276,25 +319,19 @@ export function AccountPopup({
 
         <div className="shrink-0 ml-3 mt-0.5">
           {isPremium ? (
-            isQuotaExhausted ? (
-              <div className="flex items-center px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[11px] font-bold text-red-500 tracking-wider">
-                LIMIT
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-[11px] font-bold text-purple-500 tracking-wider shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
-                ✨ PRO
-              </div>
-            )
+            <div className="flex items-center justify-center" style={{ width: "64px", height: "64px", marginTop: "-16px", marginRight: "-8px" }}>
+              <DotLottieReact src={chrome.runtime.getURL("crown.json")} autoplay loop backgroundColor="transparent" style={{ width: "100%", height: "100%" }} />
+            </div>
           ) : (
             <button
               onClick={() => {
                 const url = `${CHECKOUT_BASE}?checkout[email]=${encodeURIComponent(user.email || "")}&checkout[custom][user_id]=${user.id}`;
                 chrome.tabs.create({ url });
               }}
-              className="flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-[11.5px] font-bold text-purple-500 tracking-wider hover:bg-purple-500/15 transition-all active:scale-95"
+              className="p-0 border-none bg-transparent hover:scale-105 transition-all active:scale-95"
+              style={{ width: "100px", height: "32px", marginTop: "-4px" }}
             >
-              <Zap className="w-3 h-3" />
-              UPGRADE
+              <DotLottieReact src={chrome.runtime.getURL("go-premium.json")} autoplay loop backgroundColor="transparent" style={{ width: "100%", height: "100%", pointerEvents: "none" }} />
             </button>
           )}
         </div>
@@ -304,7 +341,7 @@ export function AccountPopup({
 
       <button
         onClick={onSignOut}
-        className="w-full h-10 flex items-center justify-center gap-2 rounded-full text-[13px] font-semibold transition-all"
+        className="relative z-10 w-full h-10 flex items-center justify-center gap-2 rounded-full text-[13px] font-semibold transition-all"
         style={{
           background: logoutHovered ? "hsl(var(--destructive) / 0.1)" : "transparent",
           color: logoutHovered ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))",

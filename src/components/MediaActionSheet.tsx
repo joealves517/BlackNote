@@ -10,7 +10,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { DotLottieReact, type DotLottie } from "@lottiefiles/dotlottie-react";
-import { Mic, Monitor, PenLine, Wand2, BookOpen, Tag, Play, ChevronRight, MessageSquare } from "lucide-react";
+import { Mic, Monitor, PenLine, Wand2, BookOpen, Tag, Play, ChevronRight, MessageSquare, FileText } from "lucide-react";
 import { ArrowUpIcon } from "@/components/icons/arrow-up";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { CircleCheckIcon } from "@/components/icons/circle-check";
@@ -29,11 +29,13 @@ import {
 interface MediaActionSheetProps {
   mediaId: string;
   type: "audio" | "video";
+  noteId: string;
   fileName: string;
   duration: number;
   onDeleteNode: () => void;
   onClose: () => void;
   onInsertToNote?: (text: string) => void;
+  missingBlob?: boolean;
 }
 
 type SheetPhase = "idle" | "processing" | "analyzed" | "generating_feature";
@@ -50,12 +52,12 @@ const PROCESSING_MESSAGES = [
 ];
 
 const AI_FEATURES = [
+  { id: "meeting_minutes", label: "Meeting Minutes", desc: "Professional minutes with action items", icon: FileText },
   { id: "summary", label: "Summary", desc: "Concise overview of the recording", icon: PenLine },
   { id: "keypoints", label: "Key Points", desc: "Important insights as bullet points", icon: Wand2 },
   { id: "action_items", label: "Action Items", desc: "Extract tasks and to-dos", icon: CircleCheckIcon },
   { id: "chapters", label: "Chapters", desc: "Section breakdown with timestamps", icon: BookOpen },
   { id: "chat", label: "Chat with Recording", desc: "Ask AI anything about this recording", icon: MessageSquare },
-  { id: "title", label: "Smart Title", desc: "AI-generated title and tags", icon: Tag },
 ];
 
 const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -65,7 +67,7 @@ const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")
 // ─── Main Component ──────────────────────────────────────────────
 
 export function MediaActionSheet({
-  mediaId, type, fileName, duration, onDeleteNode, onClose, onInsertToNote,
+  mediaId, type, noteId, fileName, duration, onDeleteNode, onClose, onInsertToNote, missingBlob
 }: MediaActionSheetProps) {
   const { user } = useAuth();
   const [phase, setPhase] = useState<SheetPhase>("idle");
@@ -77,9 +79,21 @@ export function MediaActionSheet({
   const [inputValue, setInputValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Check analyzed on mount
+  // Check analyzed on mount (using noteId for synced transcripts)
   useEffect(() => {
-    hasTranscript(mediaId).then((yes) => { if (yes) setPhase("analyzed"); });
+    hasTranscript(mediaId, noteId).then((yes) => { if (yes) setPhase("analyzed"); });
+  }, [mediaId, noteId]);
+
+  // Listen for background auto-transcription progress (auto-switch to analyzed)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.mediaId === mediaId && detail?.step === "done") {
+        setPhase("analyzed");
+      }
+    };
+    window.addEventListener("bg-transcribe-progress", handler);
+    return () => window.removeEventListener("bg-transcribe-progress", handler);
   }, [mediaId]);
 
   // Dev: force phase from console
@@ -141,14 +155,14 @@ export function MediaActionSheet({
     setStatusIdx(0);
     setStatusMsg(PROCESSING_MESSAGES[0]);
     try {
-      await analyzeMedia(mediaId);
+      await analyzeMedia(mediaId, noteId);
       setPhase("analyzed");
     } catch {
       setPhase("idle");
       onClose();
       window.dispatchEvent(new CustomEvent("ai-error"));
     }
-  }, [mediaId, user, onClose]);
+  }, [mediaId, noteId, user, onClose]);
 
   const handleFeature = useCallback(async (id: string, customPrompt?: string) => {
     if (id === "chat" || customPrompt) {
@@ -166,17 +180,12 @@ export function MediaActionSheet({
     setPhase("generating_feature");
     try {
       let resultText = "";
-      if (id === "title") {
-        const d = await generateTitle(mediaId);
-        resultText = `# ${d.title}\n\n${d.description}\n\n**Tags:** ${d.tags.join(", ")}`;
-      } else {
-        const d = await summarizeMedia(mediaId, id as SummarizeStyle, type);
-        resultText = d.text;
-      }
+      const d = await summarizeMedia(mediaId, noteId, id as SummarizeStyle, type);
+      resultText = d.text;
 
       onClose();
-      // Open result sheet with the AI output
-      window.dispatchEvent(new CustomEvent("media-ai-result", {
+      // Dispatch direct insertion event instead of opening result sheet
+      window.dispatchEvent(new CustomEvent("insert-media-ai-result", {
         detail: { text: resultText, mediaId },
       }));
     } catch {
@@ -185,11 +194,25 @@ export function MediaActionSheet({
     }
   }, [mediaId, type, onClose]);
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteConfirm) {
       onDeleteNode();
       db.media_files.delete(mediaId).catch(() => {});
       db.media_transcripts.delete(mediaId).catch(() => {});
+      
+      try {
+        const note = await db.notes.get(noteId);
+        if (note && note.mediaTranscripts) {
+          const transcripts = JSON.parse(note.mediaTranscripts);
+          if (transcripts[mediaId]) {
+            delete transcripts[mediaId];
+            await db.notes.update(noteId, { mediaTranscripts: JSON.stringify(transcripts) });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to delete transcript from note", err);
+      }
+
       onClose();
     } else {
       setDeleteConfirm(true);
@@ -359,8 +382,8 @@ export function MediaActionSheet({
             />
           )}
 
-          {/* ─── Delete Button (not during processing) ─── */}
-          {phase !== "processing" && (
+          {/* ─── Delete Button (not during processing or generating) ─── */}
+          {(phase === "idle" || phase === "analyzed") && (
             <button
               onClick={handleDelete}
               className="w-full h-10 flex items-center justify-center gap-2 rounded-full text-[13px] font-semibold transition-all"

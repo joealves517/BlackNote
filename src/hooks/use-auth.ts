@@ -49,6 +49,7 @@ export function useAuth() {
   const signOut = useCallback(async () => {
     await authSignOut();
     await db.notes.clear();
+    await db.media_files.clear(); // Clear heavy local media, but keep media_transcripts for AI features
     localStorage.clear();
     await new Promise(r => setTimeout(r, 800)); // Allow time for loading overlay to be seen
     window.location.reload();

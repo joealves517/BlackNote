@@ -64,21 +64,10 @@ async function getGoogleUserInfo(
   }
 }
 
-// ─── Supabase JWT Verification (Legacy) ─────────────────────────────
-
-import { createClient } from "@supabase/supabase-js";
-
-const SUPABASE_URL = "https://xloruyavtuvcoqrvjolp.supabase.co";
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhsb3J1eWF2dHV2Y29xcnZqb2xwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NjA5OTUsImV4cCI6MjA5MjUzNjk5NX0.ssnDrw4mldgIoDfFa4SpUIMNzcenv_hrctePwtOcSEA";
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 // ─── Middleware ─────────────────────────────────────────────────────
 
 /**
- * Authenticate requests using Google OAuth token or Supabase JWT.
- * Google token is tried first (new clients), then Supabase (legacy).
+ * Authenticate requests using Google OAuth token.
  */
 export async function requireAuth(
   req: Request,
@@ -94,7 +83,6 @@ export async function requireAuth(
 
   const token = authHeader.slice(7);
 
-  // Strategy 1: Try Google OAuth token
   const googleInfo = await verifyGoogleToken(token);
   if (googleInfo) {
     // Fetch full profile for display name and picture
@@ -108,33 +96,7 @@ export async function requireAuth(
     return next();
   }
 
-  // Strategy 2: Fallback to Supabase JWT (legacy extension)
-  try {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-      throw new Error(error?.message || "Invalid token");
-    }
-
-    const authReq = req as AuthenticatedRequest;
-    authReq.userId = user.id;
-    authReq.userEmail = user.email || "";
-    authReq.userName =
-      user.user_metadata?.full_name ||
-      user.user_metadata?.name ||
-      user.email?.split("@")[0] ||
-      "";
-    authReq.userPicture =
-      user.user_metadata?.avatar_url ||
-      user.user_metadata?.picture ||
-      "";
-
-    return next();
-  } catch (error) {
-    console.error("[Auth] Both Google and Supabase verification failed:", error);
-    res.status(401).json({ error: "invalid_token" });
-  }
+  // If Google token verification fails, return unauthorized immediately.
+  console.error("[Auth] Google token verification failed");
+  res.status(401).json({ error: "invalid_token" });
 }

@@ -45,7 +45,7 @@ export function GenerativeMenuSwitch({ children }: GenerativeMenuSwitchProps) {
             window.dispatchEvent(new CustomEvent("open-ai-sheet"));
           }}
         >
-          <SparklesIcon className="h-4 w-4" />
+          <span style={{ fontSize: 15, lineHeight: 1, transform: "translateY(-2px)", display: "inline-block" }}>✦</span>
           <span>Ask AI</span>
         </button>
         <div className="novel-bubble-divider" />

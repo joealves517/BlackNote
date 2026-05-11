@@ -16,6 +16,8 @@ interface KeyframeResult {
  * Extract frames from a video at the given timestamps.
  * Returns base64 webp images suitable for inline display.
  */
+import fixWebmDurationMod from "webm-duration-fix";
+
 export async function extractKeyframes(
   videoBlob: Blob,
   timestamps: { time: number; label: string }[],
@@ -23,7 +25,21 @@ export async function extractKeyframes(
 ): Promise<KeyframeResult[]> {
   if (timestamps.length === 0) return [];
 
-  const videoUrl = URL.createObjectURL(videoBlob);
+  // Fix WebM duration on the fly so seeking is instant, even for old broken recordings
+  let fixedBlob = videoBlob;
+  try {
+    // We don't need to know the exact duration here, just injecting the dummy metadata
+    // makes Chrome rebuild the index so seeking works instantly!
+    // ESM interop: handle both default and direct function exports
+    const fixFn = (typeof fixWebmDurationMod === "function") ? fixWebmDurationMod : (fixWebmDurationMod as any).default;
+    if (typeof fixFn === "function") {
+      fixedBlob = await fixFn(videoBlob);
+    }
+  } catch (err) {
+    console.warn("[KeyframeExtract] Failed to fix blob duration:", err);
+  }
+
+  const videoUrl = URL.createObjectURL(fixedBlob);
 
   try {
     const video = document.createElement("video");
@@ -83,35 +99,27 @@ function captureFrame(
   time: number
 ): Promise<string> {
   return new Promise((resolve, reject) => {
+    let resolved = false;
+    
     const timeout = setTimeout(() => {
-      reject(new Error(`Seek timeout at ${time}s`));
-    }, 5000);
-
-    const onSeeked = () => {
-      clearTimeout(timeout);
+      if (resolved) return;
+      resolved = true;
       video.removeEventListener("seeked", onSeeked);
-
-      // Use requestVideoFrameCallback for precise decode if available
-      if ("requestVideoFrameCallback" in video) {
-        (video as any).requestVideoFrameCallback(() => {
-          drawAndResolve();
-        });
-        // Trigger frame decode by briefly playing
-        video.play().then(() => video.pause()).catch(() => {
-          // Fallback: draw immediately
-          drawAndResolve();
-        });
+      video.removeEventListener("timeupdate", onTimeUpdate);
+      
+      // If we timed out, check if we at least have some data we can draw
+      if (video.readyState >= 2) {
+        drawAndResolve();
       } else {
-        // Fallback: small delay for frame decode
-        setTimeout(drawAndResolve, 100);
+        reject(new Error(`Seek timeout at ${time}s`));
       }
-    };
+    }, 15000); // 15 seconds! Cue-less WebM Blob seeking requires decoding from start
 
     const drawAndResolve = () => {
       try {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Check for black frame (possible decode issue)
+        // Check for black frame
         const sample = ctx.getImageData(
           Math.floor(canvas.width / 2),
           Math.floor(canvas.height / 2),
@@ -121,11 +129,11 @@ function captureFrame(
         const isBlack = sample[0] + sample[1] + sample[2] < 15;
 
         if (isBlack) {
-          // Retry once after a short delay
           setTimeout(() => {
+            if (!resolved) return; // Prevent double resolve if not careful, but here it's fine
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             resolve(canvas.toDataURL("image/webp", 0.7));
-          }, 200);
+          }, 300);
         } else {
           resolve(canvas.toDataURL("image/webp", 0.7));
         }
@@ -134,7 +142,44 @@ function captureFrame(
       }
     };
 
+    const onSeeked = () => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timeout);
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("timeupdate", onTimeUpdate);
+
+      if ("requestVideoFrameCallback" in video) {
+        (video as any).requestVideoFrameCallback(() => {
+          drawAndResolve();
+        });
+        video.play().then(() => video.pause()).catch(() => {
+          drawAndResolve();
+        });
+      } else {
+        setTimeout(drawAndResolve, 100);
+      }
+    };
+
+    const onTimeUpdate = () => {
+      if (video.currentTime >= time - 0.1) {
+        if (!resolved) video.pause(); // Pause immediately to not overshoot too much
+        onSeeked();
+      }
+    };
+
     video.addEventListener("seeked", onSeeked);
+    video.addEventListener("timeupdate", onTimeUpdate);
+    
     video.currentTime = time;
+    
+    // Fallback: If currentTime doesn't change because of cue-less WebM, play it fast!
+    setTimeout(() => {
+      if (!resolved && video.currentTime < time - 1) {
+        video.playbackRate = 16.0;
+        video.muted = true;
+        video.play().catch(() => {});
+      }
+    }, 500);
   });
 }

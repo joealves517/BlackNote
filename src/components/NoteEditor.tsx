@@ -58,6 +58,7 @@ import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
+import ImageResize from "tiptap-extension-resize-image";
 
 import { Button } from "@/components/ui/button";
 import { GenerativeMenuSwitch } from "@/components/generative/GenerativeMenuSwitch";
@@ -74,11 +75,10 @@ import { useSpeech } from "@/hooks/use-speech";
 /**
  * Bridge: listens for content insertion events.
  * - 'insert-ai-content': inserts at end of doc
- * - 'media-ai-result': opens MediaAIResultSheet for review/insert
+ * - 'insert-media-ai-result': inserts directly below the specified media node
  */
 function AIContentInsertBridge() {
   const { editor } = useEditor();
-  const [mediaResult, setMediaResult] = useState<{ text: string; mediaId: string } | null>(null);
 
   useEffect(() => {
     const handleInsert = (e: Event) => {
@@ -96,29 +96,34 @@ function AIContentInsertBridge() {
 
     const handleMediaResult = (e: Event) => {
       const { text, mediaId } = (e as CustomEvent).detail || {};
-      if (!text || !mediaId) return;
-      setMediaResult({ text, mediaId });
+      if (!editor || !text || !mediaId) return;
+
+      let pos = editor.state.doc.content.size;
+      editor.state.doc.descendants((node, p) => {
+        if ((node.type.name === "audioNode" || node.type.name === "videoNode") && node.attrs.mediaId === mediaId) {
+           pos = p + node.nodeSize;
+        }
+      });
+
+      try {
+        const jsonStr = markdownToProsemirror(text);
+        const json = JSON.parse(jsonStr);
+        const parsed = json.content || text;
+        editor.chain().focus().insertContentAt(pos, parsed).run();
+      } catch {
+        editor.chain().focus().insertContentAt(pos, text).run();
+      }
     };
 
     window.addEventListener("insert-ai-content", handleInsert);
-    window.addEventListener("media-ai-result", handleMediaResult);
+    window.addEventListener("insert-media-ai-result", handleMediaResult);
     return () => {
       window.removeEventListener("insert-ai-content", handleInsert);
-      window.removeEventListener("media-ai-result", handleMediaResult);
+      window.removeEventListener("insert-media-ai-result", handleMediaResult);
     };
   }, [editor]);
 
-  return (
-    <>
-      {mediaResult && (
-        <MediaAIResultSheet
-          completion={mediaResult.text}
-          mediaId={mediaResult.mediaId}
-          onClose={() => setMediaResult(null)}
-        />
-      )}
-    </>
-  );
+  return null;
 }
 
 
@@ -234,6 +239,7 @@ const suggestionItems = createSuggestionItems([
       window.dispatchEvent(new CustomEvent("start-screen-recording", { detail: { editor } }));
     },
   },
+
   {
     title: "Text",
     description: "Plain text block",
@@ -389,6 +395,7 @@ const compressImage = (file: File): Promise<string> => {
  */
 const uploadFn = async (file: File): Promise<string> => {
   const compressedDataUrl = await compressImage(file);
+  let finalUrl = compressedDataUrl;
 
   try {
     const token = await getAuthToken();
@@ -406,35 +413,69 @@ const uploadFn = async (file: File): Promise<string> => {
         }),
       });
 
-      if (!presignRes.ok) {
+      if (presignRes.ok) {
+        const { uploadUrl, publicUrl } = await presignRes.json();
+
+        // Step 2: Upload directly to S3
+        const blobRes = await fetch(compressedDataUrl);
+        const blob = await blobRes.blob();
+
+        const uploadRes = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": "image/webp" },
+          body: blob,
+        });
+
+        if (uploadRes.ok) {
+          finalUrl = publicUrl;
+        } else {
+          console.error("S3 upload failed:", uploadRes.status);
+        }
+      } else {
         console.error("Presign request failed:", presignRes.status);
-        return compressedDataUrl;
       }
-
-      const { uploadUrl, publicUrl } = await presignRes.json();
-
-      // Step 2: Upload directly to S3
-      const blobRes = await fetch(compressedDataUrl);
-      const blob = await blobRes.blob();
-
-      const uploadRes = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": "image/webp" },
-        body: blob,
-      });
-
-      if (!uploadRes.ok) {
-        console.error("S3 upload failed:", uploadRes.status);
-        return compressedDataUrl;
-      }
-
-      return publicUrl;
     }
   } catch (err) {
     console.error("Failed to upload image to S3, falling back to local:", err);
   }
 
-  return compressedDataUrl;
+  // Auto-caption in background
+  getAuthToken().then(token => {
+    const endpoint = token ? `${AI_API_BASE}/api/ai` : `${AI_API_BASE}/api/ai/free`;
+    fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        option: "describe_image",
+        files: [{ mimeType: "image/png", data: compressedDataUrl.split(",")[1] }]
+      }),
+    })
+    .then(res => res.body?.getReader())
+    .then(async reader => {
+      if (!reader) return;
+      const decoder = new TextDecoder();
+      let caption = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        caption += decoder.decode(value, { stream: true });
+      }
+      
+      const cleanCaption = caption.replace(/^#\s+(.+)$/m, "").trim();
+      
+      if (cleanCaption) {
+        window.dispatchEvent(new CustomEvent("image-caption-ready", { 
+          detail: { src: finalUrl, alt: cleanCaption } 
+        }));
+      }
+    })
+    .catch(err => console.error("Auto-caption failed:", err));
+  });
+
+  return finalUrl;
 };
 
 // All extensions
@@ -473,7 +514,7 @@ const extensions = [
       render: renderItems,
     },
   }),
-  UpdatedImage.configure({
+  ImageResize.extend({ name: "image" }).configure({
     HTMLAttributes: {
       class: "rounded-lg border max-w-full my-4",
     },
@@ -603,6 +644,23 @@ export function NoteEditor({
   useEffect(() => {
     autoResizeTitle();
   }, [titleValue, autoResizeTitle]);
+
+  useEffect(() => {
+    const handleCaptionReady = (e: Event) => {
+      const { src, alt } = (e as CustomEvent).detail;
+      const editor = (window as any).blackNoteSTTEditor;
+      if (!editor) return;
+
+      editor.state.doc.descendants((node: any, pos: number) => {
+        if (node.type.name === 'image' && node.attrs.src === src) {
+          editor.chain().setNodeSelection(pos).updateAttributes('image', { alt }).run();
+        }
+      });
+    };
+
+    window.addEventListener("image-caption-ready", handleCaptionReady);
+    return () => window.removeEventListener("image-caption-ready", handleCaptionReady);
+  }, []);
 
   const handleTitleChange = (value: string) => {
     setTitleValue(value);

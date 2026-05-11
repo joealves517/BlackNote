@@ -8,6 +8,7 @@ import { SparklesIcon } from "@/components/icons/sparkles";
 import { BrainIcon } from "@/components/icons/brain";
 import { XIcon } from "@/components/icons/x";
 import { CircleCheckIcon } from "@/components/icons/circle-check";
+import { CropIcon } from "lucide-react";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { AIProcessingView } from "@/components/ui/ai-processing-view";
 import { setWasmUrl } from "@lottiefiles/dotlottie-react";
@@ -360,17 +361,23 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
 
               <button
                 className="novel-slash-item w-full text-left"
-                onClick={() => handleAction("extract_todo")}
+                onClick={async () => {
+                  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                  if (tab?.id) {
+                    chrome.tabs.sendMessage(tab.id, { action: "start-region-capture" });
+                  }
+                  onClose();
+                }}
               >
                 <div className="novel-slash-icon">
                   <AnimatedIcon animation="hover">
-                    <CircleCheckIcon className="w-4 h-4" />
+                    <CropIcon className="w-4 h-4" />
                   </AnimatedIcon>
                 </div>
                 <div>
-                  <p className="text-[13px] font-medium">To-do List</p>
+                  <p className="text-[13px] font-medium">Capture Region</p>
                   <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                    Extract tasks and action items
+                    Crop screen to note with AI
                   </p>
                 </div>
               </button>

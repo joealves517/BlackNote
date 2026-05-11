@@ -16,6 +16,7 @@ import {
 import { GoogleGenAI } from "@google/genai";
 import { config } from "../config/index.js";
 import { calculateTokenCost } from "../services/token-cost.js";
+import { transcribeWithGroq } from "../services/groq-queue.js";
 
 const router = Router();
 
@@ -49,21 +50,23 @@ function extractTokenCost(response: any): {
   return { creditsUsed, inputTokens, outputTokens };
 }
 
-// ─── Transcribe (audio chunk → timestamped segments) ────────────
+
+// ─── Transcribe (audio chunk → timestamped segments via Groq Whisper) ──
 
 router.post(
   "/transcribe",
   requireAuth,
   async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
-    const { audioBase64, mimeType, language, audioDurationSec } = req.body;
+    const { audioBase64, mimeType } = req.body;
 
     if (!audioBase64) {
       res.status(400).json({ error: "missing_audio" });
       return;
     }
 
-    const user = await createOrUpdateUser(
+    // Ensure user record exists (for usage tracking)
+    await createOrUpdateUser(
       authReq.userId,
       {
         email: authReq.userEmail,
@@ -73,76 +76,23 @@ router.post(
       "BlackNote"
     );
 
-    const usePremium = user.credits > 0;
-    const { client, model } = pickAIClient(usePremium);
-
     try {
-      const languageHint = language ? `The audio is in ${language}. ` : "";
-      const durationHint = audioDurationSec
-        ? `The audio is ${Number(audioDurationSec).toFixed(1)} seconds long. Timestamps MUST span from 0.0 up to ${Number(audioDurationSec).toFixed(1)}. `
-        : "";
+      // Groq Whisper — free, no credit deduction
+      const result = await transcribeWithGroq(
+        audioBase64,
+        mimeType || "audio/mpeg"
+      );
 
-      const response = await client.models.generateContent({
-        model,
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                text: `${languageHint}${durationHint}Transcribe all spoken words in this recording with accurate timestamps.
-
-Return the result as a JSON array of segments. Each segment has:
-- "start": start time in seconds (float, e.g. 0.0, 2.5)
-- "end": end time in seconds (float)
-- "text": the spoken text for that time range
-
-IMPORTANT: The timestamps must reflect the REAL elapsed time in the audio. If the audio is 120 seconds long, the last segment's "end" should be near 120.0, not compressed into the first few seconds.
-
-Keep each segment short (1-2 sentences max) so subtitles are readable.
-If there is no speech, return an empty array: []
-
-Return ONLY the raw JSON array. No markdown code blocks, no commentary.`,
-              },
-              {
-                inlineData: {
-                  mimeType: mimeType || "audio/webm",
-                  data: audioBase64,
-                },
-              },
-            ],
-          },
-        ],
-        config: {
-          temperature: 0.1,
-          maxOutputTokens: 8192,
-        },
+      res.json({
+        segments: result.segments,
+        transcript: result.transcript,
       });
-
-      const rawText = response.text || "[]";
-      const segments = parseSegments(rawText);
-      const transcript = segments.map((s) => s.text).join(" ");
-
-      if (usePremium) {
-        const { creditsUsed, inputTokens, outputTokens } =
-          extractTokenCost(response);
-        deductCreditsByEmail(authReq.userEmail, creditsUsed).catch(
-          console.error
-        );
-        logUsage({
-          userId: authReq.userId,
-          app: "blacknote",
-          creditsUsed,
-          model,
-          timestamp: new Date(),
-          inputTokens,
-          outputTokens,
-        }).catch(console.error);
-      }
-
-      res.json({ segments, transcript });
-    } catch (error) {
-      console.error("[Media AI] Transcribe error:", error);
-      res.status(500).json({ error: "transcription_failed" });
+    } catch (error: any) {
+      console.error("[Media AI] Transcribe error:", error?.message);
+      const isRateLimit = error?.status === 429;
+      res.status(isRateLimit ? 429 : 500).json({
+        error: isRateLimit ? "rate_limited" : "transcription_failed",
+      });
     }
   }
 );
@@ -150,6 +100,8 @@ Return ONLY the raw JSON array. No markdown code blocks, no commentary.`,
 // ─── Summarize ──────────────────────────────────────────────────
 
 const SUMMARIZE_PROMPTS: Record<string, (transcript: string) => string> = {
+  meeting_minutes: (t) =>
+    `Generate professional Meeting Minutes from this recording transcript. Include:\n- Meeting Goal / Context\n- Key Discussion Points\n- Decisions Made\n- Action Items (as Markdown checkboxes "- [ ]")\n\n${t}`,
   summary: (t) =>
     `Summarize the following recording transcript concisely in 2-4 paragraphs. Capture all important points:\n\n${t}`,
   keypoints: (t) =>
@@ -169,7 +121,7 @@ router.post(
   requireAuth,
   async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
-    const { transcript, style } = req.body;
+    const { transcript, style, isVideo } = req.body;
 
     if (!transcript) {
       res.status(400).json({ error: "missing_transcript" });
@@ -192,7 +144,11 @@ router.post(
     try {
       const promptFn =
         SUMMARIZE_PROMPTS[style || "summary"] || SUMMARIZE_PROMPTS.summary;
-      const prompt = promptFn(transcript);
+      let prompt = promptFn(transcript);
+
+      if (isVideo) {
+        prompt += `\n\nCRITICAL INSTRUCTION: Since this is a video recording, try to explicitly mention visual details if they are described in the transcript.`;
+      }
 
       const response = await client.models.generateContent({
         model,

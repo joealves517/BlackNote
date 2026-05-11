@@ -24,6 +24,20 @@ export default defineBackground(() => {
         return true;
       }
 
+      // Proxy fetch for YouTube InnerTube API to bypass CORS in Side Panel
+      if (message.type === "FETCH_YOUTUBE_TRANSCRIPT" && message.url) {
+        // Prevent sending browser cookies which cause 403 when using ANDROID client
+        const payload = { ...message.payload, credentials: "omit" };
+        fetch(message.url, payload)
+          .then((res) => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.text(); // Always return text, let caller parse
+          })
+          .then((data) => sendResponse({ data }))
+          .catch((err) => sendResponse({ error: err.message }));
+        return true;
+      }
+
       // Open a URL in a new tab (sidepanel has no chrome.tabs access)
       if (message.type === "OPEN_URL" && message.url) {
         chrome.tabs.create({ url: message.url });
@@ -48,6 +62,37 @@ export default defineBackground(() => {
           offscreenReadyResolver();
           offscreenReadyResolver = null;
         }
+        return false;
+      }
+
+      // ── Region Capture ──
+      if (message.type === "PROCESS_REGION_CAPTURE" && message.rect) {
+        browser.tabs.captureVisibleTab(null as any, { format: "png" }).then(async (dataUrl) => {
+          try {
+            const rect = message.rect;
+            const res = await fetch(dataUrl);
+            const blob = await res.blob();
+            const bitmap = await createImageBitmap(blob);
+
+            const canvas = new OffscreenCanvas(rect.width, rect.height);
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(bitmap, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height);
+              const croppedBlob = await canvas.convertToBlob({ type: "image/png" });
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                // Send back to the side panel
+                chrome.runtime.sendMessage({ 
+                  type: "REGION_CAPTURED", 
+                  dataUrl: reader.result 
+                });
+              };
+              reader.readAsDataURL(croppedBlob);
+            }
+          } catch (e) {
+            console.error("Failed to crop region capture:", e);
+          }
+        });
         return false;
       }
 
@@ -110,6 +155,7 @@ export default defineBackground(() => {
             chrome.runtime.sendMessage({
               type: message.type === "RECORDING_START_AUDIO" ? "OFFSCREEN_START_AUDIO" : "OFFSCREEN_START_SCREEN",
               streamId: message.payload?.streamId,
+              isPremium: message.payload?.isPremium,
             }, resolve);
           });
         };
@@ -143,6 +189,13 @@ export default defineBackground(() => {
         });
         // We removed writing to blacknote_recording_command here to avoid infinite loops!
         return true;
+      }
+      
+      if (message.type === "OFFSCREEN_LIMIT_REACHED") {
+        setTimeout(() => {
+          chrome.offscreen.closeDocument().catch(() => {});
+        }, 500);
+        return false;
       }
 
       // ── UI REQUESTS FROM EXTERNAL CONTROLS (Popup Panel, Action Icon) ──

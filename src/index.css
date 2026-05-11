@@ -2592,3 +2592,5 @@ button:active .hover-zoom-icon,
 .ProseMirror-gapcursor:after {
   border-top-color: hsl(var(--foreground)) !important;
 }
+
+

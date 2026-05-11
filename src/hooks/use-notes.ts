@@ -15,6 +15,7 @@ export interface Note {
   createdAt: Date;
   updatedAt: Date;
   chatHistory: { role: string; content: string }[];
+  mediaTranscripts?: string;
   isPinned?: boolean;
 }
 
@@ -26,15 +27,20 @@ function localToNote(row: LocalNote): Note {
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
     chatHistory: row.chatHistory ? JSON.parse(row.chatHistory) : [],
+    mediaTranscripts: row.mediaTranscripts,
     isPinned: row.isPinned ?? false,
   };
 }
 
 
-export function useNotes(userId: string | undefined) {
-  const [notes, setNotes] = useState<Note[]>([]);
+export function useNotes() {
+  const [notes, setNotes] = useState<LocalNote[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingUpdatesRef = useRef<Record<string, Partial<LocalNote>>>({});
+  const { user } = useAuth();
+  const userId = user?.id;
   const [loading, setLoading] = useState(true);
   const [syncProgress, setSyncProgress] = useState<SyncProgress>({
     status: "idle",
@@ -43,7 +49,6 @@ export function useNotes(userId: string | undefined) {
     message: "",
   });
 
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncedForUser = useRef<string | null>(null);
 
   const activeNote = notes.find((n) => n.id === activeNoteId) ?? null;
@@ -93,6 +98,15 @@ export function useNotes(userId: string | undefined) {
         const welcomeDoc = {
           type: "doc",
           content: [
+            {
+              type: "audioNode",
+              attrs: {
+                mediaId: "welcome-audio",
+                status: "saved",
+                duration: 39,
+                fileName: "Welcome to BlackNote 🎙️"
+              }
+            },
             {
               type: "paragraph",
               content: [{ type: "text", text: "Welcome to your intelligent workspace! Here are some powerful features to get you started:" }]
@@ -210,6 +224,33 @@ export function useNotes(userId: string | undefined) {
         await db.notes.add(firstNote);
         mapped = [localToNote(firstNote)];
         setNotes(mapped);
+
+        // Inject the welcome audio into IndexedDB
+        try {
+          const url = chrome.runtime.getURL("welcome-blacknote.mp3");
+          const res = await fetch(url);
+          if (res.ok) {
+            const blob = await res.blob();
+            await db.media_files.put({
+              id: "welcome-audio",
+              noteId: firstNote.id,
+              type: "audio",
+              blob,
+              duration: 39,
+              fileName: "Welcome to BlackNote 🎙️",
+              createdAt: now,
+            });
+            await db.media_transcripts.put({
+              mediaId: "welcome-audio",
+              segments: [],
+              transcript: "Welcome to BlackNote, your intelligent workspace! Here are some powerful features to get you started. You can chat directly with your document by clicking the Sparkles icon on the top right. Ask questions, extract insights, and get instant answers. Type a slash to record Audio or Screen Video directly into your note. Then, click the media block to transcribe, summarize, and even chat with your media to extract key points. Use the slash command anywhere to quickly insert formatting, or highlight any text and press Ask AI to rewrite, translate, and polish your writing like a pro. The Web Clipper lets you instantly capture content, even from YouTube videos, saving it directly to your notes. And with seamless sync, simply connect your Google account to keep all your ideas securely across your devices. Ready to elevate your productivity? Happy writing!",
+              language: "en",
+              analyzedAt: now,
+            });
+          }
+        } catch (err) {
+          console.error("Failed to inject welcome audio", err);
+        }
       }
 
       if (!activeNoteId) {
@@ -223,7 +264,12 @@ export function useNotes(userId: string | undefined) {
   useEffect(() => {
     const welcomeNotes = notes.filter((n) => n.title === "Welcome to BlackNote 👋");
     if (welcomeNotes.length > 0 && notes.length > welcomeNotes.length) {
-      Promise.all(welcomeNotes.map(n => db.notes.delete(n.id))).then(() => {
+      Promise.all(welcomeNotes.map(n => {
+        if (userId) {
+          deleteRemoteNote(userId, n.id).catch(err => console.error("Failed to delete welcome note remotely", err));
+        }
+        return db.notes.delete(n.id);
+      })).then(() => {
         setNotes((prev) => {
           const filtered = prev.filter((n) => n.title !== "Welcome to BlackNote 👋");
           if (welcomeNotes.some(wn => wn.id === activeNoteId) && filtered.length > 0) {
@@ -233,7 +279,7 @@ export function useNotes(userId: string | undefined) {
         });
       });
     }
-  }, [notes.length, activeNoteId]);
+  }, [notes.length, activeNoteId, userId]);
 
   // Sync when user logs in
   useEffect(() => {
@@ -321,7 +367,7 @@ export function useNotes(userId: string | undefined) {
   );
 
   const updateNote = useCallback(
-    (id: string, updates: Partial<Pick<Note, "title" | "content" | "chatHistory" | "isPinned">>) => {
+    (id: string, updates: Partial<Pick<Note, "title" | "content" | "chatHistory" | "mediaTranscripts" | "isPinned">>) => {
       const now = Date.now();
       const isPinOnly = Object.keys(updates).length === 1 && "isPinned" in updates;
 
@@ -334,17 +380,25 @@ export function useNotes(userId: string | undefined) {
         ).sort(sortNotes)
       );
 
+      // Accumulate pending updates for DB write
+      if (!pendingUpdatesRef.current[id]) {
+        pendingUpdatesRef.current[id] = { syncedAt: null };
+      }
+      if (!isPinOnly) {
+        pendingUpdatesRef.current[id].updatedAt = now;
+      }
+      if (updates.title !== undefined) pendingUpdatesRef.current[id].title = updates.title;
+      if (updates.content !== undefined) pendingUpdatesRef.current[id].content = updates.content;
+      if (updates.chatHistory !== undefined) pendingUpdatesRef.current[id].chatHistory = JSON.stringify(updates.chatHistory) as any;
+      if (updates.mediaTranscripts !== undefined) pendingUpdatesRef.current[id].mediaTranscripts = updates.mediaTranscripts;
+      if (updates.isPinned !== undefined) pendingUpdatesRef.current[id].isPinned = updates.isPinned;
+
       // Debounce persist to IndexedDB + optional cloud sync
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(async () => {
-        const dbUpdates: Partial<LocalNote> = { syncedAt: null };
-        if (!isPinOnly) {
-          dbUpdates.updatedAt = now;
-        }
-        if (updates.title !== undefined) dbUpdates.title = updates.title;
-        if (updates.content !== undefined) dbUpdates.content = updates.content;
-        if (updates.chatHistory !== undefined) dbUpdates.chatHistory = JSON.stringify(updates.chatHistory);
-        if (updates.isPinned !== undefined) dbUpdates.isPinned = updates.isPinned;
+        const dbUpdates = pendingUpdatesRef.current[id];
+        if (!dbUpdates) return;
+        delete pendingUpdatesRef.current[id];
 
         await db.notes.update(id, dbUpdates);
 

@@ -89,6 +89,11 @@ RULES:
 - Output MUST be a strict Markdown checklist using '- [ ] ' for each task
 - Group tasks logically if there are many (using ## headings)
 - Do not add conversational filler:`,
+  describe_image: `You are an expert AI vision assistant. Describe this image concisely in ONE short sentence. Focus on the main subject, context, and any prominent text.`,
+  extract_text: `You are an OCR and structural extraction AI. Extract all text and structure from this image.
+RULES:
+- Preserve headings, paragraphs, lists, and tables.
+- Return ONLY the extracted Markdown text, no conversational filler.`,
 };
 
 interface StreamCallbacks {
@@ -152,6 +157,8 @@ export async function streamWritingAI(
 You are chatting with the user. Answer their questions clearly and concisely.
 Use Markdown formatting where appropriate (bold, lists, code blocks).
 If the user asks about the note, refer to the Note Content below.
+
+STRICT RULE: The note may contain MEDIA TRANSCRIPT sections. You MUST use them to answer questions about recordings. However, NEVER quote or regurgitate the raw transcript text in your response. Always summarize the information naturally in your own words. DO NOT use blockquotes for transcript content.
 
 --- NOTE CONTENT START ---
 ${noteContext || "The note is currently empty."}

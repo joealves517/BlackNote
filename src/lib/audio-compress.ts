@@ -3,13 +3,16 @@
  *
  * Handles:
  * - Extracting audio track from video blobs
- * - Compressing audio to reduce upload size
- * - Chunking long audio into segments for API calls
+ * - Compressing audio to MP3 (64kbps mono) for minimal upload size
+ * - Chunking long audio into 20-minute segments for Groq API
  * - Converting blobs to base64
  */
 
-const CHUNK_DURATION_SEC = 300; // 5 minutes per chunk
+import { Mp3Encoder } from "@breezystack/lamejs";
+
+const CHUNK_DURATION_SEC = 1200; // 20 minutes per chunk (MP3 64kbps ≈ 9.4MB)
 const TARGET_SAMPLE_RATE = 16000; // 16kHz mono — optimal for speech recognition
+const MP3_BITRATE = 64; // 64kbps — good quality for speech, small file size
 
 export interface AudioChunk {
   base64: string;
@@ -74,63 +77,53 @@ function downsampleToMono(
 }
 
 /**
- * Encode Float32 PCM samples into a WAV blob (16-bit PCM).
- * WAV is universally supported by Gemini's audio processing.
+ * Convert Float32 PCM samples to Int16 (required by LAME encoder).
  */
-function encodeWav(
-  samples: Float32Array,
-  sampleRate: number
-): Blob {
-  const numChannels = 1;
-  const bitsPerSample = 16;
-  const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
-  const blockAlign = numChannels * (bitsPerSample / 8);
-  const dataSize = samples.length * (bitsPerSample / 8);
-  const headerSize = 44;
-  const buffer = new ArrayBuffer(headerSize + dataSize);
-  const view = new DataView(buffer);
-
-  // WAV header
-  const writeString = (offset: number, str: string) => {
-    for (let i = 0; i < str.length; i++) {
-      view.setUint8(offset + i, str.charCodeAt(i));
-    }
-  };
-
-  writeString(0, "RIFF");
-  view.setUint32(4, 36 + dataSize, true);
-  writeString(8, "WAVE");
-  writeString(12, "fmt ");
-  view.setUint32(16, 16, true); // PCM chunk size
-  view.setUint16(20, 1, true); // PCM format
-  view.setUint16(22, numChannels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, byteRate, true);
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, bitsPerSample, true);
-  writeString(36, "data");
-  view.setUint32(40, dataSize, true);
-
-  // PCM samples (clamp to 16-bit range)
-  let offset = headerSize;
+function float32ToInt16(samples: Float32Array): Int16Array {
+  const int16 = new Int16Array(samples.length);
   for (let i = 0; i < samples.length; i++) {
-    const sample = Math.max(-1, Math.min(1, samples[i]));
-    const int16 = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
-    view.setInt16(offset, int16, true);
-    offset += 2;
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  return int16;
+}
+
+/**
+ * Encode Int16 PCM samples into an MP3 blob using lamejs.
+ * MP3 64kbps mono at 16kHz produces ~480KB per minute.
+ */
+function encodeMp3(samples: Int16Array, sampleRate: number): Blob {
+  const encoder = new Mp3Encoder(1, sampleRate, MP3_BITRATE);
+  const mp3Chunks: Uint8Array[] = [];
+
+  // LAME processes in blocks of 1152 samples
+  const blockSize = 1152;
+  for (let i = 0; i < samples.length; i += blockSize) {
+    const chunk = samples.subarray(i, i + blockSize);
+    const mp3buf = encoder.encodeBuffer(chunk);
+    if (mp3buf.length > 0) {
+      mp3Chunks.push(new Uint8Array(mp3buf));
+    }
   }
 
-  return new Blob([buffer], { type: "audio/wav" });
+  // Flush remaining data
+  const tail = encoder.flush();
+  if (tail.length > 0) {
+    mp3Chunks.push(new Uint8Array(tail));
+  }
+
+  return new Blob(mp3Chunks, { type: "audio/mpeg" });
 }
 
 /**
  * Extract audio from a media blob (audio or video).
- * Decodes using AudioContext, downsamples to 16kHz mono, encodes as WAV.
+ * Decodes using AudioContext, downsamples to 16kHz mono.
+ * Returns raw PCM samples and duration for chunking.
  */
-async function extractAndCompressAudio(
+async function extractAndDecodeAudio(
   blob: Blob,
   onProgress?: (message: string) => void
-): Promise<{ wavBlob: Blob; durationSec: number }> {
+): Promise<{ pcmSamples: Float32Array; durationSec: number }> {
   onProgress?.("Decoding audio...");
 
   const arrayBuffer = await blob.arrayBuffer();
@@ -149,23 +142,16 @@ async function extractAndCompressAudio(
   const durationSec = audioBuffer.duration;
   onProgress?.(`Audio decoded: ${Math.round(durationSec)}s`);
 
-  onProgress?.("Compressing audio...");
-  const monoSamples = downsampleToMono(audioBuffer, TARGET_SAMPLE_RATE);
-  const wavBlob = encodeWav(monoSamples, TARGET_SAMPLE_RATE);
+  onProgress?.("Downsampling to 16kHz mono...");
+  const pcmSamples = downsampleToMono(audioBuffer, TARGET_SAMPLE_RATE);
 
-  onProgress?.(
-    `Compressed: ${(blob.size / 1024 / 1024).toFixed(1)}MB → ${(wavBlob.size / 1024 / 1024).toFixed(1)}MB`
-  );
-
-  return { wavBlob, durationSec };
+  return { pcmSamples, durationSec };
 }
 
 /**
- * Split a WAV blob into time-based chunks.
- * Each chunk is a standalone WAV file.
+ * Calculate chunk boundaries for a given duration.
  */
-function splitWavIntoChunks(
-  wavBlob: Blob,
+function calculateChunkRanges(
   durationSec: number,
   chunkDurationSec: number = CHUNK_DURATION_SEC
 ): { startSec: number; endSec: number }[] {
@@ -184,88 +170,53 @@ function splitWavIntoChunks(
 }
 
 /**
- * Extract a time slice from a WAV blob (16-bit mono PCM).
- * Reads the header, calculates byte offsets, and creates a new WAV blob.
- */
-async function sliceWav(
-  wavBlob: Blob,
-  startSec: number,
-  endSec: number,
-  sampleRate: number = TARGET_SAMPLE_RATE
-): Promise<Blob> {
-  const buffer = await wavBlob.arrayBuffer();
-  const headerSize = 44;
-  const bytesPerSample = 2; // 16-bit
-  const totalSamples = (buffer.byteLength - headerSize) / bytesPerSample;
-  const totalDuration = totalSamples / sampleRate;
-
-  // Clamp times
-  const clampedStart = Math.max(0, startSec);
-  const clampedEnd = Math.min(totalDuration, endSec);
-
-  const startByte =
-    headerSize + Math.floor(clampedStart * sampleRate) * bytesPerSample;
-  const endByte =
-    headerSize + Math.floor(clampedEnd * sampleRate) * bytesPerSample;
-  const dataSlice = buffer.slice(startByte, endByte);
-  const dataSize = dataSlice.byteLength;
-
-  // Build new WAV header
-  const newBuffer = new ArrayBuffer(headerSize + dataSize);
-  const src = new DataView(buffer);
-  const dst = new DataView(newBuffer);
-
-  // Copy original header and update sizes
-  for (let i = 0; i < headerSize; i++) {
-    dst.setUint8(i, src.getUint8(i));
-  }
-  dst.setUint32(4, 36 + dataSize, true); // RIFF size
-  dst.setUint32(40, dataSize, true); // data size
-
-  // Copy audio data
-  new Uint8Array(newBuffer, headerSize).set(new Uint8Array(dataSlice));
-
-  return new Blob([newBuffer], { type: "audio/wav" });
-}
-
-/**
- * Main entry point: Process a media blob into base64 chunks ready for API.
+ * Main entry point: Process a media blob into base64 MP3 chunks ready for API.
  *
- * Workflow:
- * 1. Decode and compress audio (16kHz mono WAV)
- * 2. Split into 5-minute chunks if needed
- * 3. Convert each chunk to base64
+ * Pipeline:
+ * 1. Decode audio → 16kHz mono PCM
+ * 2. Split into 20-minute chunks if needed
+ * 3. Encode each chunk as MP3 64kbps
+ * 4. Convert to base64
  */
 export async function prepareAudioChunks(
   blob: Blob,
   onProgress?: (message: string) => void
 ): Promise<AudioChunk[]> {
-  const { wavBlob, durationSec } = await extractAndCompressAudio(
+  const { pcmSamples, durationSec } = await extractAndDecodeAudio(
     blob,
     onProgress
   );
 
-  const ranges = splitWavIntoChunks(wavBlob, durationSec);
+  const ranges = calculateChunkRanges(durationSec);
+  const samplesPerSecond = TARGET_SAMPLE_RATE;
 
   const chunks: AudioChunk[] = [];
   for (let i = 0; i < ranges.length; i++) {
     const range = ranges[i];
     onProgress?.(
-      `Preparing chunk ${i + 1}/${ranges.length}...`
+      `Encoding MP3 chunk ${i + 1}/${ranges.length}...`
     );
 
-    let chunkBlob: Blob;
-    if (ranges.length === 1) {
-      chunkBlob = wavBlob; // No slicing needed for single chunk
-    } else {
-      chunkBlob = await sliceWav(wavBlob, range.startSec, range.endSec);
-    }
+    // Slice PCM samples for this chunk
+    const startSample = Math.floor(range.startSec * samplesPerSecond);
+    const endSample = Math.min(
+      Math.floor(range.endSec * samplesPerSecond),
+      pcmSamples.length
+    );
+    const chunkPcm = pcmSamples.subarray(startSample, endSample);
 
-    const base64 = await blobToBase64(chunkBlob);
+    // Convert to Int16 and encode as MP3
+    const int16Samples = float32ToInt16(chunkPcm);
+    const mp3Blob = encodeMp3(int16Samples, TARGET_SAMPLE_RATE);
+    const base64 = await blobToBase64(mp3Blob);
+
+    onProgress?.(
+      `Chunk ${i + 1}: ${(mp3Blob.size / 1024 / 1024).toFixed(1)}MB MP3`
+    );
 
     chunks.push({
       base64,
-      mimeType: "audio/wav",
+      mimeType: "audio/mpeg",
       startSec: range.startSec,
       endSec: range.endSec,
       durationSec: range.endSec - range.startSec,

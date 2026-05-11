@@ -8,6 +8,7 @@ export interface LocalNote {
   updatedAt: number; // timestamp ms
   syncedAt: number | null; // null = never synced
   chatHistory?: string; // JSON string of chat messages
+  mediaTranscripts?: string; // JSON string of Record<string, MediaTranscript>
   isPinned?: boolean;
 }
 
@@ -29,10 +30,30 @@ export interface MediaTranscript {
   analyzedAt: number;
 }
 
+export interface MediaChunk {
+  id: string;
+  mediaId: string;
+  chunkIndex: number;
+  blob: Blob;
+  duration: number;
+  status: "pending" | "processing" | "done" | "error";
+  transcript?: string;
+  segments?: { start: number; end: number; text: string }[];
+}
+
+export interface MediaTempChunk {
+  id: string;
+  mediaId: string;
+  chunkIndex: number;
+  blob: Blob;
+}
+
 const db = new Dexie("blacknote") as Dexie & {
   notes: EntityTable<LocalNote, "id">;
   media_files: EntityTable<MediaFile, "id">;
   media_transcripts: EntityTable<MediaTranscript, "mediaId">;
+  media_chunks: EntityTable<MediaChunk, "id">;
+  media_temp_chunks: EntityTable<MediaTempChunk, "id">;
 };
 
 db.version(1).stores({
@@ -48,6 +69,21 @@ db.version(3).stores({
   notes: "id, updatedAt",
   media_files: "id, noteId, type, createdAt",
   media_transcripts: "mediaId",
+});
+
+db.version(4).stores({
+  notes: "id, updatedAt",
+  media_files: "id, noteId, type, createdAt",
+  media_transcripts: "mediaId",
+  media_chunks: "id, mediaId, chunkIndex, status",
+});
+
+db.version(5).stores({
+  notes: "id, updatedAt",
+  media_files: "id, noteId, type, createdAt",
+  media_transcripts: "mediaId",
+  media_chunks: "id, mediaId, chunkIndex, status",
+  media_temp_chunks: "id, mediaId, chunkIndex",
 });
 
 export { db };

@@ -41,6 +41,9 @@ function loadEnv() {
       webhookSecret: process.env.LEMONSQUEEZY_WEBHOOK_SECRET || "",
       storeId: process.env.LEMONSQUEEZY_STORE_ID || "",
     },
+    groq: {
+      apiKey: process.env.GROQ_API_KEY || "",
+    },
   } as const;
 }
 

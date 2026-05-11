@@ -25,6 +25,7 @@ interface RemoteNote {
   title: string;
   content: string;
   chatHistory?: string;
+  mediaTranscripts?: string;
   isPinned?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -48,6 +49,7 @@ function remoteToLocal(remote: RemoteNote): LocalNote {
     updatedAt: new Date(remote.updatedAt).getTime(),
     syncedAt: Date.now(),
     chatHistory: remote.chatHistory || "[]",
+    mediaTranscripts: remote.mediaTranscripts || "{}",
     isPinned: remote.isPinned ?? false,
   };
 }
@@ -66,6 +68,7 @@ function localToRemote(note: LocalNote): RemoteNote {
     title: note.title,
     content: note.content,
     chatHistory: note.chatHistory,
+    mediaTranscripts: note.mediaTranscripts,
     isPinned: note.isPinned,
     createdAt: new Date(note.createdAt).toISOString(),
     updatedAt: new Date(note.updatedAt).toISOString(),

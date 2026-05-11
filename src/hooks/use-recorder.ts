@@ -13,8 +13,8 @@ export interface UseRecorderReturn {
   mode: RecordingMode | null;
   elapsed: number;
   analyserNode: AnalyserNode | null;
-  startAudioRecording: (skipMic?: boolean) => Promise<boolean>;
-  startScreenRecording: (skipMic?: boolean) => Promise<boolean>;
+  startAudioRecording: (skipMic?: boolean, isPremium?: boolean) => Promise<boolean>;
+  startScreenRecording: (skipMic?: boolean, isPremium?: boolean) => Promise<boolean>;
   pauseRecording: () => void;
   resumeRecording: () => void;
   stopRecording: () => Promise<RecorderResult | null>;
@@ -56,7 +56,8 @@ export function useRecorder(): UseRecorderReturn {
   // Local refs for audio recording (runs in side panel, NOT offscreen)
   const localRecorder = useRef<MediaRecorder | null>(null);
   const localStreams = useRef<MediaStream[]>([]);
-  const localChunks = useRef<Blob[]>([]);
+  const localChunks = useRef<Blob[]>([]); // kept for fallback or legacy? No, we will delete it later if unused.
+  const localPendingPuts = useRef<Promise<any>[]>([]);
   const localAudioCtx = useRef<AudioContext | null>(null);
   const localMediaId = useRef("");
   const localTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -207,7 +208,7 @@ export function useRecorder(): UseRecorderReturn {
 
   // ── Actions ───────────────────────────────────────────────────────
 
-  const startAudioRecording = useCallback(async (skipMic = false): Promise<boolean> => {
+  const startAudioRecording = useCallback(async (skipMic = false, isPremium = false): Promise<boolean> => {
     try {
       setError(null);
       setState("requesting");
@@ -215,6 +216,7 @@ export function useRecorder(): UseRecorderReturn {
       isLocalRecording.current = true;
       localMediaId.current = generateId();
       localChunks.current = [];
+      localPendingPuts.current = [];
       localPausedElapsed.current = 0;
 
       // Step 1: Get mic
@@ -253,6 +255,15 @@ export function useRecorder(): UseRecorderReturn {
               else resolve(streamId);
             });
           });
+
+          if (!desktopStreamId) {
+            // User cancelled the Chrome permission prompt
+            cleanupLocal();
+            setState("idle");
+            setMode(null);
+            writeStorage("idle", 0);
+            return false;
+          }
 
           if (desktopStreamId) {
             const desktopStream = await navigator.mediaDevices.getUserMedia({
@@ -313,8 +324,19 @@ export function useRecorder(): UseRecorderReturn {
       const mimeType = selectAudioMimeType();
       const rec = new MediaRecorder(finalStream, { mimeType });
       localRecorder.current = rec;
+      
+      let chunkIndex = 0;
       rec.ondataavailable = (e) => {
-        if (e.data.size > 0) localChunks.current.push(e.data);
+        if (e.data.size > 0) {
+          const idx = chunkIndex++;
+          const p = db.media_temp_chunks.put({
+            id: `${localMediaId.current}_${idx}`,
+            mediaId: localMediaId.current,
+            chunkIndex: idx,
+            blob: e.data
+          });
+          localPendingPuts.current.push(p);
+        }
       };
 
       // Auto-stop when Chrome's "Stop sharing" button is clicked
@@ -329,7 +351,7 @@ export function useRecorder(): UseRecorderReturn {
         });
       });
 
-      rec.start(1000);
+      rec.start(10000);
       setState("recording");
       setElapsed(0);
       startLocalTimer();
@@ -344,7 +366,7 @@ export function useRecorder(): UseRecorderReturn {
     }
   }, [startLocalTimer, writeStorage, cleanupLocal]);
 
-  const startScreenRecording = useCallback(async (skipMic = false): Promise<boolean> => {
+  const startScreenRecording = useCallback(async (skipMic = false, isPremium = false): Promise<boolean> => {
     try {
       setError(null);
       setState("requesting");
@@ -352,6 +374,7 @@ export function useRecorder(): UseRecorderReturn {
       isLocalRecording.current = true;
       localMediaId.current = generateId();
       localChunks.current = [];
+      localPendingPuts.current = [];
       localPausedElapsed.current = 0;
 
       // Step 0: Pre-check mic availability (unless user chose to skip)
@@ -397,6 +420,9 @@ export function useRecorder(): UseRecorderReturn {
       });
       localStreams.current.push(displayStream);
 
+      let finalVideoStream = displayStream;
+
+
       let finalStream = displayStream;
 
       // Try to add mic audio (only if not skipping)
@@ -428,20 +454,35 @@ export function useRecorder(): UseRecorderReturn {
           micSource.connect(analyser);
           setAnalyserNode(analyser);
 
-          const videoTrack = displayStream.getVideoTracks()[0];
+          const videoTrack = finalVideoStream.getVideoTracks()[0];
           const mixedAudio = destination.stream.getAudioTracks();
           finalStream = new MediaStream([videoTrack, ...mixedAudio]);
         } catch (err: any) {
           console.warn(`[useRecorder] Mic unavailable for screen recording (continuing without): ${err?.name}`);
+          const videoTrack = finalVideoStream.getVideoTracks()[0];
+          finalStream = new MediaStream([videoTrack, ...displayStream.getAudioTracks()]);
         }
+      } else {
+        const videoTrack = finalVideoStream.getVideoTracks()[0];
+        finalStream = new MediaStream([videoTrack, ...displayStream.getAudioTracks()]);
       }
 
       const mimeType = selectVideoMimeType();
       const rec = new MediaRecorder(finalStream, { mimeType });
       localRecorder.current = rec;
 
+      let chunkIndex = 0;
       rec.ondataavailable = (e) => {
-        if (e.data.size > 0) localChunks.current.push(e.data);
+        if (e.data.size > 0) {
+          const idx = chunkIndex++;
+          const p = db.media_temp_chunks.put({
+            id: `${localMediaId.current}_${idx}`,
+            mediaId: localMediaId.current,
+            chunkIndex: idx,
+            blob: e.data
+          });
+          localPendingPuts.current.push(p);
+        }
       };
 
       displayStream.getVideoTracks().forEach(track => {
@@ -452,7 +493,7 @@ export function useRecorder(): UseRecorderReturn {
         };
       });
 
-      rec.start(1000);
+      rec.start(10000);
       setState("recording");
       setElapsed(0);
       startLocalTimer();
@@ -501,8 +542,17 @@ export function useRecorder(): UseRecorderReturn {
       return new Promise((resolve) => {
         const rec = localRecorder.current!;
         rec.onstop = async () => {
-          const rawBlob = new Blob(localChunks.current, { type: rec.mimeType || (isAudio ? "audio/webm" : "video/webm") });
+          await Promise.all(localPendingPuts.current);
           const id = localMediaId.current;
+          
+          const tempChunks = await db.media_temp_chunks.where("mediaId").equals(id).sortBy("chunkIndex");
+          const blobs = tempChunks.map(c => c.blob);
+          
+          const rawBlob = new Blob(blobs.length > 0 ? blobs : localChunks.current, { type: rec.mimeType || (isAudio ? "audio/webm" : "video/webm") });
+          
+          if (blobs.length > 0) {
+            await db.media_temp_chunks.where("mediaId").equals(id).delete();
+          }
           const duration = elapsedRef.current;
           const mediaType = isAudio ? "audio" : "video";
 
