@@ -59,10 +59,12 @@ import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 import ImageResize from "tiptap-extension-resize-image";
+import Highlight from "@tiptap/extension-highlight";
 
 import { Button } from "@/components/ui/button";
 import { GenerativeMenuSwitch } from "@/components/generative/GenerativeMenuSwitch";
 import { AISelector } from "@/components/generative/AISelector";
+import { ColorSelector } from "@/components/generative/ColorSelector";
 import { NoteChatSheet } from "@/components/generative/NoteChatSheet";
 import TurndownService from "turndown";
 import { MediaAIResultSheet } from "@/components/generative/MediaAIResultSheet";
@@ -503,6 +505,7 @@ const extensions = [
   }),
   TextStyle,
   Color,
+  Highlight.configure({ multicolor: true }),
   Placeholder.configure({
     placeholder: "Type '/' for commands...",
   }),
@@ -811,6 +814,7 @@ export function NoteEditor({
           >
             {/* Generative Menu — toggles between formatting + AI */}
             <GenerativeMenuSwitch>
+              <ColorSelector />
               <EditorBubbleItem
                 onSelect={(editor) => editor.chain().focus().toggleBold().run()}
               >

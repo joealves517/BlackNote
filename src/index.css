@@ -84,6 +84,27 @@
   --sidebar-hover: 0 0% 94%;
   --sidebar-active: 0 0% 91%;
   --sidebar-border: 0 0% 92%;
+
+  /* Notion Colors - Light Mode */
+  --color-text-gray: #787774;
+  --color-text-brown: #9F6B53;
+  --color-text-orange: #D9730D;
+  --color-text-yellow: #CB912F;
+  --color-text-green: #448361;
+  --color-text-blue: #337EA9;
+  --color-text-purple: #9065B0;
+  --color-text-pink: #C14C8A;
+  --color-text-red: #D44C47;
+
+  --color-bg-gray: #E0E0E0;
+  --color-bg-brown: #D7C0B0;
+  --color-bg-orange: #FAD0A5;
+  --color-bg-yellow: #FDF0A6;
+  --color-bg-green: #B8E5CA;
+  --color-bg-blue: #B9DCF2;
+  --color-bg-purple: #D7C4F2;
+  --color-bg-pink: #F3CBE1;
+  --color-bg-red: #F7C3C3;
 }
 
 /* ===== Dark Theme ===== */
@@ -118,9 +139,31 @@
 
   --sidebar-bg: 0 0% 8%;
   --sidebar-fg: 0 0% 70%;
-  --sidebar-hover: 0 0% 14%;
-  --sidebar-active: 0 0% 18%;
-  --sidebar-border: 0 0% 16%;
+  --sidebar-hover: 0 0% 12%;
+  --sidebar-active: 0 0% 15%;
+  --sidebar-border: 0 0% 12%;
+
+  /* Vibrant Dark Mode Text Colors */
+  --color-text-gray: #A3A3A3;
+  --color-text-brown: #D9A08A;
+  --color-text-orange: #ED9834;
+  --color-text-yellow: #F2BD5E;
+  --color-text-green: #67C791;
+  --color-text-blue: #70A1ED;
+  --color-text-purple: #B880F5;
+  --color-text-pink: #F274B5;
+  --color-text-red: #FA6966;
+
+  /* Vibrant Dark Mode Highlight Colors */
+  --color-bg-gray: #4A4A4A;
+  --color-bg-brown: #664333;
+  --color-bg-orange: #7D4617;
+  --color-bg-yellow: #755B1B;
+  --color-bg-green: #2B6B46;
+  --color-bg-blue: #235487;
+  --color-bg-purple: #56337A;
+  --color-bg-pink: #733059;
+  --color-bg-red: #7A2E2E;
 }
 
 /* ===== Base Styles ===== */
@@ -140,7 +183,6 @@ body {
 
 ::selection {
   background-color: hsl(var(--primary) / 0.2);
-  color: hsl(var(--foreground));
 }
 
 /* ===== Custom Scrollbar (Notion-style) ===== */
@@ -552,7 +594,7 @@ body {
   max-width: 600px;
   margin: 0 auto;
   border-radius: 20px 20px 0 0;
-  background-color: hsl(var(--background) / 0.98);
+  background-color: hsl(var(--background) / 0.85);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -751,7 +793,7 @@ body {
   max-width: 600px;
   margin: 0 auto;
   border-radius: 20px 20px 0 0;
-  background-color: hsl(var(--background) / 0.98);
+  background-color: hsl(var(--background) / 0.85);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -782,7 +824,7 @@ body {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background-color: hsl(var(--background) / 0.98);
+  background-color: hsl(var(--background) / 0.85);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1089,7 +1131,7 @@ body {
 .ai-bubble-open {
   border-radius: 12px;
   border: 1px solid hsl(var(--border));
-  background-color: hsl(var(--background) / 0.98);
+  background-color: hsl(var(--background) / 0.85);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   box-shadow: 0 4px 20px hsl(var(--foreground) / 0.12);
@@ -1107,22 +1149,21 @@ body {
 }
 
 /* ===== AI Highlight ===== */
-.novel-editor .tiptap mark[data-color] {
-  background-color: hsl(var(--foreground) / 0.08);
+.novel-editor .tiptap mark[data-color="#c1ecf970"] {
+  background-color: hsl(var(--foreground) / 0.08) !important;
   border-radius: 2px;
   padding: 1px 0;
   animation: ai-pulse 2s ease-in-out infinite;
 }
 
 @keyframes ai-pulse {
-
   0%,
   100% {
-    background-color: hsl(var(--foreground) / 0.05);
+    background-color: hsl(var(--foreground) / 0.05) !important;
   }
 
   50% {
-    background-color: hsl(var(--foreground) / 0.12);
+    background-color: hsl(var(--foreground) / 0.12) !important;
   }
 }
 
@@ -1415,7 +1456,7 @@ body {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 6px;
+  border-radius: 10px;
   border: 1px solid hsl(var(--border));
   background-color: hsl(var(--background));
   shrink: 0;
@@ -1610,7 +1651,7 @@ body {
   display: flex;
   flex-direction: column;
   border-radius: 20px 20px 0 0;
-  background-color: hsl(var(--background) / 0.98);
+  background-color: hsl(var(--background) / 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid hsl(var(--border) / 0.4);
@@ -2592,5 +2633,6 @@ button:active .hover-zoom-icon,
 .ProseMirror-gapcursor:after {
   border-top-color: hsl(var(--foreground)) !important;
 }
+
 
 
