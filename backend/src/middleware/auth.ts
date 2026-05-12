@@ -1,13 +1,12 @@
 /**
- * Auth Middleware — Dual authentication supporting both:
- * 1. Google OAuth token (new extension versions)
- * 2. Supabase JWT (legacy extension versions still on Chrome Web Store)
- *
- * Both paths extract the same user info for downstream handlers.
+ * Auth Middleware
+ * 
+ * Only supports Google OAuth token (chrome.identity)
+ * Supabase login is no longer supported.
  */
 
 import { Request, Response, NextFunction } from "express";
-import { config } from "../config/index.js";
+import { logUsage } from "../services/firestore.js";
 
 export interface AuthenticatedRequest extends Request {
   userId: string;
@@ -39,7 +38,7 @@ async function verifyGoogleToken(
     const info = (await res.json()) as GoogleTokenInfo;
 
     // Verify the token belongs to our OAuth client
-    if (info.email && info.email_verified === "true") {
+    if (info.email && String(info.email_verified) === "true") {
       return info;
     }
     return null;
@@ -93,10 +92,21 @@ export async function requireAuth(
     authReq.userEmail = googleInfo.email;
     authReq.userName = userInfo?.name || googleInfo.email.split("@")[0];
     authReq.userPicture = userInfo?.picture || "";
+    
+    // Log User Action
+    logUsage({
+      userId: googleInfo.sub,
+      app: "blacknote",
+      action: req.path,
+      method: req.method,
+      model: "action_log",
+      creditsUsed: 0,
+      timestamp: new Date()
+    }).catch((e) => console.error("[Action Log Error]", e));
+
     return next();
   }
 
-  // If Google token verification fails, return unauthorized immediately.
   console.error("[Auth] Google token verification failed");
   res.status(401).json({ error: "invalid_token" });
 }

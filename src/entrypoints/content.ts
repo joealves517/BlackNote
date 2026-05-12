@@ -33,14 +33,44 @@ export default defineContentScript({
 
         // Regular pages — standard DOM extraction
         try {
-          const parsed = extractPageContent(
-            document.documentElement.outerHTML,
-            window.location.href
-          );
+          const SPA_DOMAINS = [
+            'mail.google.com', 'console.cloud.google.com', 'console.aws.amazon.com',
+            'notion.so', 'discord.com', 'slack.com', 'web.telegram.org',
+            'twitter.com', 'x.com', 'web.whatsapp.com', 'messenger.com',
+            'teams.microsoft.com', 'app.asana.com', 'trello.com',
+            'figma.com', 'linear.app', 'vercel.com',
+          ];
+          const isSPA = SPA_DOMAINS.some(domain => window.location.hostname.includes(domain));
 
-          const isWebApp = ['mail.google.com', 'console.cloud.google.com', 'console.aws.amazon.com', 'notion.so'].some(domain => window.location.hostname.includes(domain));
+          if (isSPA) {
+            const title = document.title || "";
+            const bodyText = document.body ? getDeepText(document.body).replace(/\n{3,}/g, '\n\n').trim() : "";
+            const maxChars = 50000;
+            const truncated = bodyText.length > maxChars ? bodyText.substring(0, maxChars) + "\n\n[Content truncated...]" : bodyText;
 
-          if (parsed && !isWebApp && parsed.markdown.length > 150) {
+            if (!truncated) {
+              sendResponse({ error: "Could not extract readable content from this page.", errorCode: ErrorCode.NO_READABLE_CONTENT });
+              return true;
+            }
+
+            sendResponse({
+              parsed: {
+                title: title,
+                markdown: `URL: ${window.location.href}\n\n${truncated}`,
+                excerpt: truncated.substring(0, 200) + "...",
+                siteName: new URL(window.location.href).hostname,
+                byline: null,
+                url: window.location.href,
+                wordCount: truncated.split(/\s+/).length,
+                clippedAt: new Date().toISOString(),
+              }
+            });
+            return true;
+          }
+
+          const parsed = extractPageContent(null, window.location.href);
+
+          if (parsed && parsed.markdown.length > 100) {
             sendResponse({ parsed });
           } else {
             const title = document.title || "";

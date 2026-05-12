@@ -243,19 +243,28 @@ function fixRelativeUris(doc: Document, baseUri: string): void {
 }
 
 /**
- * Extract main content from an HTML string and convert to Markdown.
+ * Extract main content from a page and convert to Markdown.
  *
- * @param html - Full HTML of the page (from content script)
- * @param url  - Source URL (for Readability base URI resolution)
- * @returns Parsed page content, or null if Readability cannot extract content
+ * When called with html string: parses it into a DOM (for non-content-script contexts).
+ * When called without html (null): clones the live document directly.
+ * The live clone approach captures dynamically-rendered SPA content that
+ * outerHTML snapshots would miss (this was the key advantage of the old extension).
  */
 export function extractPageContent(
-  html: string,
+  html: string | null,
   url: string
 ): PageContent | null {
-  // Build a DOM from the HTML string so Readability can traverse it
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
+  let doc: Document;
+
+  if (html) {
+    // Non-live context: parse HTML string
+    const parser = new DOMParser();
+    doc = parser.parseFromString(html, "text/html");
+  } else {
+    // Live content script: clone the actual DOM tree
+    // This captures all JS-rendered content (React, Angular, Vue, etc.)
+    doc = document.cloneNode(true) as Document;
+  }
 
   // Instead of injecting a <base> tag which triggers CSP "base-uri 'none'" violations,
   // we manually resolve relative URLs so Readability doesn't discard important nodes.

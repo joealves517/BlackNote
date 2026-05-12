@@ -7,7 +7,7 @@ import { LogoutIcon } from "@/components/icons/logout";
 import { CircleCheckIcon } from "@/components/icons/circle-check";
 import { LoaderIcon } from "@/components/ui/loader";
 
-import { MessageSquare, PenLine, Mic, Wand2, Zap, Minus, Video, MessageCircleIcon } from "lucide-react";
+import { MessageSquare, PenLine, Mic, Wand2, Zap, Minus, Video, HelpCircle } from "lucide-react";
 import { CHECKOUT_BASE } from "@/lib/constants";
 import type { AppUser } from "@/lib/auth-client";
 
@@ -267,10 +267,11 @@ export function AccountPopup({
           onClose();
           setTimeout(() => window.dispatchEvent(new CustomEvent("open-support-sheet")), 200);
         }}
-        className="absolute right-4 -top-[68px] z-20 w-[34px] h-[34px] rounded-full bg-[hsl(var(--background))] flex items-center justify-center border border-border/80 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:scale-105 active:scale-95 transition-all shadow-sm"
+        className="absolute right-4 -top-[68px] z-20 h-[32px] px-3 rounded-full bg-[hsl(var(--background))] flex items-center justify-center gap-1.5 border border-border/80 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:scale-105 active:scale-95 transition-all shadow-sm"
         title="Contact Support"
       >
-        <MessageCircleIcon className="w-[18px] h-[18px]" />
+        <HelpCircle className="w-[16px] h-[16px]" />
+        <span className="text-[12px] font-medium leading-none">Help</span>
       </button>
 
       {/* Floating Avatar */}
