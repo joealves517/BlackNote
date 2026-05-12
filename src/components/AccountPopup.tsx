@@ -166,15 +166,6 @@ export function AccountPopup({
   const isQuotaExhausted = isPremium && credits?.credits !== undefined && credits.credits <= 0;
   const [logoutHovered, setLogoutHovered] = useState(false);
   const [dotLottie, setDotLottie] = useState<DotLottie | null>(null);
-  const [showHeart, setShowHeart] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-    const interval = setInterval(() => {
-      setShowHeart(prev => !prev);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [user]);
 
   useEffect(() => {
     if (!dotLottie || user) return;
@@ -274,37 +265,16 @@ export function AccountPopup({
         <span className="text-[12px] font-medium leading-none">Help</span>
       </button>
 
-      {/* Floating Avatar */}
-      <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10" style={{ perspective: "1000px" }}>
-        <div 
-          className="w-[84px] h-[84px] relative"
-          style={{
-            transformStyle: "preserve-3d",
-            transition: "transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1)",
-            transform: showHeart ? "rotateY(180deg)" : "rotateY(0deg)"
-          }}
-        >
-          {/* Front - Avatar with Halo */}
-          <div 
-            className="absolute inset-0 rounded-full flex items-center justify-center drop-shadow-md bg-background/40 backdrop-blur-md"
-            style={{ backfaceVisibility: "hidden" }}
-          >
-            <div className="w-[76px] h-[76px] rounded-full overflow-hidden bg-muted flex items-center justify-center">
-              {getUserAvatar(user) ? (
-                <img src={getUserAvatar(user)!} alt={firstName} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-xl font-bold text-muted-foreground w-full h-full flex items-center justify-center">{firstName.charAt(0).toUpperCase()}</span>
-              )}
+      {/* Absolute Avatar breaking out */}
+      <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10">
+        <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
+          {getUserAvatar(user) ? (
+            <img src={getUserAvatar(user)!} alt={firstName} className="w-[76px] h-[76px] object-cover rounded-full bg-transparent" />
+          ) : (
+            <div className="w-[76px] h-[76px] bg-muted/80 backdrop-blur-md rounded-full flex items-center justify-center">
+              <span className="text-3xl font-bold text-muted-foreground">{firstName.charAt(0).toUpperCase()}</span>
             </div>
-          </div>
-
-          {/* Back - Heart Face (completely transparent) */}
-          <div 
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
-          >
-            <DotLottieReact src={chrome.runtime.getURL("heart-face.json")} autoplay loop backgroundColor="transparent" style={{ width: "115%", height: "115%" }} />
-          </div>
+          )}
         </div>
       </div>
 

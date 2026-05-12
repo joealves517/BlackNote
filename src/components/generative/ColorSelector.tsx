@@ -47,39 +47,26 @@ export const ColorSelector = () => {
   return (
     <Tooltip.Provider delayDuration={200}>
       <Popover.Root open={isOpen} onOpenChange={setIsOpen}>
-        <Tooltip.Root>
-          <Tooltip.Trigger asChild>
-            <Popover.Trigger asChild>
-              <button
-                className="flex items-center justify-center gap-0.5 px-1.5 h-8 rounded-md transition-colors"
-                style={{ color: "hsl(var(--foreground))" }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "hsl(var(--muted))"}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-              >
-                <span
-                  className="flex items-center justify-center font-medium text-[12px] w-[18px] h-[18px] rounded-full border"
-                  style={{
-                    color: activeColorItem && activeColorItem.name !== "Default" ? activeColorItem.color : "inherit",
-                    borderColor: activeColorItem && activeColorItem.name !== "Default" ? activeColorItem.color : "hsl(var(--border))",
-                    backgroundColor: activeHighlightItem && activeHighlightItem.name !== "Default" ? activeHighlightItem.color : "transparent",
-                  }}
-                >
-                  A
-                </span>
-                <ChevronDown className="h-3 w-3 opacity-60" strokeWidth={2.5} />
-              </button>
-            </Popover.Trigger>
-          </Tooltip.Trigger>
-          <Tooltip.Portal>
-            <Tooltip.Content
-              className="z-[100000] px-2 py-1 text-xs rounded-md shadow-md animate-in fade-in zoom-in-95"
-              style={{ backgroundColor: "hsl(var(--foreground))", color: "hsl(var(--background))" }}
-              sideOffset={5}
+        <Popover.Trigger asChild>
+          <button
+            className="flex items-center justify-center gap-0.5 px-1.5 h-8 rounded-md transition-colors"
+            style={{ color: "hsl(var(--foreground))" }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "hsl(var(--muted))"}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+          >
+            <span
+              className="flex items-center justify-center font-medium text-[12px] w-[18px] h-[18px] rounded-full border"
+              style={{
+                color: activeColorItem && activeColorItem.name !== "Default" ? activeColorItem.color : "inherit",
+                borderColor: activeColorItem && activeColorItem.name !== "Default" ? activeColorItem.color : "hsl(var(--border))",
+                backgroundColor: activeHighlightItem && activeHighlightItem.name !== "Default" ? activeHighlightItem.color : "transparent",
+              }}
             >
-              Color
-            </Tooltip.Content>
-          </Tooltip.Portal>
-        </Tooltip.Root>
+              A
+            </span>
+            <ChevronDown className="h-3 w-3 opacity-60" strokeWidth={2.5} />
+          </button>
+        </Popover.Trigger>
 
         <Popover.Portal container={document.getElementById("blacknote-root") || document.body}>
           <Popover.Content

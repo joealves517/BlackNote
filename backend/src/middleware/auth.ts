@@ -93,16 +93,18 @@ export async function requireAuth(
     authReq.userName = userInfo?.name || googleInfo.email.split("@")[0];
     authReq.userPicture = userInfo?.picture || "";
     
-    // Log User Action
-    logUsage({
-      userId: googleInfo.sub,
-      app: "blacknote",
-      action: req.path,
-      method: req.method,
-      model: "action_log",
-      creditsUsed: 0,
-      timestamp: new Date()
-    }).catch((e) => console.error("[Action Log Error]", e));
+    // Log User Action (skip noisy note sync/fetch operations)
+    if (!req.path.startsWith("/api/notes")) {
+      logUsage({
+        userId: googleInfo.sub,
+        app: "blacknote",
+        action: req.path,
+        method: req.method,
+        model: "action_log",
+        creditsUsed: 0,
+        timestamp: new Date()
+      }).catch((e) => console.error("[Action Log Error]", e));
+    }
 
     return next();
   }

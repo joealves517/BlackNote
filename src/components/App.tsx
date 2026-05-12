@@ -7,7 +7,7 @@ import { SunIcon } from "@/components/icons/sun";
 import { AIDynamicIsland } from "@/components/ui/ai-dynamic-island";
 import { SparklesIcon } from "@/components/icons/sparkles";
 import { GlobeIcon } from "@/components/icons/globe";
-import { BlocksIcon } from "@/components/icons/blocks";
+import { SettingsIcon } from "@/components/ui/settings";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { motion, AnimatePresence } from "framer-motion";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
@@ -194,9 +194,13 @@ export function App() {
 
   const [aiErrorVisible, setAiErrorVisible] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-  const [recErrorInfo, setRecErrorInfo] = useState<{ info: RecordingErrorInfo; retryMode: "audio" | "screen"; editor?: any } | null>(null);
+  const [recErrorInfo, setRecErrorInfo] = useState<{ info: RecordingErrorInfo; retryMode: "audio" | "screen" | "meet"; editor?: any } | null>(null);
   const [isSTTActive, setIsSTTActive] = useState(false);
   const [sttElapsed, setSttElapsed] = useState(0);
+  const [meetStatus, setMeetStatus] = useState<string>("READY");
+
+  const [isMeetSyncActive, setIsMeetSyncActive] = useState(false);
+  const [meetElapsed, setMeetElapsed] = useState(0);
 
   // --- Recording Limit Logic ---
   const FREE_LIMIT_SECONDS = 1200; // 20 minutes
@@ -230,6 +234,18 @@ export function App() {
     }
     return () => clearInterval(interval);
   }, [isSTTActive]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isMeetSyncActive) {
+      if (meetStatus === "READY") {
+        interval = setInterval(() => setMeetElapsed(prev => prev + 1), 1000);
+      }
+    } else {
+      setMeetElapsed(0);
+    }
+    return () => clearInterval(interval);
+  }, [isMeetSyncActive, meetStatus]);
   const [mediaSheetConfig, setMediaSheetConfig] = useState<{
     mediaId: string;
     type: "audio" | "video";
@@ -258,6 +274,92 @@ export function App() {
     const handleSTTState = (e: any) => setIsSTTActive(e.detail);
     window.addEventListener("stt-state-changed", handleSTTState);
     return () => window.removeEventListener("stt-state-changed", handleSTTState);
+  }, []);
+
+  useEffect(() => {
+    const handleStartMeetSync = async () => {
+      const tabs = await chrome.tabs.query({ url: "*://meet.google.com/*" });
+      if (tabs.length === 0) {
+         setRecErrorInfo({
+            info: { code: "MEET_NO_TAB", title: "Google Meet Not Found", message: "No active Google Meet tab was found. Please open Google Meet and join a meeting first." },
+            retryMode: "meet"
+         });
+         return;
+      }
+      setMeetStatus("PENDING");
+      setIsMeetSyncActive(true);
+      setMeetElapsed(0);
+      tabs.forEach(tab => {
+        if (tab.id) {
+           chrome.tabs.sendMessage(tab.id, { action: "start-meet-sync" }).catch(() => {});
+        }
+      });
+    };
+
+    const handleStopMeetSync = async () => {
+      setIsMeetSyncActive(false);
+      setMeetStatus("READY");
+      setRecErrorInfo(prev => prev?.retryMode === "meet" ? null : prev);
+      const tabs = await chrome.tabs.query({ url: "*://meet.google.com/*" });
+      tabs.forEach(tab => {
+        if (tab.id) {
+           chrome.tabs.sendMessage(tab.id, { action: "stop-meet-sync" }).catch(() => {});
+        }
+      });
+    };
+
+    window.addEventListener("start-meet-sync", handleStartMeetSync);
+    window.addEventListener("stop-meet-sync", handleStopMeetSync);
+
+    return () => {
+       window.removeEventListener("start-meet-sync", handleStartMeetSync);
+       window.removeEventListener("stop-meet-sync", handleStopMeetSync);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleMessage = (msg: any) => {
+      if (msg.type === "MEET_STATUS") {
+         setMeetStatus(msg.status);
+         if (msg.status === "READY") {
+            setRecErrorInfo(null); // Auto-dismiss the error sheet when resolved!
+         } else if (msg.status === "NOT_JOINED") {
+            setRecErrorInfo({
+               info: { code: "MEET_NOT_JOINED", title: "Meeting Not Joined", message: "You haven't joined a Google Meet room yet. Please join the meeting before starting live sync." },
+               retryMode: "meet"
+            });
+         } else if (msg.status === "CC_OFF") {
+            setRecErrorInfo({
+               info: { code: "MEET_CC_OFF", title: "Captions (CC) Disabled", message: "Please click the [CC] button in Google Meet so BlackNote can read the meeting transcript." },
+               retryMode: "meet"
+            });
+         }
+      }
+
+      if (msg.type === "MEET_SYNC_FINISHED") {
+         window.dispatchEvent(new CustomEvent("stop-meet-sync"));
+      }
+
+      if (msg.type === "MEET_CAPTION") {
+        const editor = (window as any).blackNoteMeetEditor;
+        if (editor) {
+          // ALWAYS insert at the very end of the document to protect the user's active cursor
+          // This allows the user to freely edit the note while meeting captions stream at the bottom
+          const docSize = editor.state.doc.content.size;
+          if (msg.isNewSpeaker) {
+             const htmlToInsert = `<p><strong>${msg.speaker}:</strong> ${msg.text}</p>`;
+             editor.chain().insertContentAt(docSize, htmlToInsert).run();
+          } else {
+             // Append to the last paragraph
+             const insertPos = Math.max(0, docSize - 1);
+             const textToInsert = ` ${msg.text}`;
+             editor.chain().insertContentAt(insertPos, textToInsert).run();
+          }
+        }
+      }
+    };
+    chrome.runtime.onMessage.addListener(handleMessage);
+    return () => chrome.runtime.onMessage.removeListener(handleMessage);
   }, []);
 
   useEffect(() => {
@@ -775,15 +877,15 @@ export function App() {
       </AnimatePresence>
 
       {/* ─── Header Bar ─── */}
-      {isRecording || isSTTActive ? (
+      {isRecording || isSTTActive || isMeetSyncActive ? (
         <RecordingHeader
           state={isRecording ? recorder.state : "recording"}
-          mode={isRecording ? recorder.mode : "audio"}
-          elapsed={isRecording ? recorder.elapsed : sttElapsed}
+          mode={isRecording ? recorder.mode : isMeetSyncActive ? "audio" : "audio"}
+          elapsed={isRecording ? recorder.elapsed : isMeetSyncActive ? meetElapsed : sttElapsed}
           analyserNode={isRecording ? recorder.analyserNode : null}
           onPause={isRecording ? recorder.pauseRecording : undefined}
           onResume={isRecording ? recorder.resumeRecording : undefined}
-          onStop={isRecording ? handleRecordingStop : () => window.dispatchEvent(new CustomEvent("stop-speech-to-text"))}
+          onStop={isRecording ? handleRecordingStop : isMeetSyncActive ? () => window.dispatchEvent(new CustomEvent("stop-meet-sync")) : () => window.dispatchEvent(new CustomEvent("stop-speech-to-text"))}
           onDiscard={isRecording ? handleRecordingDiscard : undefined}
         />
       ) : (
@@ -873,13 +975,13 @@ export function App() {
                 <GlobeIcon size={17} className="w-[17px] h-[17px]" />
               </button>
 
-              {/* Tools */}
+              {/* Tools & Settings */}
               <button
                 className="floating-header-btn"
                 onClick={() => window.dispatchEvent(new CustomEvent("open-import-export-sheet"))}
                 data-tooltip="Tools & Settings"
               >
-                <BlocksIcon size={16} className="w-[17px] h-[17px]" />
+                <SettingsIcon size={17} className="w-full h-full flex items-center justify-center" />
               </button>
             </div>
           </div>
@@ -1101,7 +1203,14 @@ export function App() {
         visible={!!recErrorInfo}
         errorInfo={recErrorInfo?.info ?? null}
         onDismiss={() => {
+          const mode = recErrorInfo?.retryMode;
           setRecErrorInfo(null);
+          
+          // Stop background polling if the user manually cancels Meet Live Sync
+          if (mode === "meet") {
+             window.dispatchEvent(new CustomEvent("stop-meet-sync"));
+          }
+          
           chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
             if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: "STOP_REGION_SELECTION" }).catch(() => { });
           });
@@ -1114,6 +1223,8 @@ export function App() {
             window.dispatchEvent(new CustomEvent("start-audio-recording", { detail: { editor } }));
           } else if (mode === "screen") {
             window.dispatchEvent(new CustomEvent("start-screen-recording", { detail: { editor } }));
+          } else if (mode === "meet") {
+            window.dispatchEvent(new CustomEvent("start-meet-sync"));
           }
         }}
         onContinueWithoutMic={() => {

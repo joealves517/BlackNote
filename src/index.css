@@ -594,7 +594,7 @@ body {
   max-width: 600px;
   margin: 0 auto;
   border-radius: 20px 20px 0 0;
-  background-color: hsl(var(--background) / 0.85);
+  background-color: hsl(var(--background));
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -793,7 +793,7 @@ body {
   max-width: 600px;
   margin: 0 auto;
   border-radius: 20px 20px 0 0;
-  background-color: hsl(var(--background) / 0.85);
+  background-color: hsl(var(--background));
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -824,7 +824,7 @@ body {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background-color: hsl(var(--background) / 0.85);
+  background-color: hsl(var(--background));
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1102,7 +1102,7 @@ body {
   gap: 1px;
   padding: 4px;
   border-radius: 10px;
-  background-color: hsl(var(--background) / 0.98);
+  background-color: hsl(var(--background));
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid hsl(var(--border) / 0.4);
@@ -1131,7 +1131,7 @@ body {
 .ai-bubble-open {
   border-radius: 12px;
   border: 1px solid hsl(var(--border));
-  background-color: hsl(var(--background) / 0.85);
+  background-color: hsl(var(--background));
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   box-shadow: 0 4px 20px hsl(var(--foreground) / 0.12);
@@ -1425,7 +1425,7 @@ body {
   max-width: 260px;
   overflow-y: auto;
   border-radius: 10px;
-  background-color: hsl(var(--background) / 0.98);
+  background-color: hsl(var(--background));
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid hsl(var(--border) / 0.4);
@@ -1651,7 +1651,7 @@ body {
   display: flex;
   flex-direction: column;
   border-radius: 20px 20px 0 0;
-  background-color: hsl(var(--background) / 0.85);
+  background-color: hsl(var(--background));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid hsl(var(--border) / 0.4);

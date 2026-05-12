@@ -10,6 +10,7 @@ import { VideoNode } from "@/extensions/VideoNode";
 import { AudioLinesIcon } from "@/components/icons/audio-lines";
 import { MicIcon } from "@/components/icons/mic";
 import { VideoIcon } from "@/components/icons/video";
+import { ScanTextIcon } from "@/components/icons/scan-text";
 import { Minus, Strikethrough } from "lucide-react";
 
 import { BoldIcon } from "@/components/icons/bold";
@@ -73,6 +74,20 @@ import { AI_API_BASE } from "@/lib/constants";
 import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
 import type { Note } from "@/hooks/use-notes";
 import { useSpeech } from "@/hooks/use-speech";
+
+const MeetIcon = ({ className }: { className?: string }) => (
+  <svg className={className} width="100%" height="100%" viewBox="0 -22.5 256 256" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <g>
+        <polygon fill="#00832D" points="144.822496 105.321856 169.778926 133.848796 203.341343 155.294133 209.178931 105.50196 203.341343 56.8331137 169.136495 75.6715889"></polygon>
+        <path d="M0.000557021739,150.659712 L0.000557021739,193.089915 C0.000557021739,202.77838 7.86384724,210.643527 17.5541688,210.643527 L59.9843714,210.643527 L68.7704609,178.585069 L59.9843714,150.659712 L30.8744153,141.873623 L0.000557021739,150.659712 Z" fill="#0066DA"></path>
+        <polygon fill="#E94235" points="59.9838143 9.9475983e-14 0 59.9838143 30.875715 68.7494798 59.9838143 59.9838143 68.6102243 32.4390893"></polygon>
+        <polygon fill="#2684FC" points="0.000557021739 150.679394 59.9843714 150.679394 59.9843714 59.9832573 0.000557021739 59.9832573"></polygon>
+        <path d="M241.658683,25.3977775 L203.341157,56.8342278 L203.341157,155.29339 L241.818362,186.852385 C247.577967,191.364261 256.003849,187.251584 256.003849,179.930462 L256.003849,32.1785888 C256.003849,24.7757699 247.377439,20.6835169 241.658683,25.3977775" fill="#00AC47"></path>
+        <path d="M144.822496,105.321856 L144.822496,150.659712 L59.9843714,150.659712 L59.9843714,210.643527 L185.787731,210.643527 C195.478053,210.643527 203.341343,202.77838 203.341343,193.089915 L203.341343,155.294133 L144.822496,105.321856 Z" fill="#00AC47"></path>
+        <path d="M185.787731,0 L59.9843714,0 L59.9843714,59.9838143 L144.822496,59.9838143 L144.822496,105.32167 L203.341343,56.832928 L203.341343,17.5536117 C203.341343,7.86329022 195.478053,0 185.787731,0" fill="#FFBA00"></path>
+    </g>
+  </svg>
+);
 
 /**
  * Bridge: listens for content insertion events.
@@ -241,7 +256,17 @@ const suggestionItems = createSuggestionItems([
       window.dispatchEvent(new CustomEvent("start-screen-recording", { detail: { editor } }));
     },
   },
-
+  {
+    title: "Meet Live Sync",
+    description: "Transcribe Google Meet live",
+    searchTerms: ["meet", "google", "live", "sync", "transcribe", "meeting"],
+    icon: <MeetIcon className="h-4 w-4" />,
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).run();
+      (window as any).blackNoteMeetEditor = editor;
+      window.dispatchEvent(new CustomEvent("start-meet-sync"));
+    },
+  },
   {
     title: "Text",
     description: "Plain text block",
