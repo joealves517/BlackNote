@@ -179,7 +179,11 @@ export function RecordingErrorSheet({
                       className="novel-slash-item w-full text-left"
                       onClick={onContinueWithoutMic}
                     >
-                      <div className="novel-slash-icon" style={{ borderColor: "hsl(var(--primary)/0.3)", color: "hsl(var(--primary))" }}>
+                      <div className="novel-slash-icon" style={{
+                        background: "linear-gradient(135deg, rgba(16, 185, 129, var(--icon-bg-start)) 0%, rgba(16, 185, 129, var(--icon-bg-end)) 100%)",
+                        border: "1px solid rgba(16, 185, 129, var(--icon-border))",
+                        color: "rgba(16, 185, 129, 1)",
+                      }}>
                         <AnimatedIcon animation="hover">
                           <Play className="h-4 w-4" />
                         </AnimatedIcon>
@@ -198,7 +202,11 @@ export function RecordingErrorSheet({
                       className="novel-slash-item w-full text-left"
                       onClick={onOpenSettings}
                     >
-                      <div className="novel-slash-icon">
+                      <div className="novel-slash-icon" style={{
+                        background: "linear-gradient(135deg, rgba(59, 130, 246, var(--icon-bg-start)) 0%, rgba(59, 130, 246, var(--icon-bg-end)) 100%)",
+                        border: "1px solid rgba(59, 130, 246, var(--icon-border))",
+                        color: "rgba(59, 130, 246, 1)",
+                      }}>
                         <AnimatedIcon animation="hover">
                           <Settings className="h-4 w-4" />
                         </AnimatedIcon>
@@ -217,7 +225,11 @@ export function RecordingErrorSheet({
                       className="novel-slash-item w-full text-left"
                       onClick={onRetry}
                     >
-                      <div className="novel-slash-icon">
+                      <div className="novel-slash-icon" style={{
+                        background: "linear-gradient(135deg, rgba(245, 158, 11, var(--icon-bg-start)) 0%, rgba(245, 158, 11, var(--icon-bg-end)) 100%)",
+                        border: "1px solid rgba(245, 158, 11, var(--icon-border))",
+                        color: "rgba(245, 158, 11, 1)",
+                      }}>
                         <AnimatedIcon animation="hover">
                           <RefreshCCWDotIcon className="h-4 w-4" />
                         </AnimatedIcon>
@@ -235,7 +247,11 @@ export function RecordingErrorSheet({
                     className="novel-slash-item w-full text-left"
                     onClick={onDismiss}
                   >
-                    <div className="novel-slash-icon" style={{ borderColor: "hsl(var(--destructive)/0.3)", color: "hsl(var(--destructive))" }}>
+                    <div className="novel-slash-icon" style={{
+                      background: "linear-gradient(135deg, rgba(239, 68, 68, var(--icon-bg-start)) 0%, rgba(239, 68, 68, var(--icon-bg-end)) 100%)",
+                      border: "1px solid rgba(239, 68, 68, var(--icon-border))",
+                      color: "rgba(239, 68, 68, 1)",
+                    }}>
                       <AnimatedIcon animation="hover">
                         <DeleteIcon className="h-4 w-4" />
                       </AnimatedIcon>

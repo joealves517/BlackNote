@@ -106,7 +106,11 @@ export function SignOutConfirmSheet({
                     className="novel-slash-item w-full text-left"
                     onClick={onConfirm}
                   >
-                    <div className="novel-slash-icon" style={{ borderColor: "hsl(var(--destructive)/0.3)", color: "hsl(var(--destructive))" }}>
+                    <div className="novel-slash-icon" style={{
+                      background: "linear-gradient(135deg, rgba(239, 68, 68, var(--icon-bg-start)) 0%, rgba(239, 68, 68, var(--icon-bg-end)) 100%)",
+                      border: "1px solid rgba(239, 68, 68, var(--icon-border))",
+                      color: "rgba(239, 68, 68, 1)",
+                    }}>
                       <AnimatedIcon animation="hover">
                         <LogoutIcon className="h-4 w-4" />
                       </AnimatedIcon>
@@ -123,7 +127,11 @@ export function SignOutConfirmSheet({
                     className="novel-slash-item w-full text-left"
                     onClick={onDismiss}
                   >
-                    <div className="novel-slash-icon" style={{ borderColor: "hsl(var(--muted-foreground)/0.3)", color: "hsl(var(--muted-foreground))" }}>
+                    <div className="novel-slash-icon" style={{
+                      background: "linear-gradient(135deg, rgba(148, 163, 184, var(--icon-bg-start)) 0%, rgba(148, 163, 184, var(--icon-bg-end)) 100%)",
+                      border: "1px solid rgba(148, 163, 184, var(--icon-border))",
+                      color: "rgba(148, 163, 184, 1)",
+                    }}>
                       <AnimatedIcon animation="hover">
                         <DeleteIcon className="h-4 w-4" />
                       </AnimatedIcon>

@@ -14,12 +14,12 @@ interface AISelectorCommandsProps {
 }
 
 const editOptions = [
-  { value: "improve", label: "Improve writing", description: "Rewrite to enhance flow and clarity", icon: RefreshCCWDotIcon },
-  { value: "fix", label: "Fix grammar", description: "Correct spelling and grammar errors", icon: CheckCheckIcon },
-  { value: "shorter", label: "Make shorter", description: "Condense and summarize", icon: AlignCenterIcon },
-  { value: "longer", label: "Make longer", description: "Expand and add more details", icon: AlignLeftIcon },
-  { value: "translate", label: "Translate", description: "Translate text between languages", icon: LanguagesIcon },
-  { value: "todo", label: "To-do list", description: "Extract tasks and action items", icon: CircleCheckIcon },
+  { value: "improve", label: "Improve writing", description: "Rewrite to enhance flow and clarity", icon: RefreshCCWDotIcon, colorRgb: "59, 130, 246" },
+  { value: "fix", label: "Fix grammar", description: "Correct spelling and grammar errors", icon: CheckCheckIcon, colorRgb: "16, 185, 129" },
+  { value: "shorter", label: "Make shorter", description: "Condense and summarize", icon: AlignCenterIcon, colorRgb: "245, 158, 11" },
+  { value: "longer", label: "Make longer", description: "Expand and add more details", icon: AlignLeftIcon, colorRgb: "168, 85, 247" },
+  { value: "translate", label: "Translate", description: "Translate text between languages", icon: LanguagesIcon, colorRgb: "236, 72, 153" },
+  { value: "todo", label: "To-do list", description: "Extract tasks and action items", icon: CircleCheckIcon, colorRgb: "99, 102, 241" },
 ];
 
 export function AISelectorCommands({ onSelect }: AISelectorCommandsProps) {
@@ -34,7 +34,11 @@ export function AISelectorCommands({ onSelect }: AISelectorCommandsProps) {
             className="novel-slash-item w-full text-left"
             onClick={() => onSelect(option.value)}
           >
-            <div className="novel-slash-icon">
+            <div className="novel-slash-icon" style={{
+              background: `linear-gradient(135deg, rgba(${option.colorRgb}, var(--icon-bg-start)) 0%, rgba(${option.colorRgb}, var(--icon-bg-end)) 100%)`,
+              border: `1px solid rgba(${option.colorRgb}, var(--icon-border))`,
+              color: `rgba(${option.colorRgb}, 1)`,
+            }}>
               <AnimatedIcon animation="hover">
                 <option.icon className="h-4 w-4" />
               </AnimatedIcon>
@@ -56,7 +60,11 @@ export function AISelectorCommands({ onSelect }: AISelectorCommandsProps) {
             onSelect("continue", text);
           }}
         >
-          <div className="novel-slash-icon">
+          <div className="novel-slash-icon" style={{
+            background: "linear-gradient(135deg, rgba(148, 163, 184, var(--icon-bg-start)) 0%, rgba(148, 163, 184, var(--icon-bg-end)) 100%)",
+            border: "1px solid rgba(148, 163, 184, var(--icon-border))",
+            color: "rgba(148, 163, 184, 1)",
+          }}>
             <ChevronRightIcon className="h-4 w-4" />
           </div>
           <div>

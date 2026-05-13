@@ -153,7 +153,17 @@ export function SupportActionSheet({ onClose }: SupportActionSheetProps) {
               </p>
               <button
                 onClick={status === "success" ? onClose : () => setStatus("idle")}
-                className="w-full h-[44px] rounded-[20px] bg-primary text-primary-foreground font-medium flex items-center justify-center transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                className="w-full h-10 flex items-center justify-center gap-2 rounded-full text-[13px] font-semibold transition-all"
+                style={{
+                  background: "hsl(var(--primary))",
+                  color: "hsl(var(--primary-foreground))",
+                  border: "1px solid hsl(var(--border))",
+                  boxShadow: "0 1px 2px rgba(0, 0, 0, var(--icon-bg-end)), inset 0 -2px 0 rgba(0,0,0,0.02)",
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+                onMouseOut={(e) => { e.currentTarget.style.opacity = "1"; }}
+                onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
+                onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
               >
                 {status === "success" ? "Close" : "Try Again"}
               </button>
@@ -186,7 +196,17 @@ export function SupportActionSheet({ onClose }: SupportActionSheetProps) {
                 <button
                   onClick={handleSubmit}
                   disabled={!title.trim() || !content.trim() || status === "loading"}
-                  className="w-full h-[44px] mt-2 rounded-[20px] bg-transparent border border-border/80 text-foreground font-medium flex items-center justify-center gap-2 transition-all hover:bg-muted/30 active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed shadow-sm"
+                  className="w-full h-10 mt-2 flex items-center justify-center gap-2 rounded-full text-[13px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    background: "hsl(var(--primary))",
+                    color: "hsl(var(--primary-foreground))",
+                    border: "1px solid hsl(var(--border))",
+                    boxShadow: "0 1px 2px rgba(0, 0, 0, var(--icon-bg-end)), inset 0 -2px 0 rgba(0,0,0,0.02)",
+                  }}
+                  onMouseOver={(e) => { if (!title.trim() || !content.trim() || status === "loading") return; e.currentTarget.style.opacity = "0.9"; }}
+                  onMouseOut={(e) => { if (!title.trim() || !content.trim() || status === "loading") return; e.currentTarget.style.opacity = "1"; }}
+                  onMouseDown={(e) => { if (!title.trim() || !content.trim() || status === "loading") return; e.currentTarget.style.transform = "scale(0.98)"; }}
+                  onMouseUp={(e) => { if (!title.trim() || !content.trim() || status === "loading") return; e.currentTarget.style.transform = "scale(1)"; }}
                 >
                   {status === "loading" ? (
                     <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>

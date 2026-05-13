@@ -71,8 +71,8 @@ const AIFeatureItem = ({ icon, title, description, available, colorRgb = "59, 13
           width: "38px",
           height: "38px",
           borderRadius: "10px",
-          background: `linear-gradient(135deg, rgba(${colorRgb}, 0.14) 0%, rgba(${colorRgb}, 0.05) 100%)`,
-          border: `1px solid rgba(${colorRgb}, 0.1)`,
+          background: `linear-gradient(135deg, rgba(${colorRgb}, var(--icon-bg-start)) 0%, rgba(${colorRgb}, var(--icon-bg-end)) 100%)`,
+          border: `1px solid rgba(${colorRgb}, var(--icon-border))`,
           boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.5)",
         }}>
           {icon}
@@ -86,11 +86,11 @@ const AIFeatureItem = ({ icon, title, description, available, colorRgb = "59, 13
             width: "20px",
             height: "20px",
             borderRadius: "50%",
-            background: isGuest ? "rgba(255, 255, 255, 0.05)" : "rgba(52, 211, 153, 0.1)",
+            background: isGuest ? "rgba(255, 255, 255, var(--icon-bg-end))" : "rgba(52, 211, 153, var(--icon-border))",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            border: isGuest ? "1px solid rgba(255, 255, 255, 0.1)" : "none"
+            border: isGuest ? "1px solid rgba(255, 255, 255, var(--icon-border))" : "none"
           }}>
             <AnimatedIcon animation="none">
               {isGuest ? (
@@ -314,7 +314,7 @@ export function AccountPopup({
         onClick={onSignOut}
         className="relative z-10 w-full h-10 flex items-center justify-center gap-2 rounded-full text-[13px] font-semibold transition-all"
         style={{
-          background: logoutHovered ? "hsl(var(--destructive) / 0.1)" : "transparent",
+          background: logoutHovered ? "hsl(var(--destructive) / var(--icon-border))" : "transparent",
           color: logoutHovered ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))",
           border: logoutHovered ? "1px solid hsl(var(--destructive) / 0.2)" : "1px solid hsl(var(--border))",
         }}

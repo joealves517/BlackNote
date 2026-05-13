@@ -39,6 +39,23 @@ function formatRelativeTime(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+const NOTE_COLORS = [
+  "59, 130, 246",  // blue
+  "16, 185, 129",  // green
+  "245, 158, 11",  // amber
+  "168, 85, 247",  // purple
+  "236, 72, 153",  // pink
+  "99, 102, 241"   // indigo
+];
+
+function getNoteColor(id: string) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return NOTE_COLORS[Math.abs(hash) % NOTE_COLORS.length];
+}
+
 export function HistorySheet({
   notes,
   activeNoteId,
@@ -169,6 +186,10 @@ export function HistorySheet({
             ) : (
               filteredNotes.map((note) => {
                 const isActive = note.id === activeNoteId;
+                const noteColor = getNoteColor(note.id);
+                const timeStr = formatRelativeTime(note.updatedAt);
+                const isRecent = timeStr === "Just now" || timeStr.endsWith("m ago");
+
                 return (
                   <button
                     key={note.id}
@@ -177,15 +198,23 @@ export function HistorySheet({
                       onClose();
                     }}
                     className="history-sheet-item group"
-                    style={{
-                      backgroundColor: isActive
-                        ? "hsl(var(--sidebar-active))"
-                        : undefined,
-                    }}
+                    style={isActive ? {
+                      backgroundColor: `rgba(${noteColor}, 0.08)`,
+                      boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 1px 2px rgba(0,0,0,0.02)",
+                      border: `1px solid rgba(${noteColor}, 0.15)`
+                    } : {}}
                   >
                     <div className="history-sheet-item-left relative flex items-center">
                       <div 
-                        className="flex items-center justify-center shrink-0 w-4 h-4 cursor-pointer"
+                        className="flex items-center justify-center shrink-0 w-6 h-6 rounded-[8px] cursor-pointer mr-1 transition-all"
+                        style={isActive ? {
+                          background: `linear-gradient(135deg, rgba(${noteColor}, var(--icon-bg-start)) 0%, rgba(${noteColor}, var(--icon-bg-end)) 100%)`,
+                          border: `1px solid rgba(${noteColor}, var(--icon-border))`,
+                          boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.5)",
+                          color: `rgba(${noteColor}, 1)`
+                        } : {
+                          color: "hsl(var(--muted-foreground))"
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (onTogglePin) onTogglePin(note.id);
@@ -194,36 +223,37 @@ export function HistorySheet({
                         {note.isPinned ? (
                           <>
                             <PinIcon
-                              size={16}
-                              className="w-4 h-4 text-yellow-500 block group-hover:hidden"
+                              size={14}
+                              className="w-3.5 h-3.5 text-yellow-500 block group-hover:hidden"
                               style={{ fill: "currentColor" }}
                             />
                             <PinOff
-                              className="w-4 h-4 text-red-500 hidden group-hover:block"
+                              className="w-3.5 h-3.5 text-red-500 hidden group-hover:block"
                             />
                           </>
                         ) : (
                           <>
                             <FileTextIcon
-                              className="w-4 h-4 block group-hover:hidden"
-                              style={{ color: "hsl(var(--foreground))" }}
+                              className="w-3.5 h-3.5 block group-hover:hidden"
+                              style={{ color: isActive ? `rgba(${noteColor}, 1)` : "inherit" }}
                             />
                             <PinIcon
-                              size={16}
-                              className="w-4 h-4 text-muted-foreground hidden group-hover:block"
+                              size={14}
+                              className="w-3.5 h-3.5 hidden group-hover:block"
                             />
                           </>
                         )}
                       </div>
                       <span 
-                        className="history-sheet-item-title ml-2"
+                        className="history-sheet-item-title ml-1"
+                        style={isActive ? { fontWeight: 600, color: `rgba(${noteColor}, 1)` } : {}}
                       >
                         {note.title || "Untitled"}
                       </span>
                     </div>
                     <div className="history-sheet-item-right">
-                      <span className="history-sheet-item-time">
-                        {formatRelativeTime(note.updatedAt)}
+                      <span className={`history-sheet-item-time ${isRecent ? 'recent' : ''}`}>
+                        {timeStr}
                       </span>
                       <span
                         className="history-sheet-item-delete"

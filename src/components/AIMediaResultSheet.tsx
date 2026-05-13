@@ -152,7 +152,7 @@ export function AIMediaResultSheet({
               style={{
                 padding: "20px",
                 borderRadius: 12,
-                backgroundColor: "hsl(var(--destructive) / 0.1)",
+                backgroundColor: "hsl(var(--destructive) / var(--icon-border))",
                 color: "hsl(var(--destructive))",
                 fontSize: 14,
                 textAlign: "center",

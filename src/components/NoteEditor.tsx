@@ -223,6 +223,25 @@ interface NoteEditorProps {
   toggleTheme?: () => void;
 }
 
+// Color map for slash command icon backgrounds
+const SLASH_ICON_COLORS: Record<string, string> = {
+  "Speech to Text": "168, 85, 247",
+  "Record Audio": "236, 72, 153",
+  "Record Screen": "16, 185, 129",
+  "Meet Live Sync": "52, 168, 83",
+  "Text": "148, 163, 184",
+  "Heading 1": "59, 130, 246",
+  "Heading 2": "59, 130, 246",
+  "Heading 3": "59, 130, 246",
+  "Bullet List": "245, 158, 11",
+  "Numbered List": "245, 158, 11",
+  "To-do List": "16, 185, 129",
+  "Quote": "168, 85, 247",
+  "Code Block": "99, 102, 241",
+  "Image": "236, 72, 153",
+  "Divider": "148, 163, 184",
+};
+
 // Slash command suggestions — block types only, AI moved to bubble menu
 const suggestionItems = createSuggestionItems([
   {
@@ -878,7 +897,11 @@ export function NoteEditor({
                     onCommand={(val) => item.command?.(val)}
                     className="novel-slash-item"
                   >
-                    <div className="novel-slash-icon">{item.icon}</div>
+                    <div className="novel-slash-icon" style={SLASH_ICON_COLORS[item.title] ? {
+                      background: `linear-gradient(135deg, rgba(${SLASH_ICON_COLORS[item.title]}, var(--icon-bg-start)) 0%, rgba(${SLASH_ICON_COLORS[item.title]}, var(--icon-bg-end)) 100%)`,
+                      border: `1px solid rgba(${SLASH_ICON_COLORS[item.title]}, var(--icon-border))`,
+                      color: `rgba(${SLASH_ICON_COLORS[item.title]}, 1)`,
+                    } : undefined}>{item.icon}</div>
                     <div>
                       <p className="text-sm font-medium">{item.title}</p>
                       <p className="text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>

@@ -391,7 +391,7 @@ export function Sidebar({
                     <circle 
                       cx="50" cy="50" r="46" 
                       fill="none" 
-                      stroke="hsl(var(--foreground) / 0.1)" 
+                      stroke="hsl(var(--foreground) / var(--icon-border))" 
                       strokeWidth="6" 
                     />
                     <circle 

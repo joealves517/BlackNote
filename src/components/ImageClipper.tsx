@@ -253,7 +253,11 @@ export function ImageClipper({ dataUrl, onSaveAsNote, onClose }: ImageClipperPro
                 className="novel-slash-item w-full text-left"
                 onClick={() => handleAction("describe_image")}
               >
-                <div className="novel-slash-icon">
+                <div className="novel-slash-icon" style={{
+                  background: "linear-gradient(135deg, rgba(168, 85, 247, var(--icon-bg-start)) 0%, rgba(168, 85, 247, var(--icon-bg-end)) 100%)",
+                  border: "1px solid rgba(168, 85, 247, var(--icon-border))",
+                  color: "rgba(168, 85, 247, 1)",
+                }}>
                   <AnimatedIcon animation="hover">
                     <SparklesIcon className="w-4 h-4" />
                   </AnimatedIcon>
@@ -270,7 +274,11 @@ export function ImageClipper({ dataUrl, onSaveAsNote, onClose }: ImageClipperPro
                 className="novel-slash-item w-full text-left"
                 onClick={() => handleAction("extract_text")}
               >
-                <div className="novel-slash-icon">
+                <div className="novel-slash-icon" style={{
+                  background: "linear-gradient(135deg, rgba(59, 130, 246, var(--icon-bg-start)) 0%, rgba(59, 130, 246, var(--icon-bg-end)) 100%)",
+                  border: "1px solid rgba(59, 130, 246, var(--icon-border))",
+                  color: "rgba(59, 130, 246, 1)",
+                }}>
                   <AnimatedIcon animation="hover">
                     <FileTextIcon className="w-4 h-4" />
                   </AnimatedIcon>

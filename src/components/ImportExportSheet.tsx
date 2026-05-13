@@ -228,7 +228,11 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
                       onMouseEnter={() => iconRefs.upload.current?.startAnimation()}
                       onMouseLeave={() => iconRefs.upload.current?.stopAnimation()}
                     >
-                      <div className="novel-slash-icon">
+                      <div className="novel-slash-icon" style={{
+                        background: "linear-gradient(135deg, rgba(59, 130, 246, var(--icon-bg-start)) 0%, rgba(59, 130, 246, var(--icon-bg-end)) 100%)",
+                        border: "1px solid rgba(59, 130, 246, var(--icon-border))",
+                        color: "rgba(59, 130, 246, 1)",
+                      }}>
                         <HardDriveUploadIcon ref={iconRefs.upload} size={16} className="w-4 h-4" />
                       </div>
                       <div className="flex-1">
@@ -257,7 +261,11 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
                       onMouseEnter={() => iconRefs.download.current?.startAnimation()}
                       onMouseLeave={() => iconRefs.download.current?.stopAnimation()}
                     >
-                      <div className="novel-slash-icon">
+                      <div className="novel-slash-icon" style={{
+                        background: "linear-gradient(135deg, rgba(16, 185, 129, var(--icon-bg-start)) 0%, rgba(16, 185, 129, var(--icon-bg-end)) 100%)",
+                        border: "1px solid rgba(16, 185, 129, var(--icon-border))",
+                        color: "rgba(16, 185, 129, 1)",
+                      }}>
                         <HardDriveDownloadIcon ref={iconRefs.download} size={16} className="w-4 h-4" />
                       </div>
                       <div className="flex-1">
@@ -283,7 +291,11 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
                       onMouseEnter={() => iconRefs.theme.current?.startAnimation()}
                       onMouseLeave={() => iconRefs.theme.current?.stopAnimation()}
                     >
-                      <div className="novel-slash-icon">
+                      <div className="novel-slash-icon" style={{
+                        background: "linear-gradient(135deg, rgba(245, 158, 11, var(--icon-bg-start)) 0%, rgba(245, 158, 11, var(--icon-bg-end)) 100%)",
+                        border: "1px solid rgba(245, 158, 11, var(--icon-border))",
+                        color: "rgba(245, 158, 11, 1)",
+                      }}>
                         {theme === "light" ? (
                           <MoonIcon ref={iconRefs.theme} size={16} className="w-4 h-4" />
                         ) : (

@@ -295,7 +295,11 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
                 className="novel-slash-item w-full text-left"
                 onClick={() => handleAction("clean_page")}
               >
-                <div className="novel-slash-icon">
+                <div className="novel-slash-icon" style={{
+                  background: "linear-gradient(135deg, rgba(59, 130, 246, var(--icon-bg-start)) 0%, rgba(59, 130, 246, var(--icon-bg-end)) 100%)",
+                  border: "1px solid rgba(59, 130, 246, var(--icon-border))",
+                  color: "rgba(59, 130, 246, 1)",
+                }}>
                   <AnimatedIcon animation="hover">
                     <FileTextIcon className="w-4 h-4" />
                   </AnimatedIcon>
@@ -312,7 +316,11 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
                 className="novel-slash-item w-full text-left"
                 onClick={() => handleAction("summarize_page")}
               >
-                <div className="novel-slash-icon">
+                <div className="novel-slash-icon" style={{
+                  background: "linear-gradient(135deg, rgba(168, 85, 247, var(--icon-bg-start)) 0%, rgba(168, 85, 247, var(--icon-bg-end)) 100%)",
+                  border: "1px solid rgba(168, 85, 247, var(--icon-border))",
+                  color: "rgba(168, 85, 247, 1)",
+                }}>
                   <AnimatedIcon animation="hover">
                     <SparklesIcon className="w-4 h-4" />
                   </AnimatedIcon>
@@ -329,7 +337,11 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
                 className="novel-slash-item w-full text-left"
                 onClick={() => handleAction("mindmap")}
               >
-                <div className="novel-slash-icon">
+                <div className="novel-slash-icon" style={{
+                  background: "linear-gradient(135deg, rgba(236, 72, 153, var(--icon-bg-start)) 0%, rgba(236, 72, 153, var(--icon-bg-end)) 100%)",
+                  border: "1px solid rgba(236, 72, 153, var(--icon-border))",
+                  color: "rgba(236, 72, 153, 1)",
+                }}>
                   <AnimatedIcon animation="hover">
                     <BrainIcon className="w-4 h-4" />
                   </AnimatedIcon>
@@ -346,7 +358,11 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
                 className="novel-slash-item w-full text-left"
                 onClick={() => handleAction("extract_key_points")}
               >
-                <div className="novel-slash-icon">
+                <div className="novel-slash-icon" style={{
+                  background: "linear-gradient(135deg, rgba(245, 158, 11, var(--icon-bg-start)) 0%, rgba(245, 158, 11, var(--icon-bg-end)) 100%)",
+                  border: "1px solid rgba(245, 158, 11, var(--icon-border))",
+                  color: "rgba(245, 158, 11, 1)",
+                }}>
                   <AnimatedIcon animation="hover">
                     <ClipboardCheckIcon className="w-4 h-4" />
                   </AnimatedIcon>
@@ -369,7 +385,11 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
                   onClose();
                 }}
               >
-                <div className="novel-slash-icon">
+                <div className="novel-slash-icon" style={{
+                  background: "linear-gradient(135deg, rgba(16, 185, 129, var(--icon-bg-start)) 0%, rgba(16, 185, 129, var(--icon-bg-end)) 100%)",
+                  border: "1px solid rgba(16, 185, 129, var(--icon-border))",
+                  color: "rgba(16, 185, 129, 1)",
+                }}>
                   <AnimatedIcon animation="hover">
                     <CropIcon className="w-4 h-4" />
                   </AnimatedIcon>
@@ -387,7 +407,10 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
                 className="novel-slash-item w-full text-left"
                 onClick={handleChatWithPage}
               >
-                <div className="novel-slash-icon">
+                <div className="novel-slash-icon" style={{
+                  background: "linear-gradient(135deg, rgba(99, 102, 241, var(--icon-bg-start)) 0%, rgba(99, 102, 241, var(--icon-bg-end)) 100%)",
+                  border: "1px solid rgba(99, 102, 241, var(--icon-border))",
+                }}>
                   <AnimatedIcon animation="hover">
                     <img src={sparkAIIcon} className="w-4 h-4" alt="Spark AI" />
                   </AnimatedIcon>

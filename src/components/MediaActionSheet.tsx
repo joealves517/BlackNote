@@ -52,12 +52,12 @@ const PROCESSING_MESSAGES = [
 ];
 
 const AI_FEATURES = [
-  { id: "meeting_minutes", label: "Meeting Minutes", desc: "Professional minutes with action items", icon: FileText },
-  { id: "summary", label: "Summary", desc: "Concise overview of the recording", icon: PenLine },
-  { id: "keypoints", label: "Key Points", desc: "Important insights as bullet points", icon: Wand2 },
-  { id: "action_items", label: "Action Items", desc: "Extract tasks and to-dos", icon: CircleCheckIcon },
-  { id: "chapters", label: "Chapters", desc: "Section breakdown with timestamps", icon: BookOpen },
-  { id: "chat", label: "Chat with Recording", desc: "Ask AI anything about this recording", icon: MessageSquare },
+  { id: "meeting_minutes", label: "Meeting Minutes", desc: "Professional minutes with action items", icon: FileText, colorRgb: "99, 102, 241" },
+  { id: "summary", label: "Summary", desc: "Concise overview of the recording", icon: PenLine, colorRgb: "245, 158, 11" },
+  { id: "keypoints", label: "Key Points", desc: "Important insights as bullet points", icon: Wand2, colorRgb: "168, 85, 247" },
+  { id: "action_items", label: "Action Items", desc: "Extract tasks and to-dos", icon: CircleCheckIcon, colorRgb: "16, 185, 129" },
+  { id: "chapters", label: "Chapters", desc: "Section breakdown with timestamps", icon: BookOpen, colorRgb: "59, 130, 246" },
+  { id: "chat", label: "Chat with Recording", desc: "Ask AI anything about this recording", icon: MessageSquare, colorRgb: "236, 72, 153" },
 ];
 
 const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -356,7 +356,11 @@ export function MediaActionSheet({
                     className="novel-slash-item w-full text-left"
                     onClick={() => handleFeature(option.id)}
                   >
-                    <div className="novel-slash-icon">
+                    <div className="novel-slash-icon" style={{
+                      background: `linear-gradient(135deg, rgba(${option.colorRgb}, var(--icon-bg-start)) 0%, rgba(${option.colorRgb}, var(--icon-bg-end)) 100%)`,
+                      border: `1px solid rgba(${option.colorRgb}, var(--icon-border))`,
+                      color: `rgba(${option.colorRgb}, 1)`,
+                    }}>
                       <AnimatedIcon animation="hover">
                         <option.icon className="h-4 w-4" />
                       </AnimatedIcon>
@@ -388,9 +392,24 @@ export function MediaActionSheet({
               onClick={handleDelete}
               className="w-full h-10 flex items-center justify-center gap-2 rounded-full text-[13px] font-semibold transition-all"
               style={{
-                background: deleteConfirm ? "hsl(var(--destructive) / 0.1)" : "transparent",
+                background: deleteConfirm ? "hsl(var(--destructive) / var(--icon-border))" : "transparent",
                 color: deleteConfirm ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))",
                 border: deleteConfirm ? "1px solid hsl(var(--destructive) / 0.2)" : "1px solid hsl(var(--border))",
+                boxShadow: deleteConfirm ? "none" : "0 1px 2px rgba(0, 0, 0, var(--icon-bg-end))",
+              }}
+              onMouseOver={(e) => {
+                if (!deleteConfirm) {
+                  e.currentTarget.style.background = "hsl(var(--destructive) / var(--icon-bg-end))";
+                  e.currentTarget.style.color = "hsl(var(--destructive))";
+                  e.currentTarget.style.borderColor = "hsl(var(--destructive) / 0.2)";
+                }
+              }}
+              onMouseOut={(e) => {
+                if (!deleteConfirm) {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "hsl(var(--muted-foreground))";
+                  e.currentTarget.style.borderColor = "hsl(var(--border))";
+                }
               }}
               onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
               onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}

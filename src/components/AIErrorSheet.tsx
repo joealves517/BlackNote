@@ -139,7 +139,10 @@ export function AIErrorSheet({
                       className="novel-slash-item w-full text-left"
                       onClick={onLogin}
                     >
-                      <div className="novel-slash-icon bg-white border-transparent">
+                      <div className="novel-slash-icon" style={{
+                        background: "linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 245, 245, 0.9) 100%)",
+                        border: "1px solid rgba(0, 0, 0, 0.08)",
+                      }}>
                         <AnimatedIcon animation="hover">
                           <GoogleIcon />
                         </AnimatedIcon>
@@ -158,7 +161,11 @@ export function AIErrorSheet({
                       className="novel-slash-item w-full text-left"
                       onClick={onUpgrade}
                     >
-                      <div className="novel-slash-icon">
+                      <div className="novel-slash-icon" style={{
+                        background: "linear-gradient(135deg, rgba(168, 85, 247, var(--icon-bg-start)) 0%, rgba(168, 85, 247, var(--icon-bg-end)) 100%)",
+                        border: "1px solid rgba(168, 85, 247, var(--icon-border))",
+                        color: "rgba(168, 85, 247, 1)",
+                      }}>
                         <AnimatedIcon animation="hover">
                           <SparklesIcon className="h-4 w-4" />
                         </AnimatedIcon>
@@ -177,7 +184,11 @@ export function AIErrorSheet({
                       className="novel-slash-item w-full text-left"
                       onClick={onRetry}
                     >
-                      <div className="novel-slash-icon">
+                      <div className="novel-slash-icon" style={{
+                        background: "linear-gradient(135deg, rgba(245, 158, 11, var(--icon-bg-start)) 0%, rgba(245, 158, 11, var(--icon-bg-end)) 100%)",
+                        border: "1px solid rgba(245, 158, 11, var(--icon-border))",
+                        color: "rgba(245, 158, 11, 1)",
+                      }}>
                         <AnimatedIcon animation="hover">
                           <RefreshCCWDotIcon className="h-4 w-4" />
                         </AnimatedIcon>
@@ -195,7 +206,11 @@ export function AIErrorSheet({
                     className="novel-slash-item w-full text-left"
                     onClick={onDismiss}
                   >
-                    <div className="novel-slash-icon" style={{ borderColor: "hsl(var(--destructive)/0.3)", color: "hsl(var(--destructive))" }}>
+                    <div className="novel-slash-icon" style={{
+                      background: "linear-gradient(135deg, rgba(239, 68, 68, var(--icon-bg-start)) 0%, rgba(239, 68, 68, var(--icon-bg-end)) 100%)",
+                      border: "1px solid rgba(239, 68, 68, var(--icon-border))",
+                      color: "rgba(239, 68, 68, 1)",
+                    }}>
                       <AnimatedIcon animation="hover">
                         <DeleteIcon className="h-4 w-4" />
                       </AnimatedIcon>
