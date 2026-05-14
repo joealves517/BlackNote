@@ -60,7 +60,7 @@ const HashtagList = forwardRef((props: any, ref) => {
   const getTagMeta = (tag: string) => {
     switch (tag.toLowerCase()) {
       case "work": return { icon: Briefcase, color: "59, 130, 246" }; // Blue
-      case "life": return { icon: Heart, color: "244, 63, 94" }; // Rose
+      case "life": return { icon: Heart, color: "168, 85, 247" }; // Purple
       case "to-do": return { icon: CheckSquare, color: "16, 185, 129" }; // Emerald
       case "meetings": return { icon: Users, color: "245, 158, 11" }; // Amber
       default: return { icon: Hash, color: "168, 85, 247" }; // Purple

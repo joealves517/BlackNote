@@ -59,7 +59,7 @@ export function HistorySheet({
   const getTagMeta = (tag: string) => {
     switch (tag.toLowerCase()) {
       case "work": return { color: "59, 130, 246" }; // Blue
-      case "life": return { color: "244, 63, 94" }; // Rose
+      case "life": return { color: "168, 85, 247" }; // Purple
       case "to-do": return { color: "16, 185, 129" }; // Emerald
       case "meetings": return { color: "245, 158, 11" }; // Amber
       default: return { color: "168, 85, 247" }; // Purple
@@ -116,7 +116,7 @@ export function HistorySheet({
   const renderNote = (note: Note) => {
     const isActive = note.id === activeNoteId;
 
-    // Deterministic pseudo-random pastel color based on note.id
+    // Derive card color from the note's first hashtag, fallback to deterministic random
     const defaultColors = [
       "59, 130, 246", // Blue
       "168, 85, 247", // Purple
@@ -124,14 +124,8 @@ export function HistorySheet({
       "16, 185, 129", // Green
     ];
     const colorIdx = note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % defaultColors.length;
-    const cardColor = note.color || defaultColors[colorIdx];
-
-    const PALETTE = [
-      "59, 130, 246", // Blue
-      "168, 85, 247", // Purple
-      "245, 158, 11", // Amber
-      "16, 185, 129", // Green
-    ];
+    const tagColor = note.tags && note.tags.length > 0 ? getTagMeta(note.tags[0]).color : null;
+    const cardColor = tagColor || defaultColors[colorIdx];
 
     // Extract brief snippet from ProseMirror content
     let snippet = "";
@@ -177,13 +171,13 @@ export function HistorySheet({
         }}
         className="history-sheet-item group relative"
         style={{
-          background: note.color || isActive 
+          background: tagColor || isActive 
             ? `linear-gradient(135deg, rgba(${cardColor}, var(--icon-bg-start)) 0%, rgba(${cardColor}, var(--icon-bg-end)) 100%)`
             : "hsl(var(--sidebar-hover) / 0.5)",
-          border: note.color || isActive 
+          border: tagColor || isActive 
             ? `1px solid rgba(${cardColor}, var(--icon-border))` 
             : "1px solid hsl(var(--border) / 0.5)",
-          boxShadow: note.color || isActive 
+          boxShadow: tagColor || isActive 
             ? `inset 0 1px 0 rgba(255, 255, 255, 0.5)` 
             : "none",
         }}
@@ -271,23 +265,6 @@ export function HistorySheet({
           <span className="text-[9px] whitespace-nowrap flex-shrink-0 text-muted-foreground/40 bg-background/50 px-1.5 py-0.5 rounded-md">
             {formatRelativeTime(note.updatedAt)}
           </span>
-          <div className="flex-1 flex items-center justify-end gap-[3px] opacity-0 group-hover:opacity-100 transition-opacity">
-            {PALETTE.map((c) => (
-              <button
-                key={c}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.dispatchEvent(new CustomEvent("update-note-color", { detail: { id: note.id, color: c } }));
-                }}
-                className="w-[14px] h-[14px] rounded-full flex-shrink-0"
-                style={{ 
-                  background: `linear-gradient(135deg, rgba(${c}, 1) 0%, rgba(${c}, 0.6) 100%)`, 
-                  border: `1px solid rgba(${c}, 1)`,
-                  boxShadow: "inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 1px 2px rgba(0, 0, 0, 0.1)"
-                }}
-              />
-            ))}
-          </div>
           <button
             className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center w-[22px] h-[22px] rounded-md cursor-pointer ${
               noteToDelete === note.id 

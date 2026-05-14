@@ -30,6 +30,9 @@ const groq = createGroq({
 const PREMIUM_MODEL = "gemini-2.5-flash";
 const FALLBACK_FREE_MODEL = "gemini-3.1-flash-lite";
 const GROQ_MODELS = [
+  "meta-llama/llama-4-scout-17b-16e-instruct",
+  "qwen/qwen3-32b",
+  "openai/gpt-oss-120b",
   "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant"
 ];
@@ -57,12 +60,12 @@ RULES:
 // Shared tool definitions for both free and premium paths
 const agentTools = {
   applyFormatting: tool({
-    description: "Applies styles like color, bold, italics, or headings to the currently selected text.",
+    description: "Applies styles like color, bold, italics, or text alignment to the entire document text.",
     inputSchema: z.object({
       color: z.string().optional().describe("A valid CSS color name or hex code (e.g. 'pink', '#ff0000'). Use 'default' to remove color."),
       bold: z.boolean().optional().describe("Set to true to make text bold."),
       italic: z.boolean().optional().describe("Set to true to make text italic."),
-      align: z.enum(["left", "center", "right"]).optional().describe("Text alignment"),
+      align: z.enum(["left", "center", "right"]).optional().describe("Text alignment direction."),
     }),
   }),
   replaceBlock: tool({

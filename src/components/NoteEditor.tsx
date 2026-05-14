@@ -60,6 +60,7 @@ import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 import ImageResize from "tiptap-extension-resize-image";
 import Highlight from "@tiptap/extension-highlight";
+import TextAlign from "@tiptap/extension-text-align";
 
 import { Button } from "@/components/ui/button";
 import { GenerativeMenuSwitch } from "@/components/generative/GenerativeMenuSwitch";
@@ -551,6 +552,7 @@ const extensions = [
   TextStyle,
   Color,
   Highlight.configure({ multicolor: true }),
+  TextAlign.configure({ types: ["heading", "paragraph"] }),
   Placeholder.configure({
     placeholder: "Type '/' for commands...",
   }),

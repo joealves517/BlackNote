@@ -326,6 +326,10 @@ export function AgentInput() {
         return "ok";
       } catch (err) {
         console.error("Error executing tool call:", err);
+        setAgentMessage(`⚠️ Failed to apply changes. Please try again.`);
+        if (snapshotRef.current) {
+          setHasPendingModifications(true);
+        }
         return `Error: ${err}`;
       }
     }) as any,

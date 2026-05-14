@@ -109,6 +109,16 @@ export function Sidebar({
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
   const prevSyncStatusRef = useRef(syncProgress.status);
 
+  const getTagMeta = (tag: string) => {
+    switch (tag.toLowerCase()) {
+      case "work": return { color: "59, 130, 246" }; // Blue
+      case "life": return { color: "168, 85, 247" }; // Purple
+      case "to-do": return { color: "16, 185, 129" }; // Emerald
+      case "meetings": return { color: "245, 158, 11" }; // Amber
+      default: return { color: "168, 85, 247" }; // Purple
+    }
+  };
+
   useEffect(() => {
     if (prevSyncStatusRef.current === "syncing" && syncProgress.status === "idle") {
       setShowSyncSuccess(true);
@@ -266,7 +276,7 @@ export function Sidebar({
               {notes.map((note) => {
                 const isActive = note.id === activeNoteId;
                 
-                // Deterministic pseudo-random pastel color based on note.id
+                // Derive card color from the note's first hashtag, fallback to deterministic random
                 const defaultColors = [
                   "59, 130, 246", // Blue
                   "168, 85, 247", // Purple
@@ -274,14 +284,8 @@ export function Sidebar({
                   "16, 185, 129", // Green
                 ];
                 const colorIdx = note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % defaultColors.length;
-                const cardColor = note.color || defaultColors[colorIdx];
-
-                const PALETTE = [
-                  "59, 130, 246", // Blue
-                  "168, 85, 247", // Purple
-                  "245, 158, 11", // Amber
-                  "16, 185, 129", // Green
-                ];
+                const tagColor = note.tags && note.tags.length > 0 ? getTagMeta(note.tags[0]).color : null;
+                const cardColor = tagColor || defaultColors[colorIdx];
 
                 return (
                   <div
@@ -352,26 +356,6 @@ export function Sidebar({
                       <p className="text-[10px] whitespace-nowrap flex-shrink-0 text-muted-foreground/40 bg-background/50 px-1.5 py-0.5 rounded-md">
                         {formatRelativeTime(note.updatedAt)}
                       </p>
-                      
-                      <div className="flex-1 flex items-center justify-end gap-[4px] opacity-0 group-hover:opacity-100 transition-opacity">
-                        {PALETTE.map((c) => (
-                          <button
-                            key={c}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.dispatchEvent(new CustomEvent("update-note-color", { detail: { id: note.id, color: c } }));
-                            }}
-                            className="w-[14px] h-[14px] rounded-full flex-shrink-0 hover:scale-125 transition-transform"
-                            style={{ 
-                              background: `linear-gradient(135deg, rgba(${c}, var(--icon-bg-start)) 0%, rgba(${c}, var(--icon-bg-end)) 100%)`, 
-                              backdropFilter: "blur(8px)",
-                              WebkitBackdropFilter: "blur(8px)",
-                              border: `1px solid rgba(${c}, var(--icon-border))`,
-                              boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 2px 4px rgba(${c}, 0.1)`
-                            }}
-                          />
-                        ))}
-                      </div>
 
                       <button
                         onClick={(e) => {
