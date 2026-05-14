@@ -10,6 +10,7 @@ import userRouter from "./routes/user.js";
 import webhookRouter from "./routes/webhook.js";
 import notesRouter from "./routes/notes.js";
 import uploadRouter from "./routes/upload.js";
+import agentRouter from "./routes/agent.js";
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use("/api/ai", rateLimit);
 // ─── Routes ─────────────────────────────────────────────────────
 app.use("/api/media", mediaAiRouter);
 app.use("/api/ai/free", aiFreeRouter);
+app.use("/api/ai/agent", agentRouter);
 app.use("/api/ai", aiRouter);
 app.use("/api/user", userRouter);
 app.use("/api/notes", notesRouter);

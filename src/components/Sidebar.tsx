@@ -21,6 +21,7 @@ import { CHECKOUT_BASE } from "@/lib/constants";
 import type { Note } from "@/hooks/use-notes";
 import type { SyncProgress } from "@/lib/sync-engine";
 import type { AppUser } from "@/lib/auth-client";
+import Masonry from "react-masonry-css";
 
 interface SidebarProps {
   notes: Note[];
@@ -257,96 +258,136 @@ export function Sidebar({
               )}
             </div>
           ) : (
-            notes.map((note) => {
-              const isActive = note.id === activeNoteId;
-              return (
-                <div
-                  key={note.id}
-                  id={`note-item-${note.id}`}
-                  onClick={() => onSelectNote(note.id)}
-                  className="sidebar-note-item group"
-                  style={{
-                    backgroundColor: isActive
-                      ? "hsl(var(--sidebar-active))"
-                      : "transparent",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive)
-                      (e.currentTarget as HTMLElement).style.backgroundColor =
-                        "hsl(var(--sidebar-hover))";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive)
-                      (e.currentTarget as HTMLElement).style.backgroundColor =
-                        "transparent";
-                  }}
-                >
-                  <div className="sidebar-note-text relative flex items-center gap-2">
-                    <div 
-                      className="flex items-center justify-center shrink-0 w-4 h-4 cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onTogglePin) onTogglePin(note.id);
-                      }}
-                    >
-                      {note.isPinned ? (
-                        <>
-                          <Pin
-                            className="w-4 h-4 text-yellow-500 fill-yellow-500 block group-hover:hidden"
-                          />
-                          <PinOff
-                            className="w-4 h-4 text-red-500 hidden group-hover:block"
-                          />
-                        </>
-                      ) : (
-                        <Pin
-                          className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                        />
-                      )}
-                    </div>
-                    <div className="min-w-0">
+            <Masonry
+              breakpointCols={2}
+              className="my-masonry-grid px-2"
+              columnClassName="my-masonry-grid_column"
+            >
+              {notes.map((note) => {
+                const isActive = note.id === activeNoteId;
+                
+                // Deterministic pseudo-random pastel color based on note.id
+                const defaultColors = [
+                  "59, 130, 246", // Blue
+                  "168, 85, 247", // Purple
+                  "245, 158, 11", // Amber
+                  "16, 185, 129", // Green
+                ];
+                const colorIdx = note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % defaultColors.length;
+                const cardColor = note.color || defaultColors[colorIdx];
+
+                const PALETTE = [
+                  "59, 130, 246", // Blue
+                  "168, 85, 247", // Purple
+                  "245, 158, 11", // Amber
+                  "16, 185, 129", // Green
+                ];
+
+                return (
+                  <div
+                    key={note.id}
+                    id={`note-item-${note.id}`}
+                    onClick={() => onSelectNote(note.id)}
+                    className="sidebar-note-item group relative transition-all duration-300"
+                    style={{
+                      background: isActive 
+                        ? `linear-gradient(135deg, rgba(${cardColor}, var(--icon-bg-start)) 0%, rgba(${cardColor}, var(--icon-bg-end)) 100%)`
+                        : `linear-gradient(135deg, rgba(${cardColor}, calc(var(--icon-bg-start) * 0.6)) 0%, rgba(${cardColor}, calc(var(--icon-bg-end) * 0.6)) 100%)`,
+                      border: isActive 
+                        ? `1px solid rgba(${cardColor}, var(--icon-border))` 
+                        : `1px solid rgba(${cardColor}, calc(var(--icon-border) * 0.5))`,
+                      boxShadow: isActive 
+                        ? `inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 0 0 1px rgba(${cardColor}, 0.2), 0 8px 24px -4px rgba(${cardColor}, 0.2)` 
+                        : `inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 8px -2px rgba(0,0,0,0.05)`,
+                      transform: isActive ? "scale(1.01)" : "scale(1)",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = `linear-gradient(135deg, rgba(${cardColor}, calc(var(--icon-bg-start) * 0.8)) 0%, rgba(${cardColor}, calc(var(--icon-bg-end) * 0.8)) 100%)`;
+                        e.currentTarget.style.border = `1px solid rgba(${cardColor}, calc(var(--icon-border) * 0.8))`;
+                        e.currentTarget.style.transform = "scale(1.005)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = `linear-gradient(135deg, rgba(${cardColor}, calc(var(--icon-bg-start) * 0.6)) 0%, rgba(${cardColor}, calc(var(--icon-bg-end) * 0.6)) 100%)`;
+                        e.currentTarget.style.border = `1px solid rgba(${cardColor}, calc(var(--icon-border) * 0.5))`;
+                        e.currentTarget.style.transform = "scale(1)";
+                      }
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-2 w-full">
                       <p
-                        className="sidebar-note-title"
+                        className="sidebar-note-title whitespace-normal break-words"
                         style={{
                           color: isActive
                               ? "hsl(var(--foreground))"
                               : "hsl(var(--sidebar-fg))",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: "vertical",
                         }}
                       >
-                        {note.title || "Untitled"}
+                        {note.title || "Untitled Note"}
                       </p>
-                      <p className="sidebar-note-time">
+                      <div 
+                        className="flex items-center justify-center shrink-0 w-4 h-4 cursor-pointer mt-0.5"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onTogglePin) onTogglePin(note.id);
+                        }}
+                      >
+                        {note.isPinned ? (
+                          <>
+                            <Pin className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500 block group-hover:hidden" />
+                            <PinOff className="w-3.5 h-3.5 text-red-500 hidden group-hover:block" />
+                          </>
+                        ) : (
+                          <Pin className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between w-full mt-2 gap-1">
+                      <p className="text-[10px] whitespace-nowrap flex-shrink-0 text-muted-foreground/40 bg-background/50 px-1.5 py-0.5 rounded-md">
                         {formatRelativeTime(note.updatedAt)}
                       </p>
+                      
+                      <div className="flex-1 flex items-center justify-end gap-[4px] opacity-0 group-hover:opacity-100 transition-opacity">
+                        {PALETTE.map((c) => (
+                          <button
+                            key={c}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.dispatchEvent(new CustomEvent("update-note-color", { detail: { id: note.id, color: c } }));
+                            }}
+                            className="w-[14px] h-[14px] rounded-full flex-shrink-0 hover:scale-125 transition-transform"
+                            style={{ 
+                              background: `linear-gradient(135deg, rgba(${c}, var(--icon-bg-start)) 0%, rgba(${c}, var(--icon-bg-end)) 100%)`, 
+                              backdropFilter: "blur(8px)",
+                              WebkitBackdropFilter: "blur(8px)",
+                              border: `1px solid rgba(${c}, var(--icon-border))`,
+                              boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 2px 4px rgba(${c}, 0.1)`
+                            }}
+                          />
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNoteToDelete(note.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded-md"
+                        data-tooltip="Delete"
+                      >
+                        <DeleteIcon className="w-3.5 h-3.5 text-destructive" />
+                      </button>
                     </div>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setNoteToDelete(note.id);
-                    }}
-                    className="sidebar-note-delete"
-                    data-tooltip="Delete note"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="hsl(var(--destructive))"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M3 6h18" />
-                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                    </svg>
-                  </button>
-                </div>
-              );
-            })
+                );
+              })}
+            </Masonry>
           )}
         </div>
       </ScrollArea>

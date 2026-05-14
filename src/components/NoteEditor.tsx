@@ -67,11 +67,13 @@ import { GenerativeMenuSwitch } from "@/components/generative/GenerativeMenuSwit
 import { AISelector } from "@/components/generative/AISelector";
 import { ColorSelector } from "@/components/generative/ColorSelector";
 import { NoteChatSheet } from "@/components/generative/NoteChatSheet";
+import { AgentInput } from "@/components/generative/AgentInput";
 import TurndownService from "turndown";
 import { MediaAIResultSheet } from "@/components/generative/MediaAIResultSheet";
 import { getAuthToken } from "@/lib/auth-client";
 import { AI_API_BASE } from "@/lib/constants";
 import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
+import { HashtagExtension } from "@/components/generative/HashtagSuggestion";
 import type { Note } from "@/hooks/use-notes";
 import { useSpeech } from "@/hooks/use-speech";
 
@@ -598,6 +600,7 @@ const extensions = [
   }),
   AudioNode,
   VideoNode,
+  HashtagExtension,
 ];
 
 export function NoteEditor({
@@ -924,6 +927,7 @@ export function NoteEditor({
               theme={theme}
               toggleTheme={toggleTheme}
             />
+            <AgentInput />
           </EditorContent>
         </EditorRoot>
       </div>

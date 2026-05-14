@@ -676,30 +676,23 @@ body {
 .history-sheet-new-note {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  gap: 12px;
   width: 100%;
   padding: 10px 8px;
-  border: 1px dashed hsl(var(--border));
+  border: none;
   background: transparent;
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   font-family: inherit;
-  color: hsl(var(--muted-foreground));
-  transition: all 0.2s ease;
-  margin-bottom: 16px;
+  color: hsl(var(--foreground));
+  transition: background-color 0.15s ease;
+  margin-bottom: 12px;
 }
 
 .history-sheet-new-note:hover {
-  background-color: hsl(var(--primary) / 0.05);
-  color: hsl(var(--foreground));
-  border-color: hsl(var(--primary) / 0.3);
-  transform: translateY(-1px);
-}
-.history-sheet-new-note:active {
-  transform: scale(0.98);
+  background-color: hsl(var(--accent));
 }
 
 .history-sheet-section-label {
@@ -714,10 +707,15 @@ body {
   letter-spacing: 0.04em;
 }
 
-.history-sheet-list {
+/* ===== Masonry Layout (react-masonry-css) ===== */
+.my-masonry-grid {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  margin-left: -8px; /* gutter size offset */
+  width: auto;
+}
+.my-masonry-grid_column {
+  padding-left: 8px; /* gutter size */
+  background-clip: padding-box;
 }
 
 .history-sheet-empty {
@@ -733,25 +731,24 @@ body {
 
 .history-sheet-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 6px;
   width: 100%;
-  padding: 10px 10px;
-  border: 1px solid transparent;
-  background: transparent;
+  padding: 12px;
+  margin-bottom: 8px;
   border-radius: 12px;
   cursor: pointer;
-  font-family: inherit;
-  text-align: left;
   transition: all 0.2s ease;
-  margin-bottom: 2px;
+  overflow: hidden;
+  break-inside: avoid;
+  border: 1px solid transparent;
+  text-align: left;
+  background: transparent;
+  font-family: inherit;
 }
 
 .history-sheet-item:hover {
-  background-color: hsl(var(--accent) / 0.5);
-}
-.history-sheet-item:active {
-  transform: scale(0.99);
+  background-color: hsl(var(--accent));
 }
 
 .history-sheet-item-left {
@@ -779,17 +776,8 @@ body {
 
 .history-sheet-item-time {
   font-size: 11px;
-  font-weight: 500;
   color: hsl(var(--muted-foreground));
   white-space: nowrap;
-}
-
-.history-sheet-item-time.recent {
-  color: hsl(var(--primary));
-  background-color: hsl(var(--primary) / 0.1);
-  padding: 2px 6px;
-  border-radius: 99px;
-  font-weight: 600;
 }
 
 .history-sheet-item-delete {
@@ -1496,18 +1484,21 @@ body {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ===== Sidebar Masonry Grid ===== */
 /* ===== Sidebar Note Item ===== */
 .sidebar-note-item {
   display: flex;
-  align-items: center;
-  gap: 4px;
+  flex-direction: column;
+  gap: 6px;
   width: 100%;
-  padding: 8px 12px;
-  margin-bottom: 2px;
-  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: all 0.2s ease;
   overflow: hidden;
+  break-inside: avoid;
+  border: 1px solid transparent;
 }
 
 .sidebar-note-text {

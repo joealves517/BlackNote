@@ -389,14 +389,13 @@ export function NoteChatSheet({
         transition={{ duration: 0.2 }}
       />
 
-      {/* Bottom Sheet */}
       <motion.div
         className="history-sheet"
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "tween", duration: 0.25, ease: "easeOut" }}
-        style={{ display: "flex", flexDirection: "column", maxWidth: 800, margin: "0 auto" }}
+        style={{ display: "flex", flexDirection: "column", maxWidth: 600, margin: "0 auto" }}
       >
         {/* Drag Handle */}
         <div className="history-sheet-handle" onClick={onClose}>

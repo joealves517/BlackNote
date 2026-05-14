@@ -265,13 +265,12 @@ export function AccountPopup({
         <span className="text-[12px] font-medium leading-none">Help</span>
       </button>
 
-      {/* Absolute Avatar breaking out */}
       <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10">
         <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
           {getUserAvatar(user) ? (
-            <img src={getUserAvatar(user)!} alt={firstName} className="w-[76px] h-[76px] object-cover rounded-full bg-transparent" />
+            <img src={getUserAvatar(user)!} alt={firstName} className="w-[84px] h-[84px] object-cover rounded-full bg-transparent" />
           ) : (
-            <div className="w-[76px] h-[76px] bg-muted/80 backdrop-blur-md rounded-full flex items-center justify-center">
+            <div className="w-[84px] h-[84px] bg-muted/80 backdrop-blur-md rounded-full flex items-center justify-center">
               <span className="text-3xl font-bold text-muted-foreground">{firstName.charAt(0).toUpperCase()}</span>
             </div>
           )}

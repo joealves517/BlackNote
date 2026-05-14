@@ -10,6 +10,8 @@ export interface LocalNote {
   chatHistory?: string; // JSON string of chat messages
   mediaTranscripts?: string; // JSON string of Record<string, MediaTranscript>
   isPinned?: boolean;
+  color?: string;
+  tags?: string[];
 }
 
 export interface MediaFile {

@@ -1,7 +1,7 @@
 import { ScanTextIcon } from "@/components/icons/scan-text";
 import { CircleHelpIcon } from "@/components/icons/circle-help";
 import { PlusIcon } from "@/components/icons/plus";
-import { HistoryIcon } from "@/components/icons/history";
+import { LayoutListIcon } from "@/components/icons/layout-list";
 import { MoonIcon } from "@/components/icons/moon";
 import { SunIcon } from "@/components/icons/sun";
 import { AIDynamicIsland } from "@/components/ui/ai-dynamic-island";
@@ -793,6 +793,18 @@ export function App() {
     });
   }, [notes, activeNoteId, deleteNote]);
 
+  // Listen for custom event to update note color from History/Sidebar
+  useEffect(() => {
+    const handleUpdateColor = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.id && detail.color) {
+        updateNote(detail.id, { color: detail.color });
+      }
+    };
+    window.addEventListener("update-note-color", handleUpdateColor);
+    return () => window.removeEventListener("update-note-color", handleUpdateColor);
+  }, [updateNote]);
+
   const handleContentChange = (noteId: string, content: string) => {
     updateNote(noteId, { content });
   };
@@ -960,7 +972,7 @@ export function App() {
                 onClick={handleOpenHistory}
                 data-tooltip="History"
               >
-                <HistoryIcon className="w-[17px] h-[17px]" />
+                <LayoutListIcon className="w-[17px] h-[17px]" size={17} />
               </button>
 
               {/* Web Clipper */}

@@ -17,6 +17,8 @@ export interface Note {
   chatHistory: { role: string; content: string }[];
   mediaTranscripts?: string;
   isPinned?: boolean;
+  color?: string;
+  tags?: string[];
 }
 
 function localToNote(row: LocalNote): Note {
@@ -29,6 +31,8 @@ function localToNote(row: LocalNote): Note {
     chatHistory: row.chatHistory ? JSON.parse(row.chatHistory) : [],
     mediaTranscripts: row.mediaTranscripts,
     isPinned: row.isPinned ?? false,
+    color: row.color,
+    tags: row.tags,
   };
 }
 
@@ -367,15 +371,33 @@ export function useNotes() {
   );
 
   const updateNote = useCallback(
-    (id: string, updates: Partial<Pick<Note, "title" | "content" | "chatHistory" | "mediaTranscripts" | "isPinned">>) => {
+    (id: string, updates: Partial<Pick<Note, "title" | "content" | "chatHistory" | "mediaTranscripts" | "isPinned" | "color" | "tags">>) => {
       const now = Date.now();
-      const isPinOnly = Object.keys(updates).length === 1 && "isPinned" in updates;
+      const isMetaOnly = Object.keys(updates).every((k) => ["isPinned", "color", "tags"].includes(k));
+
+      let extractedTags: string[] | undefined = updates.tags;
+      if (updates.content !== undefined) {
+        try {
+          const doc = JSON.parse(updates.content);
+          const tags = new Set<string>();
+          const traverse = (node: any) => {
+            if (node.type === "hashtag" && node.attrs?.id) {
+              tags.add(node.attrs.id);
+            }
+            if (node.content && Array.isArray(node.content)) {
+              node.content.forEach(traverse);
+            }
+          };
+          traverse(doc);
+          extractedTags = Array.from(tags);
+        } catch(e) {}
+      }
 
       // Optimistic UI update
       setNotes((prev) =>
         prev.map((note) =>
           note.id === id
-            ? { ...note, ...updates, updatedAt: isPinOnly ? note.updatedAt : new Date(now) }
+            ? { ...note, ...updates, tags: extractedTags !== undefined ? extractedTags : note.tags, updatedAt: isMetaOnly ? note.updatedAt : new Date(now) }
             : note
         ).sort(sortNotes)
       );
@@ -384,14 +406,17 @@ export function useNotes() {
       if (!pendingUpdatesRef.current[id]) {
         pendingUpdatesRef.current[id] = { syncedAt: null };
       }
-      if (!isPinOnly) {
+      if (!isMetaOnly) {
         pendingUpdatesRef.current[id].updatedAt = now;
       }
       if (updates.title !== undefined) pendingUpdatesRef.current[id].title = updates.title;
       if (updates.content !== undefined) pendingUpdatesRef.current[id].content = updates.content;
+      if (extractedTags !== undefined) pendingUpdatesRef.current[id].tags = extractedTags;
       if (updates.chatHistory !== undefined) pendingUpdatesRef.current[id].chatHistory = JSON.stringify(updates.chatHistory) as any;
       if (updates.mediaTranscripts !== undefined) pendingUpdatesRef.current[id].mediaTranscripts = updates.mediaTranscripts;
       if (updates.isPinned !== undefined) pendingUpdatesRef.current[id].isPinned = updates.isPinned;
+      if (updates.color !== undefined) pendingUpdatesRef.current[id].color = updates.color;
+      if (updates.tags !== undefined) pendingUpdatesRef.current[id].tags = updates.tags;
 
       // Debounce persist to IndexedDB + optional cloud sync
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
