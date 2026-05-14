@@ -36,6 +36,15 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { editor } = useEditor();
 
+  const [hideAgent, setHideAgent] = useState(() => localStorage.getItem("blacknote_hide_agent") === "true");
+
+  const toggleAgent = () => {
+    const newValue = !hideAgent;
+    setHideAgent(newValue);
+    localStorage.setItem("blacknote_hide_agent", newValue ? "true" : "false");
+    window.dispatchEvent(new CustomEvent("blacknote_agent_visibility", { detail: !newValue }));
+  };
+
   const iconRefs = {
     upload: useRef<any>(null),
     download: useRef<any>(null),
@@ -310,6 +319,33 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
                       </div>
                       <div className="mr-1 flex items-center justify-center text-muted-foreground">
                         {theme === "light" ? (
+                          <ToggleLeftIcon size={18} className="w-4.5 h-4.5" />
+                        ) : (
+                          <ToggleRightIcon size={18} className="w-4.5 h-4.5 text-foreground" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Agent Toggle Row */}
+                    <div
+                      className="novel-slash-item w-full text-left cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); toggleAgent(); }}
+                    >
+                      <div className="novel-slash-icon" style={{
+                        background: "linear-gradient(135deg, rgba(139, 92, 246, var(--icon-bg-start)) 0%, rgba(139, 92, 246, var(--icon-bg-end)) 100%)",
+                        border: "1px solid rgba(139, 92, 246, var(--icon-border))",
+                        color: "rgba(139, 92, 246, 1)",
+                      }}>
+                        <SparklesIcon className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[13px] font-medium">AI Agent</p>
+                        <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                          {hideAgent ? "Hidden" : "Visible"}
+                        </p>
+                      </div>
+                      <div className="mr-1 flex items-center justify-center text-muted-foreground">
+                        {hideAgent ? (
                           <ToggleLeftIcon size={18} className="w-4.5 h-4.5" />
                         ) : (
                           <ToggleRightIcon size={18} className="w-4.5 h-4.5 text-foreground" />

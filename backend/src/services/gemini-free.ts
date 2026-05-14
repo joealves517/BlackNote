@@ -14,16 +14,14 @@ const gemini = new GoogleGenAI({
 });
 
 const groq = new Groq({
-  apiKey: config.groq.apiKey || process.env.GROQ_API_KEY,
+  apiKey: config.groq.apiKey || process.env.GROQ_API_KEY || "dummy_key",
 });
 
 // --- Constants ---
 const GEMINI_MODEL = "gemini-3.1-flash-lite";
 
-// Groq Model Rotation List (Ordered by preference)
 const GROQ_MODELS = [
   "llama-3.3-70b-versatile",
-  "mixtral-8x7b-32768",
   "llama-3.1-8b-instant"
 ];
 

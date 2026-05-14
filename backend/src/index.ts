@@ -55,6 +55,7 @@ app.use(express.json({ limit: "2mb" }));
 // ─── Rate Limiting ──────────────────────────────────────────────────
 app.use("/api/media", rateLimit);
 app.use("/api/ai/free", rateLimit);
+app.use("/api/ai/agent", rateLimit);
 app.use("/api/ai", rateLimit);
 
 // ─── Routes ─────────────────────────────────────────────────────

@@ -12,7 +12,6 @@ import { MicIcon } from "@/components/icons/mic";
 import { VideoIcon } from "@/components/icons/video";
 import { ScanTextIcon } from "@/components/icons/scan-text";
 import { Minus, Strikethrough } from "lucide-react";
-
 import { BoldIcon } from "@/components/icons/bold";
 import { ItalicIcon } from "@/components/icons/italic";
 import { UnderlineIcon } from "@/components/icons/underline";
@@ -859,6 +858,7 @@ export function NoteEditor({
             }}
             immediatelyRender={false}
           >
+
             {/* Generative Menu — toggles between formatting + AI */}
             <GenerativeMenuSwitch>
               <ColorSelector />

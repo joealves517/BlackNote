@@ -102,17 +102,16 @@ export async function signInWithGoogle(): Promise<AppUser | null> {
 
 export async function signOut(): Promise<void> {
   try {
-    // Revoke the token so it's fully invalidated
     if (cachedToken) {
       await chrome.identity.removeCachedAuthToken({ token: cachedToken });
-      // Also revoke on Google's side
-      try {
-        await fetch(
-          `https://accounts.google.com/o/oauth2/revoke?token=${cachedToken}`
-        );
-      } catch {
-        // Best-effort revocation
-      }
+      // Revoke token on Google's side (blocking)
+      await fetch(
+        `https://accounts.google.com/o/oauth2/revoke?token=${cachedToken}`
+      ).catch(() => {});
+    }
+    // Clear ALL cached tokens to prevent stale token leaks
+    if (chrome.identity.clearAllCachedAuthTokens) {
+      await chrome.identity.clearAllCachedAuthTokens();
     }
   } catch {
     // Token removal may fail if already expired

@@ -280,18 +280,18 @@ export function App() {
     const handleStartMeetSync = async () => {
       const tabs = await chrome.tabs.query({ url: "*://meet.google.com/*" });
       if (tabs.length === 0) {
-         setRecErrorInfo({
-            info: { code: "MEET_NO_TAB", title: "Google Meet Not Found", message: "No active Google Meet tab was found. Please open Google Meet and join a meeting first." },
-            retryMode: "meet"
-         });
-         return;
+        setRecErrorInfo({
+          info: { code: "MEET_NO_TAB", title: "Google Meet Not Found", message: "No active Google Meet tab was found. Please open Google Meet and join a meeting first." },
+          retryMode: "meet"
+        });
+        return;
       }
       setMeetStatus("PENDING");
       setIsMeetSyncActive(true);
       setMeetElapsed(0);
       tabs.forEach(tab => {
         if (tab.id) {
-           chrome.tabs.sendMessage(tab.id, { action: "start-meet-sync" }).catch(() => {});
+          chrome.tabs.sendMessage(tab.id, { action: "start-meet-sync" }).catch(() => { });
         }
       });
     };
@@ -303,7 +303,7 @@ export function App() {
       const tabs = await chrome.tabs.query({ url: "*://meet.google.com/*" });
       tabs.forEach(tab => {
         if (tab.id) {
-           chrome.tabs.sendMessage(tab.id, { action: "stop-meet-sync" }).catch(() => {});
+          chrome.tabs.sendMessage(tab.id, { action: "stop-meet-sync" }).catch(() => { });
         }
       });
     };
@@ -312,32 +312,32 @@ export function App() {
     window.addEventListener("stop-meet-sync", handleStopMeetSync);
 
     return () => {
-       window.removeEventListener("start-meet-sync", handleStartMeetSync);
-       window.removeEventListener("stop-meet-sync", handleStopMeetSync);
+      window.removeEventListener("start-meet-sync", handleStartMeetSync);
+      window.removeEventListener("stop-meet-sync", handleStopMeetSync);
     };
   }, []);
 
   useEffect(() => {
     const handleMessage = (msg: any) => {
       if (msg.type === "MEET_STATUS") {
-         setMeetStatus(msg.status);
-         if (msg.status === "READY") {
-            setRecErrorInfo(null); // Auto-dismiss the error sheet when resolved!
-         } else if (msg.status === "NOT_JOINED") {
-            setRecErrorInfo({
-               info: { code: "MEET_NOT_JOINED", title: "Meeting Not Joined", message: "You haven't joined a Google Meet room yet. Please join the meeting before starting live sync." },
-               retryMode: "meet"
-            });
-         } else if (msg.status === "CC_OFF") {
-            setRecErrorInfo({
-               info: { code: "MEET_CC_OFF", title: "Captions (CC) Disabled", message: "Please click the [CC] button in Google Meet so BlackNote can read the meeting transcript." },
-               retryMode: "meet"
-            });
-         }
+        setMeetStatus(msg.status);
+        if (msg.status === "READY") {
+          setRecErrorInfo(null); // Auto-dismiss the error sheet when resolved!
+        } else if (msg.status === "NOT_JOINED") {
+          setRecErrorInfo({
+            info: { code: "MEET_NOT_JOINED", title: "Meeting Not Joined", message: "You haven't joined a Google Meet room yet. Please join the meeting before starting live sync." },
+            retryMode: "meet"
+          });
+        } else if (msg.status === "CC_OFF") {
+          setRecErrorInfo({
+            info: { code: "MEET_CC_OFF", title: "Captions (CC) Disabled", message: "Please click the [CC] button in Google Meet so BlackNote can read the meeting transcript." },
+            retryMode: "meet"
+          });
+        }
       }
 
       if (msg.type === "MEET_SYNC_FINISHED") {
-         window.dispatchEvent(new CustomEvent("stop-meet-sync"));
+        window.dispatchEvent(new CustomEvent("stop-meet-sync"));
       }
 
       if (msg.type === "MEET_CAPTION") {
@@ -347,13 +347,13 @@ export function App() {
           // This allows the user to freely edit the note while meeting captions stream at the bottom
           const docSize = editor.state.doc.content.size;
           if (msg.isNewSpeaker) {
-             const htmlToInsert = `<p><strong>${msg.speaker}:</strong> ${msg.text}</p>`;
-             editor.chain().insertContentAt(docSize, htmlToInsert).run();
+            const htmlToInsert = `<p><strong>${msg.speaker}:</strong> ${msg.text}</p>`;
+            editor.chain().insertContentAt(docSize, htmlToInsert).run();
           } else {
-             // Append to the last paragraph
-             const insertPos = Math.max(0, docSize - 1);
-             const textToInsert = ` ${msg.text}`;
-             editor.chain().insertContentAt(insertPos, textToInsert).run();
+            // Append to the last paragraph
+            const insertPos = Math.max(0, docSize - 1);
+            const textToInsert = ` ${msg.text}`;
+            editor.chain().insertContentAt(insertPos, textToInsert).run();
           }
         }
       }
@@ -1002,7 +1002,7 @@ export function App() {
           <div className="flex items-center gap-2 pointer-events-none" style={{ opacity: globalAiThinking ? 0 : 1, transition: 'opacity 0.2s', marginTop: 6 }}>
             <div className="apple-glass-block">
               <button
-                className="floating-header-btn"
+                className="floating-header-btn spin-on-hover"
                 onClick={() => window.dispatchEvent(new CustomEvent("open-note-chat"))}
                 data-tooltip="Ask AI"
               >
@@ -1012,7 +1012,7 @@ export function App() {
 
             <div className="apple-glass-block">
               <button
-                className="floating-header-btn no-zoom"
+                className="floating-header-btn no-zoom group"
                 onClick={handleCreateNote}
                 data-tooltip="New note"
                 style={{
@@ -1217,12 +1217,12 @@ export function App() {
         onDismiss={() => {
           const mode = recErrorInfo?.retryMode;
           setRecErrorInfo(null);
-          
+
           // Stop background polling if the user manually cancels Meet Live Sync
           if (mode === "meet") {
-             window.dispatchEvent(new CustomEvent("stop-meet-sync"));
+            window.dispatchEvent(new CustomEvent("stop-meet-sync"));
           }
-          
+
           chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
             if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: "STOP_REGION_SELECTION" }).catch(() => { });
           });
