@@ -274,7 +274,7 @@ export function useNotes() {
     if (welcomeNotes.length > 0 && notes.length > welcomeNotes.length) {
       Promise.all(welcomeNotes.map(n => {
         if (userId) {
-          deleteRemoteNote(userId, n.id).catch(err => console.error("Failed to delete welcome note remotely", err));
+          deleteRemoteNote(n.id).catch(err => console.error("Failed to delete welcome note remotely", err));
         }
         return db.notes.delete(n.id);
       })).then(() => {
