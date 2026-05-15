@@ -574,15 +574,33 @@ export function App() {
   // ── Recording slash command listeners ──
   useEffect(() => {
     const removeEditorNode = (editor: any, nodeType: string, mediaId: string) => {
+      let targetPos: number | null = null;
+      let targetSize: number | null = null;
+      
       editor.state.doc.descendants((node: any, pos: number) => {
         if (node.type.name === nodeType && node.attrs.mediaId === mediaId) {
-          editor.chain().focus().command(({ tr }: { tr: any }) => {
-            tr.delete(pos, pos + node.nodeSize);
-            return true;
-          }).run();
-          return false;
+          targetPos = pos;
+          targetSize = node.nodeSize;
+          return false; // Stop traversing
         }
       });
+
+      if (targetPos !== null && targetSize !== null) {
+        editor.chain().focus().command(({ tr, dispatch }: { tr: any, dispatch: any }) => {
+          let deleteTo = targetPos! + targetSize!;
+          
+          // Remove the trailing empty paragraph if it exists to prevent whitespace buildup
+          const nodeAfter = tr.doc.nodeAt(deleteTo);
+          if (nodeAfter && nodeAfter.type.name === "paragraph" && nodeAfter.nodeSize === 2) {
+            deleteTo += nodeAfter.nodeSize;
+          }
+          
+          if (dispatch) {
+            tr.delete(targetPos!, deleteTo);
+          }
+          return true;
+        }).run();
+      }
     };
 
     const handleAudioRecording = async (e: Event) => {
@@ -720,17 +738,35 @@ export function App() {
       const nodeType = currentMode === "audio" ? "audioNode" : "videoNode";
       const { doc } = editor.state;
 
+      let targetPos: number | null = null;
+      let targetSize: number | null = null;
+
       doc.descendants((node: any, pos: number) => {
         if (node.type.name === nodeType && node.attrs.status === "recording") {
-          editor.chain().focus()
-            .command(({ tr }: { tr: any }) => {
-              tr.delete(pos, pos + node.nodeSize);
-              return true;
-            })
-            .run();
+          targetPos = pos;
+          targetSize = node.nodeSize;
           return false;
         }
       });
+
+      if (targetPos !== null && targetSize !== null) {
+        editor.chain().focus()
+          .command(({ tr, dispatch }: { tr: any, dispatch: any }) => {
+            let deleteTo = targetPos! + targetSize!;
+            
+            // Remove the trailing empty paragraph if it exists to prevent whitespace buildup
+            const nodeAfter = tr.doc.nodeAt(deleteTo);
+            if (nodeAfter && nodeAfter.type.name === "paragraph" && nodeAfter.nodeSize === 2) {
+              deleteTo += nodeAfter.nodeSize;
+            }
+            
+            if (dispatch) {
+              tr.delete(targetPos!, deleteTo);
+            }
+            return true;
+          })
+          .run();
+      }
       recordingEditorRef.current = null;
     }
   }, [recorder]);
