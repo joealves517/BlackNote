@@ -75,28 +75,6 @@ function localToRemote(note: LocalNote): RemoteNote {
   };
 }
 
-// ─── Migration ──────────────────────────────────────────────────────
-
-/**
- * Trigger one-time lazy migration from Supabase to DynamoDB.
- * Called on first login with the new extension version.
- */
-async function triggerMigration(): Promise<void> {
-  try {
-    const headers = await authHeaders();
-    const res = await fetch(`${AI_API_BASE}/api/notes/migrate`, {
-      method: "POST",
-      headers,
-    });
-    if (res.ok) {
-      const data = await res.json();
-      console.log("[Sync] Migration result:", data);
-    }
-  } catch (err) {
-    console.warn("[Sync] Migration request failed (will retry):", err);
-  }
-}
-
 // ─── Full Sync ──────────────────────────────────────────────────────
 
 /**
@@ -117,14 +95,6 @@ export async function fullSync(
     });
 
   try {
-    // Step 0: Trigger lazy migration (idempotent, fast if already done)
-    const migrationDone = localStorage.getItem("blacknote_migrated");
-    if (!migrationDone) {
-      report({ message: "Checking for cloud data..." });
-      await triggerMigration();
-      localStorage.setItem("blacknote_migrated", "true");
-    }
-
     report({ message: "Fetching cloud data..." });
 
     // Step 1: Fetch remote notes via Backend

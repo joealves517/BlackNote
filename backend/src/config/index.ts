@@ -29,10 +29,7 @@ function loadEnv() {
       dynamoTableName: process.env.DYNAMO_TABLE_NAME || "UserNotes",
       s3Bucket: process.env.S3_BUCKET || "blacknote-images-417183877808",
     },
-    supabase: {
-      url: process.env.SUPABASE_URL || "https://xloruyavtuvcoqrvjolp.supabase.co",
-      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-    },
+
     google: {
       oauthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID || "676582412453-64mpkmbnplhpca5ljs0uc1vsrejj0a67.apps.googleusercontent.com",
     },

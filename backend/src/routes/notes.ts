@@ -10,7 +10,6 @@ import {
   putNote,
   deleteNote,
   batchPutNotes,
-  migrateNotesFromSupabase,
   type DynamoNote,
 } from "../services/notes-db.js";
 import {
@@ -87,63 +86,5 @@ router.delete(
   }
 );
 
-/**
- * POST /api/notes/migrate
- * One-time lazy migration from Supabase to DynamoDB.
- * Called when a user first logs in on the new extension version.
- * Idempotent: checks Firestore flag to avoid duplicate migrations.
- */
-router.post(
-  "/migrate",
-  requireAuth,
-  async (req: Request, res: Response): Promise<void> => {
-    const { userEmail } = req as AuthenticatedRequest;
-
-    try {
-      // Check if already migrated via Firestore user document
-      const existingUser = await getUserByEmail(userEmail);
-      if (existingUser?.data && (existingUser.data as any).notesMigrated) {
-        res.json({ migrated: true, count: 0, message: "Already migrated" });
-        return;
-      }
-
-      // Check if user already has notes in DynamoDB
-      const existingNotes = await getAllNotes(userEmail);
-      if (existingNotes.length > 0) {
-        // Mark as migrated to avoid future checks
-        if (existingUser) {
-          const { db } = await import("../services/firestore.js");
-          await db.collection("users").doc(existingUser.id).update({
-            notesMigrated: true,
-          });
-        }
-        res.json({ migrated: true, count: existingNotes.length, message: "Notes already exist" });
-        return;
-      }
-
-      // Perform migration from Supabase
-      const result = await migrateNotesFromSupabase(userEmail);
-
-      // Mark as migrated in Firestore
-      if (existingUser) {
-        const { db } = await import("../services/firestore.js");
-        await db.collection("users").doc(existingUser.id).update({
-          notesMigrated: true,
-        });
-      }
-
-      res.json({
-        migrated: true,
-        count: result.migrated,
-        message: result.migrated > 0
-          ? `Migrated ${result.migrated} notes from cloud`
-          : "No notes to migrate",
-      });
-    } catch (err) {
-      console.error("[Migration] Failed:", err);
-      res.status(500).json({ error: "migration_failed" });
-    }
-  }
-);
 
 export default router;
