@@ -2,10 +2,30 @@ let offscreenReadyResolver: (() => void) | null = null;
 let offscreenReadyPromise: Promise<void> | null = null;
 
 export default defineBackground(() => {
-  // Open side panel when extension icon is clicked
+  // By default do NOT open the side panel automatically, we will handle it manually.
   browser.sidePanel
-    .setPanelBehavior({ openPanelOnActionClick: true })
+    .setPanelBehavior({ openPanelOnActionClick: false })
     .catch((error: Error) => console.error("Side panel setup error:", error));
+
+  // Handle extension icon click manually
+  browser.action.onClicked.addListener(async (tab) => {
+    if (!tab.id || !tab.windowId) return;
+    
+    // Check if the popout window is currently open
+    const popoutUrl = chrome.runtime.getURL("sidepanel.html") + "?popout=1";
+    const windows = await chrome.windows.getAll({ populate: true });
+    const existingWindow = windows.find(win => 
+      win.type === 'popup' && win.tabs?.some(t => t.url === popoutUrl)
+    );
+
+    if (existingWindow && existingWindow.id) {
+      // Focus the existing popout window
+      chrome.windows.update(existingWindow.id, { focused: true }).catch(console.error);
+    } else {
+      // Otherwise open the side panel for the current window
+      browser.sidePanel.open({ windowId: tab.windowId }).catch(console.error);
+    }
+  });
 
   // Route clip requests from sidepanel → content script in the active tab
   browser.runtime.onMessage.addListener(
@@ -41,6 +61,54 @@ export default defineBackground(() => {
       // Open a URL in a new tab (sidepanel has no chrome.tabs access)
       if (message.type === "OPEN_URL" && message.url) {
         chrome.tabs.create({ url: message.url });
+        return false;
+      }
+
+      // Pop out the side panel into a standalone floating window
+      if (message.type === "OPEN_PIP_WINDOW") {
+        const { width, height } = message.payload || {};
+        const popoutUrl = chrome.runtime.getURL("sidepanel.html") + "?popout=1";
+        
+        // Check if the window is already open
+        chrome.windows.getAll({ populate: true }, (windows) => {
+          const existingWindow = windows.find(win => 
+            win.type === 'popup' && win.tabs?.some(tab => tab.url === popoutUrl)
+          );
+          
+          if (existingWindow && existingWindow.id) {
+            // Focus the existing window
+            chrome.windows.update(existingWindow.id, { focused: true }, () => {
+              sendResponse({ windowId: existingWindow.id });
+            });
+          } else {
+            // Create a new window
+            chrome.windows.create({
+              url: popoutUrl,
+              type: "popup",
+              width: width || 420,
+              height: height || 650,
+              focused: true,
+            }, (win) => {
+              sendResponse({ windowId: win?.id ?? null });
+            });
+          }
+        });
+        return true;
+      }
+
+      // Close a previously opened pop-out window
+      if (message.type === "CLOSE_PIP_WINDOW" && message.windowId) {
+        chrome.windows.remove(message.windowId).catch(() => {});
+        return false;
+      }
+
+      // Re-open the side panel on the active tab
+      if (message.type === "OPEN_SIDE_PANEL") {
+        chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
+          if (tab?.id && tab?.windowId) {
+            chrome.sidePanel.open({ windowId: tab.windowId }).catch(console.error);
+          }
+        });
         return false;
       }
 
