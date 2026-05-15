@@ -96,7 +96,7 @@ const AIFeatureItem = ({ icon, title, description, available, colorRgb = "59, 13
               {isGuest ? (
                 <Minus size={14} color="#888" strokeWidth={2.5} style={{ display: "flex", alignItems: "center", justifyContent: "center" }} />
               ) : (
-                <CircleCheckIcon size={14} color="#10B981" strokeWidth={2.5} style={{ display: "flex", alignItems: "center", justifyContent: "center" }} />
+                <CircleCheckIcon size={14} color="#34d399" strokeWidth={2.5} style={{ display: "flex", alignItems: "center", justifyContent: "center" }} />
               )}
             </AnimatedIcon>
           </div>
