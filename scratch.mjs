@@ -1,6 +1,6 @@
-const { generateJSON } = require('@tiptap/core');
-const { TaskList, TaskItem, StarterKit } = require('novel');
-const { marked } = require('marked');
+import { generateJSON } from '@tiptap/core';
+import { TaskList, TaskItem, StarterKit } from 'novel';
+import { marked } from 'marked';
 
 const extensions = [
   StarterKit.configure({ horizontalRule: false }),

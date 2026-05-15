@@ -5,12 +5,13 @@
 
 import { generateJSON } from "@tiptap/core";
 import {
-  StarterKit, TiptapLink, HorizontalRule, TaskList, TaskItem, UpdatedImage,
+  StarterKit, TiptapLink, HorizontalRule, TaskList, TaskItem, UpdatedImage, TextStyle, Color
 } from "novel";
 import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
+import Highlight from "@tiptap/extension-highlight";
 import { marked } from "marked";
 import { AudioNode } from "@/extensions/AudioNode";
 import { VideoNode } from "@/extensions/VideoNode";
@@ -29,6 +30,9 @@ const parserExtensions = [
   TableCell,
   AudioNode,
   VideoNode,
+  TextStyle,
+  Color,
+  Highlight.configure({ multicolor: true }),
 ];
 
 /**
