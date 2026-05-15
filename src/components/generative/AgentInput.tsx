@@ -422,7 +422,7 @@ export function AgentInput() {
 
   return (
     <div
-      className="absolute inset-x-0 z-50 flex flex-col items-center justify-end pointer-events-none px-4 transition-all duration-300 gap-3"
+      className="absolute inset-x-0 z-50 flex flex-col items-center justify-end pointer-events-none px-4 transition-all duration-300 gap-1.5"
       style={{ bottom: "5px" }}
     >
       {/* Agent text message (for general Q&A responses) floats ABOVE the prompt */}
