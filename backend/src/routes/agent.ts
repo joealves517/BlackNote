@@ -1,13 +1,12 @@
 import { Router, Request, Response } from "express";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth.js";
 import { createOrUpdateUser, deductCreditsByEmail, logUsage } from "../services/firestore.js";
-import { streamText, tool } from "ai";
+import { streamText } from "ai";
 import { createVertex } from "@ai-sdk/google-vertex";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { config } from "../config/index.js";
 import { calculateTokenCost } from "../services/token-cost.js";
-import { z } from "zod";
 
 const router = Router();
 
@@ -38,64 +37,47 @@ const GROQ_MODELS = [
 ];
 const GROQ_TOKEN_LIMIT = 6000;
 
-const SYSTEM_PROMPT = `You are a powerful, autonomous AI Agent embedded within a rich-text editor (BlackNote).
-Your job is to read the user's prompt and use your provided tools to directly modify the editor's content.
+const SYSTEM_PROMPT = `You are an AI writing assistant in BlackNote, a rich-text note editor.
+You receive a document where each block starts with a marker like «b0», «b1», etc.
+The user gives an instruction to modify the document.
 
-DOCUMENT FORMAT:
-- The document is presented as numbered blocks: [Block 0], [Block 1], [Block 2], etc.
-- Each block is a single line of content (a heading, a paragraph, a bullet item, etc.).
-- Blocks marked [empty] contain no text — they are empty lines or empty list items.
+OUTPUT FORMAT — follow exactly:
+- Changed block: «bN» followed by the new content
+- New block: «new» followed by content
+- Delete a block: «bN» [DELETE]
+
+FORMATTING SYNTAX the editor supports (use freely when appropriate):
+- Markdown: # headings, **bold**, *italic*, ~~strikethrough~~, \`inline code\`, \`\`\`code blocks\`\`\`
+- Lists: - bullet items, 1. numbered items
+- Task lists: - [ ] unchecked, - [x] checked
+- Blockquote: > text
+- Horizontal rule: ---
+- Links: [text](url)
+- Tables: GFM pipe syntax
+- HTML inline: <u>underline</u>, <mark>highlight</mark>, <span style="color:hex">colored text</span>
 
 RULES:
-- When the user asks to edit, rewrite, translate, or improve content, identify the EXACT block(s) that need changing.
-- Call 'replaceBlock' ONCE PER BLOCK. If 3 blocks need changing, make 3 separate replaceBlock calls.
-- ONLY modify blocks that match the user's request. Leave all other blocks untouched.
-- To DELETE a block (e.g. remove empty lines or duplicate bullets), call replaceBlock with an empty string "" as newContent.
-- The 'newContent' SHOULD use Markdown if the user asks for structure. You CAN generate Todo Lists using '- [ ] Task', Tables using '| Col |', Blockquotes using '> text', and Headings.
-- When the user asks to add new content at the end, use the 'insertBlocks' tool.
-- When the user asks to format or style text, use the 'applyFormatting' tool.
-- Do NOT output conversational filler. Just call the tools directly.
-- If the user asks a general question, you may answer normally.`;
-
-// Shared tool definitions for both free and premium paths
-const agentTools = {
-  applyFormatting: tool({
-    description: "Applies styles like color, bold, italics, or text alignment to the entire document text.",
-    inputSchema: z.object({
-      color: z.string().optional().describe("A valid CSS color name or hex code (e.g. 'pink', '#ff0000'). Use 'default' to remove color."),
-      bold: z.boolean().optional().describe("Set to true to make text bold."),
-      italic: z.boolean().optional().describe("Set to true to make text italic."),
-      align: z.enum(["left", "center", "right"]).optional().describe("Text alignment direction."),
-    }),
-  }),
-  replaceBlock: tool({
-    description: "Replaces a specific block of text in the document. Use this when the user asks to edit, rewrite, delete, or translate specific content.",
-    inputSchema: z.object({
-      blockIndex: z.number().describe("The integer ID of the block to replace (e.g., 0, 1, 2) based on the provided document context."),
-      newContent: z.string().describe("The new Markdown content for this block. Send an empty string '' to completely delete the block."),
-    }),
-  }),
-  insertBlocks: tool({
-    description: "Inserts new text or blocks (like markdown lists, tables) below the current selection.",
-    inputSchema: z.object({
-      content: z.string().describe("The Markdown content to insert."),
-    }),
-  }),
-};
+- Return ONLY blocks you changed, added, or deleted. Do NOT return unchanged blocks.
+- Be thorough: if the instruction affects a block, include it. Do NOT skip blocks that need changes.
+- If a block becomes empty or irrelevant after your edits, explicitly delete it with [DELETE].
+- Do NOT include the » character anywhere in your content.
+- No explanations, no commentary — output ONLY the block lines.
+- If the user asks a general question (not editing), answer normally without block markers.`;
 
 router.post(
   "/",
   requireAuth,
   async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
-    const body = req.body;
+    const { markdown, instruction } = req.body;
 
-    const { messages, documentContext } = body;
-
-    if (!messages) {
-      res.status(400).json({ error: "Missing messages" });
+    if (!instruction?.trim()) {
+      res.status(400).json({ error: "Missing instruction" });
       return;
     }
+
+    // Allow empty markdown for empty documents
+    const safeMarkdown = markdown || "(Document is empty)";
 
     const user = await createOrUpdateUser(authReq.userId, {
       email: authReq.userEmail,
@@ -104,11 +86,10 @@ router.post(
     }, "BlackNote");
 
     const isPro = user.credits > 0;
-    
+
     // Estimate tokens to decide routing
-    const contextString = `${SYSTEM_PROMPT}\n\n--- CURRENT DOCUMENT CONTENT ---\n${documentContext || "Document is empty."}\n--- END DOCUMENT ---`;
-    const messageString = JSON.stringify(messages);
-    const totalInputTokens = Math.ceil((contextString.length + messageString.length) / 4);
+    const fullPrompt = `${SYSTEM_PROMPT}\n\n${safeMarkdown}\n\n---\nInstruction: ${instruction}`;
+    const totalInputTokens = Math.ceil(fullPrompt.length / 4);
 
     let model;
     let actualModelName = PREMIUM_MODEL;
@@ -120,20 +101,25 @@ router.post(
       actualModelName = FALLBACK_FREE_MODEL;
       console.log(`[Agent Free] Tokens ${totalInputTokens} > limit, routing to Gemini`);
     } else {
-      // Randomly rotate Groq models
       const groqModelName = GROQ_MODELS[Math.floor(Math.random() * GROQ_MODELS.length)];
       model = groq(groqModelName);
       actualModelName = groqModelName;
       console.log(`[Agent Free] Routing to Groq: ${groqModelName}`);
     }
 
+    // Plain text streaming headers
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+
     try {
       const result = streamText({
         model,
-        system: contextString,
-        messages,
-        // @ts-ignore - The Vercel SDK version typings for tool differ but runtime expects parameters
-        tools: agentTools,
+        system: SYSTEM_PROMPT,
+        messages: [
+          { role: "user", content: `${safeMarkdown}\n\n---\nInstruction: ${instruction}` },
+        ],
         onFinish: ({ usage }) => {
           if (usage) {
             const creditsUsed = isPro ? calculateTokenCost({
@@ -159,11 +145,17 @@ router.post(
         },
       });
 
-      // @ts-ignore - The Vercel SDK version we installed might have different response methods
-      result.pipeUIMessageStreamToResponse(res);
+      for await (const chunk of result.textStream) {
+        res.write(chunk);
+      }
+      res.end();
     } catch (err) {
       console.error("[Agent AI] Error:", err);
-      res.status(500).json({ error: "Internal server error" });
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Internal server error" });
+      } else {
+        res.end();
+      }
     }
   }
 );
