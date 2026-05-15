@@ -622,7 +622,11 @@ export function App() {
         }).run();
       }
       try {
-        await recorderRef2.current.startAudioRecording(skipMic, isPremium);
+        const success = await recorderRef2.current.startAudioRecording(skipMic, isPremium);
+        if (!success && detail?.editor && insertedMediaId) {
+          removeEditorNode(detail.editor, "audioNode", insertedMediaId);
+          recordingEditorRef.current = null;
+        }
       } catch (err: any) {
         console.warn("[App] Audio recording failed:", err?.name, err?.message);
         // Remove the inserted node since recording failed
