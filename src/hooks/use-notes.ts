@@ -124,20 +124,6 @@ export function useNotes() {
                     {
                       type: "paragraph",
                       content: [
-                        { type: "text", marks: [{ type: "bold" }], text: "Chat with Note: " },
-                        { type: "text", text: "Click the " },
-                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#3b82f6" } }, { type: "bold" }], text: "Sparkles icon" },
-                        { type: "text", text: " on the top right to talk directly with your document. Ask questions, extract insights, and get instant answers." }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  type: "listItem",
-                  content: [
-                    {
-                      type: "paragraph",
-                      content: [
                         { type: "text", marks: [{ type: "bold" }], text: "Audio & Video AI: " },
                         { type: "text", text: "Type " },
                         { type: "text", marks: [{ type: "textStyle", attrs: { color: "#fbbf24" } }, { type: "bold" }], text: "/" },
@@ -158,10 +144,12 @@ export function useNotes() {
                     {
                       type: "paragraph",
                       content: [
-                        { type: "text", marks: [{ type: "bold" }], text: "Smart Commands: " },
-                        { type: "text", text: "Type " },
-                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#fbbf24" } }, { type: "bold" }], text: "/" },
-                        { type: "text", text: " anywhere to quickly insert text formatting, headings, lists, or record media." }
+                        { type: "text", marks: [{ type: "bold" }], text: "Autonomous AI Agent: " },
+                        { type: "text", text: "Highlight any text and press " },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#a855f7" } }, { type: "bold" }], text: "Ask AI" },
+                        { type: "text", text: " (or click the floating Agent button) to have the AI autonomously edit, format, translate, or rewrite your content. Watch it work and " },
+                        { type: "text", marks: [{ type: "bold" }], text: "review changes inline" },
+                        { type: "text", text: " block-by-block!" }
                       ]
                     }
                   ]
@@ -172,10 +160,24 @@ export function useNotes() {
                     {
                       type: "paragraph",
                       content: [
-                        { type: "text", marks: [{ type: "bold" }], text: "Contextual Magic: " },
-                        { type: "text", text: "Highlight any text and press " },
-                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#a855f7" } }, { type: "bold" }], text: "Ask AI" },
-                        { type: "text", text: " to effortlessly rewrite, translate, or polish your writing like a pro." }
+                        { type: "text", marks: [{ type: "bold" }], text: "Chat with Note: " },
+                        { type: "text", text: "Click the " },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#3b82f6" } }, { type: "bold" }], text: "Sparkles icon" },
+                        { type: "text", text: " on the top right to talk directly with your document. Ask questions, extract insights, and get instant answers." }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: "listItem",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [
+                        { type: "text", marks: [{ type: "bold" }], text: "Smart Commands: " },
+                        { type: "text", text: "Type " },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#fbbf24" } }, { type: "bold" }], text: "/" },
+                        { type: "text", text: " anywhere to quickly insert text formatting, headings, lists, or record media." }
                       ]
                     }
                   ]
@@ -247,7 +249,7 @@ export function useNotes() {
             await db.media_transcripts.put({
               mediaId: "welcome-audio",
               segments: [],
-              transcript: "Welcome to BlackNote, your intelligent workspace! Here are some powerful features to get you started. You can chat directly with your document by clicking the Sparkles icon on the top right. Ask questions, extract insights, and get instant answers. Type a slash to record Audio or Screen Video directly into your note. Then, click the media block to transcribe, summarize, and even chat with your media to extract key points. Use the slash command anywhere to quickly insert formatting, or highlight any text and press Ask AI to rewrite, translate, and polish your writing like a pro. The Web Clipper lets you instantly capture content, even from YouTube videos, saving it directly to your notes. And with seamless sync, simply connect your Google account to keep all your ideas securely across your devices. Ready to elevate your productivity? Happy writing!",
+              transcript: "Welcome to BlackNote, your intelligent workspace! Here are some powerful features to get you started. Type a slash to record Audio or Screen Video directly into your note. Then, click the media block to transcribe, summarize, and even chat with your media to extract key points. With our new Autonomous AI Agent, simply highlight any text and press Ask AI to have the AI autonomously edit, format, translate, or rewrite your content. Watch it work and review changes inline! You can also chat directly with your document by clicking the Sparkles icon on the top right. Ask questions, extract insights, and get instant answers. Use the slash command anywhere to quickly insert formatting. The Web Clipper lets you instantly capture content, even from YouTube videos, saving it directly to your notes. And with seamless sync, simply connect your Google account to keep all your ideas securely across your devices. Ready to elevate your productivity? Happy writing!",
               language: "en",
               analyzedAt: now,
             });
