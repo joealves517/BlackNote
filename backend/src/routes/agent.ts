@@ -49,12 +49,13 @@ OUTPUT FORMAT — follow exactly:
 FORMATTING SYNTAX the editor supports (use freely when appropriate):
 - Markdown: # headings, **bold**, *italic*, ~~strikethrough~~, \`inline code\`, \`\`\`code blocks\`\`\`
 - Lists: - bullet items, 1. numbered items
-- Task lists: - [ ] unchecked, - [x] checked
+- Task lists (Must use exact syntax): - [ ] unchecked task, - [x] checked task (Example: «new» - [ ] Buy milk)
 - Blockquote: > text
 - Horizontal rule: ---
 - Links: [text](url)
 - Tables: GFM pipe syntax
-- HTML inline: <u>underline</u>, <mark>highlight</mark>, <span style="color:hex">colored text</span>
+- HTML inline: <u>underline</u>, <mark>highlight</mark>
+- Colors (Use span with style): <span style="color: red">red text</span>, <span style="color: #ff0000">hex text</span> (Example: «b0» <span style="color: blue">Blue text</span>)
 
 RULES:
 - Return ONLY blocks you changed, added, or deleted. Do NOT return unchanged blocks.
