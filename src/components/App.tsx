@@ -16,7 +16,7 @@ import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { motion, AnimatePresence } from "framer-motion";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Mic, MicOff, Menu, Sparkles } from "lucide-react";
+import { Mic, MicOff, Menu, Sparkles, AppWindow, PanelRight } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
 import { RecordingHeader } from "@/components/RecordingHeader";
 import { AIErrorSheet } from "@/components/AIErrorSheet";
@@ -161,8 +161,12 @@ export function App() {
   // Remove region overlay when recording stops
   useEffect(() => {
     if ((previousRecorderState.current === "recording" || previousRecorderState.current === "paused") && (recorder.state === "idle" || recorder.state === "saving")) {
-      chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
-        if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: "STOP_REGION_SELECTION" }).catch(() => { });
+      chrome.windows.getLastFocused({ windowTypes: ['normal'] }).then((win) => {
+        if (win?.id) {
+          chrome.tabs.query({ active: true, windowId: win.id }).then(([tab]) => {
+            if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: "STOP_REGION_SELECTION" }).catch(() => { });
+          });
+        }
       });
     }
     previousRecorderState.current = recorder.state;
@@ -326,6 +330,105 @@ export function App() {
     }
   }, [activePanel]);
 
+  // ─── Always on Top (Pop-out Window) ───
+  const [isPinnedToTop, setIsPinnedToTop] = useState(false);
+  const pipWindowRef = useRef<number | null>(null);
+
+  // Detect if THIS instance is the pop-out window (via URL param from background)
+  const isPopoutInstance = useRef(
+    new URLSearchParams(window.location.search).get("popout") === "1"
+  );
+  
+  const sourceWindowId = useRef(
+    new URLSearchParams(window.location.search).get("sourceWindowId")
+  );
+
+  // Track if a pop-out window is active (for the side panel instance to show placeholder)
+  const [popoutActive, setPopoutActive] = useState(false);
+
+  // On mount: check if a pop-out is already active; listen for changes
+  useEffect(() => {
+    // Mark this pop-out instance as active
+    if (isPopoutInstance.current) {
+      chrome.storage.local.set({ blacknote_popout_active: true });
+
+      // When this pop-out window closes, clear the flag
+      const handleBeforeUnload = () => {
+        chrome.storage.local.set({ blacknote_popout_active: false });
+      };
+      window.addEventListener("beforeunload", handleBeforeUnload);
+      return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    }
+
+    // Side panel instance: listen for pop-out state changes
+    chrome.storage.local.get("blacknote_popout_active", (res) => {
+      setPopoutActive(!!res.blacknote_popout_active);
+    });
+
+    const handleStoragePopout = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes.blacknote_popout_active) {
+        const isActive = !!changes.blacknote_popout_active.newValue;
+        setPopoutActive(isActive);
+        
+        // If the side panel detects the popout just became active,
+        // we can close the side panel to completely switch to the popout
+        if (isActive && !isPopoutInstance.current) {
+          window.close();
+        }
+      }
+    };
+    chrome.storage.local.onChanged.addListener(handleStoragePopout);
+    return () => chrome.storage.local.onChanged.removeListener(handleStoragePopout);
+  }, []);
+
+  // ─── Pop-out toggle handler ───
+  const handleTogglePiP = useCallback(async () => {
+    // If THIS is the pop-out instance, clicking the pin button closes it and returns to side panel
+    if (isPopoutInstance.current) {
+      // Send the message synchronously to preserve the user gesture
+      const winId = sourceWindowId.current ? parseInt(sourceWindowId.current, 10) : undefined;
+      if (winId) {
+        chrome.runtime.sendMessage({ type: "OPEN_SIDE_PANEL", windowId: winId });
+      }
+      setTimeout(() => window.close(), 50); // Small delay to ensure message fires
+      return;
+    }
+
+    // If already popped out from the side panel, close the window via background script
+    if (isPinnedToTop && pipWindowRef.current) {
+      chrome.runtime.sendMessage({
+        type: "CLOSE_PIP_WINDOW",
+        windowId: pipWindowRef.current,
+      });
+      pipWindowRef.current = null;
+      setIsPinnedToTop(false);
+      return;
+    }
+
+    try {
+      const container = document.getElementById("blacknote-app-container");
+      const width = container?.clientWidth || 420;
+      const height = container?.clientHeight || 650;
+      
+      const currentWin = await chrome.windows.getCurrent();
+
+      const response = await chrome.runtime.sendMessage({
+        type: "OPEN_PIP_WINDOW",
+        payload: { width, height, sourceWindowId: currentWin.id },
+      });
+
+      if (response?.windowId) {
+        pipWindowRef.current = response.windowId;
+        setIsPinnedToTop(true);
+        // Automatically close the side panel when the pop-out is opened
+        if (!isPopoutInstance.current) {
+          window.close();
+        }
+      }
+    } catch (err) {
+      console.error("Failed to open pop-out window:", err);
+    }
+  }, [isPinnedToTop]);
 
   // Removed Global AI Thinking listener as all thinking states are now localized in bottom sheets.
 
@@ -905,6 +1008,48 @@ export function App() {
   };
 
 
+  // When a pop-out window is active, the side panel shows a placeholder
+  // to prevent dual-instance editing conflicts
+  if (popoutActive && !isPopoutInstance.current) {
+    return (
+      <div
+        className="relative flex h-screen w-full overflow-hidden items-center justify-center"
+        style={{ backgroundColor: "hsl(var(--background))" }}
+      >
+        <div className="flex flex-col items-center gap-4 text-center px-6 max-w-[280px]">
+          <div className="w-12 h-12 rounded-2xl bg-muted/50 flex items-center justify-center">
+            <AppWindow className="w-6 h-6 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              Using pop-out window
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              BlackNote is open in a separate window. Close it to return here.
+            </p>
+          </div>
+          <button
+            className="text-xs px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+            onClick={() => {
+              chrome.storage.local.set({ blacknote_popout_active: false });
+              // Also try to close the pop-out window if we have its ID
+              if (pipWindowRef.current) {
+                chrome.runtime.sendMessage({
+                  type: "CLOSE_PIP_WINDOW",
+                  windowId: pipWindowRef.current,
+                });
+                pipWindowRef.current = null;
+                setIsPinnedToTop(false);
+              }
+            }}
+          >
+            Close pop-out & return
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       id="blacknote-app-container"
@@ -1179,8 +1324,12 @@ export function App() {
             window.dispatchEvent(new CustomEvent("stop-meet-sync"));
           }
 
-          chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
-            if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: "STOP_REGION_SELECTION" }).catch(() => { });
+          chrome.windows.getLastFocused({ windowTypes: ['normal'] }).then((win) => {
+            if (win?.id) {
+              chrome.tabs.query({ active: true, windowId: win.id }).then(([tab]) => {
+                if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: "STOP_REGION_SELECTION" }).catch(() => { });
+              });
+            }
           });
         }}
         onRetry={() => {
@@ -1353,6 +1502,26 @@ export function App() {
                   <MoonIcon size={20} className="w-5 h-5" />
                 ) : (
                   <SunIcon size={20} className="w-5 h-5" />
+                )}
+              </button>
+
+              {/* Always on Top — Pop-out Window */}
+              <button
+                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                onClick={handleTogglePiP}
+                data-tooltip={
+                  isPopoutInstance.current
+                    ? "Back to side panel"
+                    : isPinnedToTop
+                    ? "Close pop-out"
+                    : "Pop out window"
+                }
+                data-placement="left"
+              >
+                {isPinnedToTop || isPopoutInstance.current ? (
+                  <PanelRight className="w-5 h-5" />
+                ) : (
+                  <AppWindow className="w-5 h-5" />
                 )}
               </button>
 

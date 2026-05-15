@@ -424,22 +424,23 @@ export function AgentInput() {
       style={{ bottom: "5px" }}
     >
       <div
-        className={`pointer-events-auto flex flex-col overflow-hidden transition-all duration-300 ease-out backdrop-blur-xl ${isExpanded ? "w-full max-w-[600px] rounded-[32px]" : "w-[76px] h-[18px] rounded-full cursor-pointer items-center justify-center hover:brightness-110"
+        className={`relative pointer-events-auto flex flex-col overflow-hidden transition-all duration-300 ease-out ${isExpanded ? "w-full max-w-[600px] rounded-[32px]" : "w-[76px] h-[18px] rounded-full cursor-pointer items-center justify-center hover:brightness-110"
           }`}
         style={{
-          background: "hsl(var(--background) / 0.85)",
-          border: "1px solid hsl(var(--border))",
-          boxShadow: "0 8px 32px -8px rgba(0,0,0,0.25)",
+          background: "linear-gradient(135deg, rgba(120, 120, 128, var(--icon-bg-start)) 0%, rgba(120, 120, 128, var(--icon-bg-end)) 100%), hsl(var(--background) / 0.82)",
           backdropFilter: "blur(40px) saturate(200%)",
           WebkitBackdropFilter: "blur(40px) saturate(200%)",
+          boxShadow: "0 8px 32px -8px rgba(0,0,0,0.25)",
+          border: isExpanded ? "0.5px solid hsl(var(--border))" : "none",
         }}
         onClick={() => { if (!isExpanded) setIsExpanded(true); }}
         onMouseEnter={() => { if (!isExpanded) setIsExpanded(true); }}
       >
-        {!isExpanded ? (
-          <span style={{ fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", paddingTop: "1px" }}>✦</span>
-        ) : (
-          <div className="flex flex-col w-full h-full animate-in fade-in duration-300">
+        <div className="relative z-10 flex flex-col items-center justify-center w-full h-full">
+          {!isExpanded ? (
+            <span style={{ fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", paddingTop: "1px" }}>✦</span>
+          ) : (
+            <div className="flex flex-col w-full h-full animate-in fade-in duration-300">
             {/* Loading State */}
             {isProcessing ? (
               <div className="px-5 py-2.5 flex items-center gap-2.5 text-muted-foreground">
@@ -521,6 +522,7 @@ export function AgentInput() {
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

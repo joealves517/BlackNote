@@ -378,9 +378,12 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
               <button
                 className="novel-slash-item w-full text-left"
                 onClick={async () => {
-                  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-                  if (tab?.id) {
-                    chrome.tabs.sendMessage(tab.id, { action: "start-region-capture" });
+                  const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
+                  if (win?.id) {
+                    const [tab] = await chrome.tabs.query({ active: true, windowId: win.id });
+                    if (tab?.id) {
+                      chrome.tabs.sendMessage(tab.id, { action: "start-region-capture" });
+                    }
                   }
                   onClose();
                 }}
