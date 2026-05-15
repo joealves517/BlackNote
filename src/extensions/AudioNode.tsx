@@ -143,6 +143,14 @@ function AudioNodeView({ node, deleteNode }: AudioNodeViewProps) {
     if (status !== "saved" || !mediaId) return;
 
     let revoked = false;
+
+    if (mediaId === "welcome-audio") {
+      const url = chrome.runtime.getURL("welcome-blacknote.mp3");
+      setAudioUrl(url);
+      setHasTranscript(true); // Welcome note always has transcript
+      return;
+    }
+
     db.media_files
       .get(mediaId)
       .then((file) => {
