@@ -467,13 +467,23 @@ export function AgentInput() {
             <div className="flex flex-col w-full h-full animate-in fade-in duration-300">
             {/* Loading State */}
             {isProcessing ? (
-              <div className="px-5 py-2.5 flex items-center gap-2.5 text-muted-foreground">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 bg-zinc-500 dark:bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <div className="w-1.5 h-1.5 bg-zinc-500 dark:bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <div className="w-1.5 h-1.5 bg-zinc-500 dark:bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              <div className="px-5 py-3 flex items-center gap-3 text-muted-foreground">
+                <div className="flex items-center gap-1.5 px-1">
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className="w-1.5 h-1.5 bg-primary/70 rounded-full"
+                      animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
+                      transition={{
+                        duration: 1.2,
+                        repeat: Infinity,
+                        delay: i * 0.2,
+                        ease: "easeInOut",
+                      }}
+                    />
+                  ))}
                 </div>
-                <span className="text-[14px] font-medium w-20">Working{loadingDots}</span>
+                <span className="text-[14px] font-medium w-20 text-foreground/70">Thinking{loadingDots}</span>
               </div>
             ) : hasPendingModifications ? (
               /* Review Mode */
