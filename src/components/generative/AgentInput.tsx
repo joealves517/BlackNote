@@ -376,7 +376,9 @@ export function AgentInput() {
         setHasPendingModifications(true);
       } else {
         // No block markers → AI answered a general question
-        setAgentMessage(fullText.trim() || null);
+        // Strip out any <think> tags and their contents
+        const cleanText = fullText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+        setAgentMessage(cleanText || null);
         snapshotRef.current = null;
       }
     } catch (err) {
@@ -420,9 +422,31 @@ export function AgentInput() {
 
   return (
     <div
-      className="absolute inset-x-0 z-50 flex justify-center pointer-events-none px-4 transition-all duration-300"
+      className="absolute inset-x-0 z-50 flex flex-col items-center justify-end pointer-events-none px-4 transition-all duration-300 gap-3"
       style={{ bottom: "5px" }}
     >
+      {/* Agent text message (for general Q&A responses) floats ABOVE the prompt */}
+      <AnimatePresence>
+        {agentMessage && !isProcessing && !hasPendingModifications && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+            className="pointer-events-auto w-full max-w-[600px] p-5 rounded-[28px]"
+            style={{
+              background: "linear-gradient(135deg, rgba(120, 120, 128, var(--icon-bg-start)) 0%, rgba(120, 120, 128, var(--icon-bg-end)) 100%), hsl(var(--background) / 0.82)",
+              backdropFilter: "blur(40px) saturate(200%)",
+              WebkitBackdropFilter: "blur(40px) saturate(200%)",
+              boxShadow: "0 12px 40px -12px rgba(0,0,0,0.3)",
+              border: "0.5px solid rgba(120, 120, 128, 0.2)",
+            }}
+          >
+            <div className="text-[14px] text-foreground leading-relaxed max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              {agentMessage}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div
         className={`relative pointer-events-auto flex flex-col overflow-hidden transition-all duration-300 ease-out ${isExpanded ? "w-full max-w-[600px] rounded-[32px]" : "w-[76px] h-[18px] rounded-full cursor-pointer items-center justify-center hover:brightness-110"
           }`}
@@ -512,13 +536,6 @@ export function AgentInput() {
                   <ArrowUpIcon className="w-4 h-4" />
                 </button>
               </form>
-            )}
-
-            {/* Agent text message (for general Q&A responses) */}
-            {agentMessage && !isProcessing && !hasPendingModifications && (
-              <div className="px-5 pb-2 text-[13px] text-muted-foreground leading-relaxed max-h-[120px] overflow-y-auto">
-                {agentMessage}
-              </div>
             )}
           </div>
         )}
