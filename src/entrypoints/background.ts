@@ -72,14 +72,22 @@ export default defineBackground(() => {
 
       // Pop out the side panel into a standalone floating window
       if (message.type === "OPEN_PIP_WINDOW") {
-        const { width, height, sourceWindowId } = message.payload || {};
-        chrome.windows.create({
+        const { width, height, sourceWindowId, left, top } = message.payload || {};
+        
+        const createOptions: chrome.windows.CreateData = {
           url: chrome.runtime.getURL("sidepanel.html") + "?popout=1&sourceWindowId=" + (sourceWindowId || ""),
           type: "popup",
           width: width || 420,
           height: height || 650,
           focused: true,
-        }, (win) => {
+        };
+
+        if (left !== undefined && top !== undefined) {
+          createOptions.left = Math.round(left);
+          createOptions.top = Math.round(top);
+        }
+
+        chrome.windows.create(createOptions, (win) => {
           if (win?.id) {
             popoutWindowId = win.id;
             // Disable default side panel behavior so we can intercept the action click to focus the popout
