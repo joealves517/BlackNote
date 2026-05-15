@@ -147,7 +147,7 @@ export const HashtagExtension = Mention.extend({
 
               popup = tippy("body", {
                 getReferenceClientRect: props.clientRect,
-                appendTo: () => document.body,
+                appendTo: () => document.getElementById("blacknote-root") || document.body,
                 content: component.element,
                 showOnCreate: true,
                 interactive: true,

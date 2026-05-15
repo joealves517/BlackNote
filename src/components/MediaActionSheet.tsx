@@ -253,7 +253,7 @@ export function MediaActionSheet({
 
       <motion.div
         className={`clipper-sheet mx-auto ${phase !== "analyzed" ? "account-sheet" : ""}`}
-        style={{ maxWidth: 600 }}
+        style={{ maxWidth: 400 }}
         initial={{ bottom: "-100%" }}
         animate={{ bottom: 0 }}
         exit={{ bottom: "-100%" }}

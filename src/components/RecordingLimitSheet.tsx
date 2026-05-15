@@ -78,7 +78,7 @@ export function RecordingLimitSheet({
           <motion.div
             key="recording-limit-sheet"
             className="clipper-sheet account-sheet mx-auto"
-            style={{ maxWidth: 600 }}
+            style={{ maxWidth: 400 }}
             initial={{ bottom: "-100%" }}
             animate={{ bottom: 0 }}
             exit={{ bottom: "-100%" }}

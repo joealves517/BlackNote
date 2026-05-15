@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 
-type Placement = "top" | "bottom";
+type Placement = "top" | "bottom" | "left";
 
 interface TooltipState {
   x: number;
@@ -26,16 +26,22 @@ export function GlobalTooltip() {
   const show = useCallback((el: HTMLElement, title: string) => {
     const rect = el.getBoundingClientRect();
     const viewportW = window.innerWidth;
+    const requestedPlacement = el.getAttribute("data-placement") as Placement | null;
 
-    // Decide placement: prefer top, fallback to bottom if clipped
-    const spaceAbove = rect.top;
-    const placement: Placement =
-      spaceAbove < TOOLTIP_HEIGHT_ESTIMATE + TOOLTIP_GAP ? "bottom" : "top";
+    let placement: Placement = "top";
+    let x = 0;
+    let y = 0;
 
-    const y = placement === "top" ? rect.top : rect.bottom;
-
-    // Clamp horizontal center within viewport
-    const x = Math.max(40, Math.min(rect.left + rect.width / 2, viewportW - 40));
+    if (requestedPlacement === "left") {
+      placement = "left";
+      x = rect.left;
+      y = rect.top + rect.height / 2;
+    } else {
+      const spaceAbove = rect.top;
+      placement = spaceAbove < TOOLTIP_HEIGHT_ESTIMATE + TOOLTIP_GAP ? "bottom" : "top";
+      y = placement === "top" ? rect.top : rect.bottom;
+      x = Math.max(40, Math.min(rect.left + rect.width / 2, viewportW - 40));
+    }
 
     setState({ x, y, placement });
     setText(title);
@@ -96,7 +102,7 @@ export function GlobalTooltip() {
 
   return createPortal(
     <div
-      className={`custom-tooltip ${isTop ? "custom-tooltip-top" : "custom-tooltip-bottom"}`}
+      className={`custom-tooltip ${state.placement === "left" ? "custom-tooltip-left" : isTop ? "custom-tooltip-top" : "custom-tooltip-bottom"}`}
       style={{
         left: `${state.x}px`,
         top: `${state.y}px`,
@@ -104,6 +110,6 @@ export function GlobalTooltip() {
     >
       {text}
     </div>,
-    document.body
+    document.getElementById("blacknote-root") || document.body
   );
 }

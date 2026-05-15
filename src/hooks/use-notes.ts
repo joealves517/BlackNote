@@ -491,12 +491,19 @@ export function useNotes() {
       if (activeNoteId && activeNoteId !== newId) {
         const currentActive = notes.find((n) => n.id === activeNoteId);
         if (isNoteEmpty(currentActive)) {
-          deleteNote(activeNoteId);
+          // Inline synchronous state removal so React batches it
+          // with setActiveNoteId into a single render — no null flash
+          const removedId = activeNoteId;
+          setNotes((prev) => prev.filter((n) => n.id !== removedId));
+
+          // Fire-and-forget DB + cloud cleanup (no await = no extra render)
+          db.notes.delete(removedId).catch(() => {});
+          if (userId) deleteRemoteNote(removedId);
         }
       }
       setActiveNoteId(newId);
     },
-    [activeNoteId, notes, deleteNote]
+    [activeNoteId, notes, userId]
   );
 
   return {

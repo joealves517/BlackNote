@@ -188,7 +188,7 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
       />
       <motion.div
         className={`history-sheet ai-shadow ${isProcessing ? "account-sheet" : ""}`}
-        style={{ display: "flex", flexDirection: "column", maxWidth: 800, margin: "0 auto", height: "auto" }}
+        style={{ display: "flex", flexDirection: "column", maxWidth: 400, margin: "0 auto", height: "auto" }}
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
@@ -233,7 +233,8 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
                     {/* Import Row */}
                     {/* Import Row */}
                     <div
-                      className="novel-slash-item w-full text-left"
+                      className="novel-slash-item w-full text-left cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
                       onMouseEnter={() => iconRefs.upload.current?.startAnimation()}
                       onMouseLeave={() => iconRefs.upload.current?.stopAnimation()}
                     >
@@ -254,19 +255,15 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
                           </p>
                         )}
                       </div>
-                      <div className="mr-1">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                          className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                        >
-                          <PlusIcon size={16} />
-                        </button>
+                      <div className="mr-1 flex items-center justify-center w-7 h-7 text-muted-foreground group-hover:text-foreground transition-colors">
+                        <PlusIcon size={16} />
                       </div>
                     </div>
 
                     {/* Export Row */}
                     <div
-                      className="novel-slash-item w-full text-left"
+                      className="novel-slash-item w-full text-left cursor-pointer"
+                      onClick={handleExportPdf}
                       onMouseEnter={() => iconRefs.download.current?.startAnimation()}
                       onMouseLeave={() => iconRefs.download.current?.stopAnimation()}
                     >
@@ -283,48 +280,11 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
                           Save as PDF
                         </p>
                       </div>
-                      <div className="mr-1">
-                        <button
-                          onClick={handleExportPdf}
-                          className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                        >
-                          <DownloadIcon size={16} />
-                        </button>
+                      <div className="mr-1 flex items-center justify-center w-7 h-7 text-muted-foreground group-hover:text-foreground transition-colors">
+                        <DownloadIcon size={16} />
                       </div>
                     </div>
 
-                    {/* Theme Row */}
-                    <div
-                      className="novel-slash-item w-full text-left cursor-pointer"
-                      onClick={(e) => { e.stopPropagation(); toggleTheme?.(); }}
-                      onMouseEnter={() => iconRefs.theme.current?.startAnimation()}
-                      onMouseLeave={() => iconRefs.theme.current?.stopAnimation()}
-                    >
-                      <div className="novel-slash-icon" style={{
-                        background: "linear-gradient(135deg, rgba(245, 158, 11, var(--icon-bg-start)) 0%, rgba(245, 158, 11, var(--icon-bg-end)) 100%)",
-                        border: "1px solid rgba(245, 158, 11, var(--icon-border))",
-                        color: "rgba(245, 158, 11, 1)",
-                      }}>
-                        {theme === "light" ? (
-                          <MoonIcon ref={iconRefs.theme} size={16} className="w-4 h-4" />
-                        ) : (
-                          <SunIcon ref={iconRefs.theme} size={16} className="w-4 h-4" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-[13px] font-medium">Appearance</p>
-                        <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                          {theme === "light" ? "Dark Mode" : "Light Mode"}
-                        </p>
-                      </div>
-                      <div className="mr-1 flex items-center justify-center text-muted-foreground">
-                        {theme === "light" ? (
-                          <ToggleLeftIcon size={18} className="w-4.5 h-4.5" />
-                        ) : (
-                          <ToggleRightIcon size={18} className="w-4.5 h-4.5 text-foreground" />
-                        )}
-                      </div>
-                    </div>
 
                     {/* Agent Toggle Row */}
                     <div
@@ -344,7 +304,7 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
                           {hideAgent ? "Hidden" : "Visible"}
                         </p>
                       </div>
-                      <div className="mr-1 flex items-center justify-center text-muted-foreground">
+                      <div className="mr-1 flex items-center justify-center w-7 h-7 text-muted-foreground group-hover:text-foreground transition-colors">
                         {hideAgent ? (
                           <ToggleLeftIcon size={18} className="w-4.5 h-4.5" />
                         ) : (
@@ -369,8 +329,13 @@ export function ImportExportSheetBridge({ noteId, noteTitle, theme, toggleTheme,
 
   useEffect(() => {
     const handler = () => setShow(true);
+    const closeHandler = () => setShow(false);
+    window.addEventListener("close-import-export-sheet", closeHandler);
     window.addEventListener("open-import-export-sheet", handler);
-    return () => window.removeEventListener("open-import-export-sheet", handler);
+    return () => {
+      window.removeEventListener("open-import-export-sheet", handler);
+      window.removeEventListener("close-import-export-sheet", closeHandler);
+    };
   }, []);
 
   if (!show) return null;
@@ -381,10 +346,10 @@ export function ImportExportSheetBridge({ noteId, noteTitle, theme, toggleTheme,
         noteTitle={noteTitle}
         theme={theme}
         toggleTheme={toggleTheme}
-        onClose={() => setShow(false)}
+        onClose={() => { setShow(false); window.dispatchEvent(new CustomEvent("panel-closed")); }}
         onCreateNote={onCreateNote}
       />
     </AnimatePresence>,
-    document.body
+    document.getElementById("blacknote-root") || document.body
   );
 }

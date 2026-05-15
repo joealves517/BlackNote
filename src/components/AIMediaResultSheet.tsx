@@ -87,7 +87,7 @@ export function AIMediaResultSheet({
         style={{
           display: "flex",
           flexDirection: "column",
-          maxWidth: 800,
+          maxWidth: 600,
           margin: "0 auto",
         }}
       >

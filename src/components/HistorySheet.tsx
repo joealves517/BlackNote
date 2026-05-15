@@ -40,6 +40,24 @@ function formatRelativeTime(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function highlightText(text: string, highlight: string) {
+  if (!highlight.trim() || !text) return text;
+  
+  const escapedHighlight = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escapedHighlight})`, 'gi');
+  const parts = text.split(regex);
+  
+  return parts.map((part, i) => 
+    regex.test(part) ? (
+      <mark key={i} style={{ backgroundColor: 'hsl(var(--primary) / 0.3)', color: 'inherit', borderRadius: '3px', padding: '0 2px' }}>
+        {part}
+      </mark>
+    ) : (
+      <span key={i}>{part}</span>
+    )
+  );
+}
+
 export function HistorySheet({
   notes,
   activeNoteId,
@@ -202,7 +220,7 @@ export function HistorySheet({
               color: isActive ? "hsl(var(--foreground))" : "hsl(var(--sidebar-fg))"
             }}
           >
-            {note.title || "Untitled"}
+            {highlightText(note.title || "Untitled", searchQuery)}
           </span>
           <div
             className="flex items-center justify-center shrink-0 w-4 h-4 cursor-pointer mt-0.5"
@@ -242,7 +260,7 @@ export function HistorySheet({
               overflow: "hidden",
             }}
           >
-            {snippet}
+            {highlightText(snippet, searchQuery)}
           </p>
         )}
 

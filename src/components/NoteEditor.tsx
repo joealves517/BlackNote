@@ -10,6 +10,7 @@ import { VideoNode } from "@/extensions/VideoNode";
 import { AudioLinesIcon } from "@/components/icons/audio-lines";
 import { MicIcon } from "@/components/icons/mic";
 import { VideoIcon } from "@/components/icons/video";
+import { MeetIcon } from "@/components/icons/meet";
 import { ScanTextIcon } from "@/components/icons/scan-text";
 import { Minus, Strikethrough } from "lucide-react";
 import { BoldIcon } from "@/components/icons/bold";
@@ -61,6 +62,7 @@ import TableCell from "@tiptap/extension-table-cell";
 import ImageResize from "tiptap-extension-resize-image";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
+import { AgentDecorationExtension } from "@/extensions/AgentDecoration";
 
 import { Button } from "@/components/ui/button";
 import { GenerativeMenuSwitch } from "@/components/generative/GenerativeMenuSwitch";
@@ -76,20 +78,6 @@ import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
 import { HashtagExtension } from "@/components/generative/HashtagSuggestion";
 import type { Note } from "@/hooks/use-notes";
 import { useSpeech } from "@/hooks/use-speech";
-
-const MeetIcon = ({ className }: { className?: string }) => (
-  <svg className={className} width="100%" height="100%" viewBox="0 -22.5 256 256" version="1.1" xmlns="http://www.w3.org/2000/svg">
-    <g>
-        <polygon fill="#00832D" points="144.822496 105.321856 169.778926 133.848796 203.341343 155.294133 209.178931 105.50196 203.341343 56.8331137 169.136495 75.6715889"></polygon>
-        <path d="M0.000557021739,150.659712 L0.000557021739,193.089915 C0.000557021739,202.77838 7.86384724,210.643527 17.5541688,210.643527 L59.9843714,210.643527 L68.7704609,178.585069 L59.9843714,150.659712 L30.8744153,141.873623 L0.000557021739,150.659712 Z" fill="#0066DA"></path>
-        <polygon fill="#E94235" points="59.9838143 9.9475983e-14 0 59.9838143 30.875715 68.7494798 59.9838143 59.9838143 68.6102243 32.4390893"></polygon>
-        <polygon fill="#2684FC" points="0.000557021739 150.679394 59.9843714 150.679394 59.9843714 59.9832573 0.000557021739 59.9832573"></polygon>
-        <path d="M241.658683,25.3977775 L203.341157,56.8342278 L203.341157,155.29339 L241.818362,186.852385 C247.577967,191.364261 256.003849,187.251584 256.003849,179.930462 L256.003849,32.1785888 C256.003849,24.7757699 247.377439,20.6835169 241.658683,25.3977775" fill="#00AC47"></path>
-        <path d="M144.822496,105.321856 L144.822496,150.659712 L59.9843714,150.659712 L59.9843714,210.643527 L185.787731,210.643527 C195.478053,210.643527 203.341343,202.77838 203.341343,193.089915 L203.341343,155.294133 L144.822496,105.321856 Z" fill="#00AC47"></path>
-        <path d="M185.787731,0 L59.9843714,0 L59.9843714,59.9838143 L144.822496,59.9838143 L144.822496,105.32167 L203.341343,56.832928 L203.341343,17.5536117 C203.341343,7.86329022 195.478053,0 185.787731,0" fill="#FFBA00"></path>
-    </g>
-  </svg>
-);
 
 /**
  * Bridge: listens for content insertion events.
@@ -136,11 +124,46 @@ function AIContentInsertBridge() {
 
     window.addEventListener("insert-ai-content", handleInsert);
     window.addEventListener("insert-media-ai-result", handleMediaResult);
+    
+    // Expose for external toolbar actions
+    (window as any).activeBlackNoteEditor = editor;
+
     return () => {
       window.removeEventListener("insert-ai-content", handleInsert);
       window.removeEventListener("insert-media-ai-result", handleMediaResult);
+      if ((window as any).activeBlackNoteEditor === editor) {
+        (window as any).activeBlackNoteEditor = null;
+      }
     };
   }, [editor]);
+
+  return null;
+}
+
+/**
+ * Bridge: swaps editor content when the active note changes,
+ * avoiding full Tiptap remount (which causes visible flicker).
+ */
+function ContentSwapBridge({ noteId, content }: { noteId: string; content: string }) {
+  const { editor } = useEditor();
+  const prevNoteIdRef = useRef(noteId);
+
+  useEffect(() => {
+    if (!editor || noteId === prevNoteIdRef.current) return;
+    prevNoteIdRef.current = noteId;
+
+    const emptyDoc = { type: "doc", content: [{ type: "paragraph" }] };
+    let parsed: JSONContent = emptyDoc;
+    if (content) {
+      try {
+        const json = JSON.parse(content);
+        if (json && json.type === "doc") parsed = json;
+      } catch { /* fallback to empty */ }
+    }
+
+    // Swap content without triggering onUpdate (emitUpdate: false)
+    editor.commands.setContent(parsed, false);
+  }, [editor, noteId, content]);
 
   return null;
 }
@@ -155,6 +178,8 @@ function AISheetTrigger() {
 
   useEffect(() => {
     const handler = () => setShow(true);
+    const closeHandler = () => setShow(false);
+    window.addEventListener("close-note-chat", closeHandler);
     window.addEventListener("open-ai-sheet", handler);
     return () => window.removeEventListener("open-ai-sheet", handler);
   }, []);
@@ -182,8 +207,13 @@ function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
 
   useEffect(() => {
     const handler = () => setShow(true);
+    const closeHandler = () => setShow(false);
     window.addEventListener("open-note-chat", handler);
-    return () => window.removeEventListener("open-note-chat", handler);
+    window.addEventListener("close-note-chat", closeHandler);
+    return () => {
+      window.removeEventListener("open-note-chat", handler);
+      window.removeEventListener("close-note-chat", closeHandler);
+    };
   }, []);
 
   if (!show || !note) return null;
@@ -207,10 +237,10 @@ function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
             onUpdateNote(note.id, { chatHistory: newHistory });
           }
         }}
-        onClose={() => setShow(false)}
+        onClose={() => { setShow(false); window.dispatchEvent(new CustomEvent("panel-closed")); }}
       />
     </AnimatePresence>,
-    document.body
+    document.getElementById("blacknote-root") || document.body
   );
 }
 
@@ -246,48 +276,7 @@ const SLASH_ICON_COLORS: Record<string, string> = {
 
 // Slash command suggestions — block types only, AI moved to bubble menu
 const suggestionItems = createSuggestionItems([
-  {
-    title: "Speech to Text",
-    description: "Type with your voice",
-    searchTerms: ["voice", "dictate", "speech", "mic", "microphone"],
-    icon: <MicIcon className="h-4 w-4" />,
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).run();
-      (window as any).blackNoteSTTEditor = editor;
-      window.dispatchEvent(new CustomEvent("start-speech-to-text"));
-    },
-  },
-  {
-    title: "Record Audio",
-    description: "Record voice memo or audio",
-    searchTerms: ["record", "audio", "voice", "memo", "microphone"],
-    icon: <AudioLinesIcon className="h-4 w-4" />,
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).run();
-      window.dispatchEvent(new CustomEvent("start-audio-recording", { detail: { editor } }));
-    },
-  },
-  {
-    title: "Record Screen",
-    description: "Record screen with audio",
-    searchTerms: ["record", "screen", "video", "capture", "screencast"],
-    icon: <VideoIcon className="h-4 w-4" />,
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).run();
-      window.dispatchEvent(new CustomEvent("start-screen-recording", { detail: { editor } }));
-    },
-  },
-  {
-    title: "Meet Live Sync",
-    description: "Transcribe Google Meet live",
-    searchTerms: ["meet", "google", "live", "sync", "transcribe", "meeting"],
-    icon: <MeetIcon className="h-4 w-4" />,
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).run();
-      (window as any).blackNoteMeetEditor = editor;
-      window.dispatchEvent(new CustomEvent("start-meet-sync"));
-    },
-  },
+
   {
     title: "Text",
     description: "Plain text block",
@@ -558,6 +547,7 @@ const extensions = [
   }),
   CharacterCount,
   AIHighlight,
+  AgentDecorationExtension,
   Command.configure({
     suggestion: {
       items: () => suggestionItems,
@@ -616,7 +606,7 @@ export function NoteEditor({
 }: NoteEditorProps) {
   const [titleValue, setTitleValue] = useState(note?.title ?? "");
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [editorKey, setEditorKey] = useState(note?.id ?? "empty");
+
   const titleRef = useRef<HTMLTextAreaElement>(null);
   
   const { startRecording, stopRecording, isRecording } = useSpeech();
@@ -683,12 +673,11 @@ export function NoteEditor({
     } catch {
       return emptyDoc;
     }
-  }, [note?.content]);
+  }, [note?.id]);
 
   useEffect(() => {
     if (note) {
       setTitleValue(note.title);
-      setEditorKey(note.id);
     }
   }, [note?.id]);
 
@@ -736,13 +725,7 @@ export function NoteEditor({
       className="flex-1 flex flex-col h-full overflow-hidden relative"
       style={{ backgroundColor: "hsl(var(--background))" }}
     >
-      {/* Apple-style Top Fade Overlay */}
-      <div 
-        className="absolute top-0 left-0 right-0 h-10 z-20 pointer-events-none"
-        style={{
-          background: "linear-gradient(to bottom, hsl(var(--background)) 10%, transparent 100%)"
-        }}
-      />
+
       {/* Scrollable Container for Title + Editor */}
       <div
         className="flex-1 overflow-y-auto novel-wrapper"
@@ -778,7 +761,6 @@ export function NoteEditor({
         {/* Novel Editor */}
         <EditorRoot>
           <EditorContent
-            key={editorKey}
             className="novel-editor"
             initialContent={getInitialContent()}
             extensions={extensions}
@@ -858,7 +840,7 @@ export function NoteEditor({
               const json = editor.getJSON();
               onContentChange(note.id, JSON.stringify(json));
             }}
-            immediatelyRender={false}
+            immediatelyRender={true}
           >
 
             {/* Generative Menu — toggles between formatting + AI */}
@@ -921,6 +903,7 @@ export function NoteEditor({
             {/* AI Bottom Sheet — inside EditorContent but portaled to prevent Prosemirror scroll jumps */}
             <AISheetTrigger />
             <AIContentInsertBridge />
+            <ContentSwapBridge noteId={note.id} content={note.content} />
             <ChatSheetBridge note={note} noteTitle={titleValue} onUpdateNote={onUpdateNote} />
             <ImportExportSheetBridge 
               noteId={note.id} 

@@ -1,0 +1,35 @@
+1. Import `Menu` from `lucide-react` in App.tsx.
+2. Create state `const [showRightToolbar, setShowRightToolbar] = useState(true);` (I'll default it to true so users see it, but user can toggle it). Actually Sider has it closed by default and you toggle it. Or maybe it's just a right dock. Let's make it true by default so they know it exists.
+3. Replace the floating header with a `Menu` button on top-left:
+```tsx
+  <button 
+    className="absolute top-4 left-4 z-40 flex items-center justify-center w-8 h-8 rounded-md bg-background/50 backdrop-blur-md border border-border/10 text-muted-foreground hover:text-foreground transition-colors"
+    onClick={() => setShowRightToolbar(!showRightToolbar)}
+  >
+    <Menu size={18} />
+  </button>
+```
+4. Insert the Right Toolbar next to the Main Content:
+```tsx
+  {/* ─── Vertical Right Toolbar ─── */}
+  {showRightToolbar && !isRecording && !isSTTActive && !isMeetSyncActive && (
+    <div className="w-[56px] h-full flex-shrink-0 border-l border-border/10 bg-background/40 backdrop-blur-xl flex flex-col items-center py-4 gap-4 z-30 transition-all">
+      {/* New Note */}
+      <button ... />
+      {/* Ask AI */}
+      <button ... />
+      <div className="w-8 h-[1px] bg-border/20 my-1" />
+      {/* History */}
+      <button ... />
+      {/* Clipper */}
+      <button ... />
+      
+      <div className="mt-auto flex flex-col items-center gap-4">
+        {/* Settings */}
+        <button ... />
+        {/* Avatar */}
+        <button ... />
+      </div>
+    </div>
+  )}
+```

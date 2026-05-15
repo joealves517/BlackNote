@@ -9,6 +9,7 @@ import { CheckIcon, XIcon } from "lucide-react";
 import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
 import { DOMSerializer } from "prosemirror-model";
 import TurndownService from "turndown";
+import { agentDecorationKey } from "@/extensions/AgentDecoration";
 
 // --- Types ---
 
@@ -120,32 +121,6 @@ function parseMarkdownToNodes(md: string): any[] {
   }
 }
 
-/**
- * Highlight all text blocks within a position range.
- */
-function applyHighlight(editor: ReturnType<typeof useEditor>["editor"], from: number, to: number) {
-  if (!editor || !editor.schema.marks.highlight) return;
-  try {
-    editor.chain().command(({ tr }) => {
-      const docSize = tr.doc.content.size;
-      const safeFrom = Math.max(0, Math.min(from, docSize));
-      const safeTo = Math.max(safeFrom, Math.min(to, docSize));
-
-      tr.doc.nodesBetween(safeFrom, safeTo, (node, pos) => {
-        if (node.isTextblock && pos >= safeFrom) {
-          const tFrom = pos + 1;
-          const tTo = pos + 1 + node.content.size;
-          if (tTo > tFrom && tTo <= docSize) {
-            tr.addMark(tFrom, tTo, editor.schema.marks.highlight.create({ color: "var(--agent-highlight)" }));
-          }
-        }
-      });
-      return true;
-    }).run();
-  } catch (err) {
-    console.error("Highlight error:", err);
-  }
-}
 
 /**
  * Apply AI changes using a safe setContent approach.
@@ -207,16 +182,22 @@ function applyChanges(
   // Single atomic setContent — no position drift, no state corruption
   editor.commands.setContent({ type: "doc", content: newContent });
 
-  // Highlight the modified blocks and scroll to the first one
+  // Highlight the modified blocks using fake decorations and scroll to the first one
   let hlIdx = 0;
   let firstModifiedPos = -1;
+  const decorationRanges: {from: number, to: number}[] = [];
+  
   editor.state.doc.forEach((node, offset) => {
     if (modifiedIndices.has(hlIdx)) {
-      applyHighlight(editor, offset, offset + node.nodeSize);
+      decorationRanges.push({ from: offset, to: offset + node.nodeSize });
       if (firstModifiedPos === -1) firstModifiedPos = offset;
     }
     hlIdx++;
   });
+
+  if (decorationRanges.length > 0) {
+    editor.view.dispatch(editor.state.tr.setMeta(agentDecorationKey, { add: decorationRanges }));
+  }
 
   // Smooth scroll to the first changed block
   if (firstModifiedPos >= 0) {
@@ -411,12 +392,7 @@ export function AgentInput() {
 
   const acceptAll = useCallback(() => {
     if (!editor || !editor.state) return;
-    editor.chain().focus().command(({ tr }) => {
-      if (editor.schema.marks.highlight) {
-        tr.removeMark(0, tr.doc.content.size, editor.schema.marks.highlight);
-      }
-      return true;
-    }).run();
+    editor.view.dispatch(editor.state.tr.setMeta(agentDecorationKey, { clear: true }));
     setHasPendingModifications(false);
     snapshotRef.current = null;
     setAgentMessage(null);
@@ -425,24 +401,34 @@ export function AgentInput() {
   const rejectAll = useCallback(() => {
     if (!editor || !editor.state || !snapshotRef.current) return;
     editor.commands.setContent(snapshotRef.current);
+    editor.view.dispatch(editor.state.tr.setMeta(agentDecorationKey, { clear: true }));
     setHasPendingModifications(false);
     snapshotRef.current = null;
     setAgentMessage(null);
+  }, [editor]);
+
+  // Cleanup fake highlight on unmount
+  useEffect(() => {
+    return () => {
+      if (editor && editor.view && !editor.isDestroyed) {
+        editor.view.dispatch(editor.state.tr.setMeta(agentDecorationKey, { clear: true }));
+      }
+    };
   }, [editor]);
 
   if (!editor || isHidden) return null;
 
   return (
     <div
-      className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none px-4 transition-all duration-300"
+      className="absolute inset-x-0 z-50 flex justify-center pointer-events-none px-4 transition-all duration-300"
       style={{ bottom: "5px" }}
     >
       <div
         className={`pointer-events-auto flex flex-col overflow-hidden transition-all duration-300 ease-out backdrop-blur-xl ${isExpanded ? "w-full max-w-[600px] rounded-[32px]" : "w-[76px] h-[18px] rounded-full cursor-pointer items-center justify-center hover:brightness-110"
           }`}
         style={{
-          background: "linear-gradient(135deg, rgba(120, 120, 128, var(--icon-bg-start)) 0%, rgba(120, 120, 128, var(--icon-bg-end)) 100%), hsl(var(--background) / 0.82)",
-          border: "1px solid rgba(120, 120, 128, var(--icon-border))",
+          background: "hsl(var(--background) / 0.85)",
+          border: "1px solid hsl(var(--border))",
           boxShadow: "0 8px 32px -8px rgba(0,0,0,0.25)",
           backdropFilter: "blur(40px) saturate(200%)",
           WebkitBackdropFilter: "blur(40px) saturate(200%)",

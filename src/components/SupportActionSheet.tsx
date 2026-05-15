@@ -113,7 +113,7 @@ export function SupportActionSheet({ onClose }: SupportActionSheetProps) {
 
       <motion.div
         className="clipper-sheet mx-auto account-sheet"
-        style={{ maxWidth: 500, zIndex: 101 }}
+        style={{ maxWidth: 400, zIndex: 101 }}
         initial={{ bottom: "-100%" }}
         animate={{ bottom: 0 }}
         exit={{ bottom: "-100%" }}

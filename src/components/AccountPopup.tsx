@@ -252,19 +252,6 @@ export function AccountPopup({
 
   return (
     <div className="relative pt-4 px-4 pb-4">
-      {/* Floating Support Button */}
-      <button 
-        onClick={() => {
-          onClose();
-          setTimeout(() => window.dispatchEvent(new CustomEvent("open-support-sheet")), 200);
-        }}
-        className="absolute right-4 -top-[68px] z-20 h-[32px] px-3 rounded-full bg-[hsl(var(--background))] flex items-center justify-center gap-1.5 border border-border/80 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:scale-105 active:scale-95 transition-all shadow-sm"
-        title="Contact Support"
-      >
-        <HelpCircle className="w-[16px] h-[16px]" />
-        <span className="text-[12px] font-medium leading-none">Help</span>
-      </button>
-
       <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10">
         <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
           {getUserAvatar(user) ? (

@@ -4,15 +4,19 @@ import { PlusIcon } from "@/components/icons/plus";
 import { LayoutListIcon } from "@/components/icons/layout-list";
 import { MoonIcon } from "@/components/icons/moon";
 import { SunIcon } from "@/components/icons/sun";
-import { AIDynamicIsland } from "@/components/ui/ai-dynamic-island";
-import { SparklesIcon } from "@/components/icons/sparkles";
-import { GlobeIcon } from "@/components/icons/globe";
+import { ChevronFirstIcon } from "@/components/icons/chevron-first";
+import { ScanLineIcon } from "@/components/icons/scan-line";
+import { MicIcon } from "@/components/icons/mic";
+import { AudioLinesIcon } from "@/components/icons/audio-lines";
+import { VideoIcon } from "@/components/icons/video";
+import { MeetIcon } from "@/components/icons/meet";
+import { MessageSquareMoreIcon } from "@/components/icons/message-square-more";
 import { SettingsIcon } from "@/components/ui/settings";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { motion, AnimatePresence } from "framer-motion";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Mic, MicOff } from "lucide-react";
+import { Mic, MicOff, Menu, Sparkles } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
 import { RecordingHeader } from "@/components/RecordingHeader";
 import { AIErrorSheet } from "@/components/AIErrorSheet";
@@ -137,8 +141,6 @@ export function App() {
     }
   };
 
-
-
   const { theme, toggleTheme } = useTheme();
   const { credits, refreshCredits } = useCredits(user?.id);
   const isPremium = credits?.tier === "premium";
@@ -166,7 +168,9 @@ export function App() {
     previousRecorderState.current = recorder.state;
   }, [recorder.state]);
 
+  const [activePanel, setActivePanel] = useState<"history" | "clipper" | "account" | "note-chat" | "settings" | "support" | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showRightToolbar, setShowRightToolbar] = useState(true);
   const [showClipper, setShowClipper] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showSupportSheet, setShowSupportSheet] = useState(false);
@@ -186,11 +190,6 @@ export function App() {
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
-  useEffect(() => {
-    const handler = () => setShowSupportSheet(true);
-    window.addEventListener("open-support-sheet", handler);
-    return () => window.removeEventListener("open-support-sheet", handler);
-  }, []);
 
   const [aiErrorVisible, setAiErrorVisible] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
@@ -258,6 +257,75 @@ export function App() {
   const [globalAiThinking, setGlobalAiThinking] = useState(false);
   const globalAiThinkingRef = useRef(false);
   const [globalAiMessages, setGlobalAiMessages] = useState<string[]>(["Thinking"]);
+
+  useEffect(() => {
+    const handlePanelClosed = () => setActivePanel(null);
+    
+    const syncPanelState = (panel: "history" | "clipper" | "account" | "note-chat" | "settings" | "support") => {
+      setActivePanel(panel);
+      setShowHistory(panel === "history");
+      setShowClipper(panel === "clipper");
+      setShowAccountMenu(panel === "account");
+      setShowSupportSheet(panel === "support");
+      if (panel !== "note-chat") window.dispatchEvent(new CustomEvent("close-note-chat"));
+      if (panel !== "settings") window.dispatchEvent(new CustomEvent("close-import-export-sheet"));
+    };
+
+    const onOpenNoteChat = () => syncPanelState("note-chat");
+    const onOpenSettings = () => syncPanelState("settings");
+    const onOpenClipper = () => syncPanelState("clipper");
+    const onOpenHistory = () => syncPanelState("history");
+    const onOpenSupport = () => syncPanelState("support");
+
+    window.addEventListener("panel-closed", handlePanelClosed);
+    window.addEventListener("open-note-chat", onOpenNoteChat);
+    window.addEventListener("open-import-export-sheet", onOpenSettings);
+    window.addEventListener("open-web-clipper", onOpenClipper);
+    window.addEventListener("trigger-clipper", onOpenClipper);
+    window.addEventListener("open-support-sheet", onOpenSupport);
+
+    return () => {
+      window.removeEventListener("panel-closed", handlePanelClosed);
+      window.removeEventListener("open-note-chat", onOpenNoteChat);
+      window.removeEventListener("open-import-export-sheet", onOpenSettings);
+      window.removeEventListener("open-web-clipper", onOpenClipper);
+      window.removeEventListener("trigger-clipper", onOpenClipper);
+      window.removeEventListener("open-support-sheet", onOpenSupport);
+    };
+  }, []);
+
+  const handleTogglePanel = useCallback((panel: "history" | "clipper" | "account" | "note-chat" | "settings" | "support") => {
+    // Dismiss tooltips
+    document.querySelectorAll("[data-tippy-root]").forEach((el) => {
+      const instance = (el as any)._tippy;
+      if (instance) instance.hide();
+    });
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    window.getSelection()?.removeAllRanges();
+
+    const next = activePanel === panel ? null : panel;
+
+    setActivePanel(next);
+    setShowHistory(next === "history");
+    setShowClipper(next === "clipper");
+    setShowAccountMenu(next === "account");
+    setShowSupportSheet(next === "support");
+
+    if (next === "note-chat") {
+      window.dispatchEvent(new CustomEvent("open-note-chat"));
+    } else {
+      window.dispatchEvent(new CustomEvent("close-note-chat"));
+    }
+
+    if (next === "settings") {
+      window.dispatchEvent(new CustomEvent("open-import-export-sheet"));
+    } else {
+      window.dispatchEvent(new CustomEvent("close-import-export-sheet"));
+    }
+  }, [activePanel]);
+
 
   // Removed Global AI Thinking listener as all thinking states are now localized in bottom sheets.
 
@@ -392,7 +460,6 @@ export function App() {
     return () => chrome.runtime.onMessage.removeListener(handler);
   }, []);
 
-
   // ── Recording slash command listeners ──
   useEffect(() => {
     const removeEditorNode = (editor: any, nodeType: string, mediaId: string) => {
@@ -472,7 +539,6 @@ export function App() {
         setRecErrorInfo({ info: classifyRecordingError(err), retryMode: "screen", editor: detail?.editor });
       }
     };
-
 
     window.addEventListener("start-audio-recording", handleAudioRecording);
     window.addEventListener("start-screen-recording", handleScreenRecording);
@@ -706,23 +772,7 @@ export function App() {
     };
   }, []);
 
-  // Listen for slash command "/clip" → open clipper
-  useEffect(() => {
-    const handleOpenClipper = () => setShowClipper(true);
-    window.addEventListener("open-web-clipper", handleOpenClipper);
-
-    return () => {
-      window.removeEventListener("open-web-clipper", handleOpenClipper);
-    };
-  }, []);
-
-  // Also listen for "trigger-clipper" (legacy event from sidebar)
-  useEffect(() => {
-    const handler = () => setShowClipper(true);
-    window.addEventListener("trigger-clipper", handler);
-    return () => window.removeEventListener("trigger-clipper", handler);
-  }, []);
-
+  
   // Listen for Ask Note
   useEffect(() => {
     const handleOpenSparkAI = async (e: Event) => {
@@ -793,7 +843,6 @@ export function App() {
     });
   }, [notes, activeNoteId, deleteNote]);
 
-
   const handleContentChange = (noteId: string, content: string) => {
     updateNote(noteId, { content });
   };
@@ -810,10 +859,42 @@ export function App() {
     }
   };
 
+  const handleToolbarMediaAction = async (action: "stt" | "audio" | "screen" | "meet") => {
+    if (!user) {
+      setAccountGuestText({ title: "Sign in required", subtitle: "Please sign in to use media features." });
+      setShowAccountMenu(true);
+      return;
+    }
+
+    if (!activeNoteId) {
+      await createNote();
+      // wait for editor to mount
+      await new Promise(r => setTimeout(r, 400));
+    }
+
+    const editor = (window as any).activeBlackNoteEditor;
+    if (!editor) {
+      console.error("Editor not ready for media action");
+      return;
+    }
+
+    if (action === "stt") {
+      (window as any).blackNoteSTTEditor = editor;
+      window.dispatchEvent(new CustomEvent("start-speech-to-text"));
+    } else if (action === "meet") {
+      (window as any).blackNoteMeetEditor = editor;
+      window.dispatchEvent(new CustomEvent("start-meet-sync"));
+    } else if (action === "audio") {
+      window.dispatchEvent(new CustomEvent("start-audio-recording", { detail: { editor } }));
+    } else if (action === "screen") {
+      window.dispatchEvent(new CustomEvent("start-screen-recording", { detail: { editor } }));
+    }
+  };
+
   const handleClipSaveAsNote = useCallback(
     (title: string, markdown: string) => {
       createNoteWithContent(title, markdown);
-      setShowClipper(false);
+      setActivePanel(null); setShowClipper(false);
     },
     [createNoteWithContent]
   );
@@ -823,24 +904,12 @@ export function App() {
     setActiveNoteId(id);
   };
 
-  const handleOpenHistory = () => {
-    // Dismiss all floating menus
-    document.querySelectorAll("[data-tippy-root]").forEach((el) => {
-      const instance = (el as any)._tippy;
-      if (instance) instance.hide();
-    });
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    window.getSelection()?.removeAllRanges();
-    setShowHistory(true);
-  };
 
   return (
     <div
-      id="blacknote-root"
+      id="blacknote-app-container"
       className="relative flex h-screen w-full overflow-hidden"
-      style={{ backgroundColor: "hsl(var(--background))" }}
+      style={{ backgroundColor: "hsl(var(--sidebar-bg))" }}
     >
       {/* ─── Sign Out Overlay ─── */}
       <AnimatePresence>
@@ -851,7 +920,7 @@ export function App() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm"
           >
-            <LoaderIcon size={20} className="text-muted-foreground animate-spin" />
+            <LoaderIcon size={22} className="text-muted-foreground animate-spin" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -889,135 +958,31 @@ export function App() {
           onStop={isRecording ? handleRecordingStop : isMeetSyncActive ? () => window.dispatchEvent(new CustomEvent("stop-meet-sync")) : () => window.dispatchEvent(new CustomEvent("stop-speech-to-text"))}
           onDiscard={isRecording ? handleRecordingDiscard : undefined}
         />
-      ) : (
-        <div
-          ref={headerRef}
-          className="absolute z-30 flex items-center justify-between gap-1.5 pointer-events-none"
-          style={{
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 44,
-            paddingLeft: 10,
-            paddingRight: 8,
-            borderRadius: 0,
-            backgroundColor: 'transparent',
-            backdropFilter: 'none',
-            boxShadow: 'none',
-            willChange: 'top, left, right, height, border-radius, background-color, backdrop-filter, box-shadow',
-          }}
-        >
-          {/* Dynamic Island Overlay for AI */}
-          <AnimatePresence>
-            {globalAiThinking && (
-              <AIDynamicIsland key="ai-island" messages={globalAiMessages} />
-            )}
-          </AnimatePresence>
-
-          {/* Left Section (Hidden when thinking) */}
-          <div className="flex items-center gap-2 pointer-events-none" style={{ opacity: globalAiThinking ? 0 : 1, transition: 'opacity 0.2s', marginTop: 6 }}>
-            {/* Identity Pill — Login / Avatar + Badge */}
-            <div className="apple-glass-block">
-              <button
-                className="floating-header-btn"
-                onClick={() => setShowAccountMenu(!showAccountMenu)}
-                data-tooltip={!user ? "Sign in / Account" : "Account"}
-              >
-                {!user ? (
-                  <GuestAvatarIcon />
-                ) : getUserAvatar(user) ? (
-                  <img
-                    src={getUserAvatar(user)!}
-                    alt=""
-                    width={26}
-                    height={26}
-                    style={{ borderRadius: "50%", flexShrink: 0, objectFit: "cover" }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: "50%",
-                      backgroundColor: "hsl(var(--muted))",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {(user.displayName || user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </button>
-            </div>
-
-            <div className="apple-glass-block">
-              {/* History */}
-              <button
-                className="floating-header-btn"
-                onClick={handleOpenHistory}
-                data-tooltip="History"
-              >
-                <LayoutListIcon className="w-[17px] h-[17px]" size={17} />
-              </button>
-
-              {/* Web Clipper */}
-              <button
-                className="floating-header-btn"
-                onClick={() => setShowClipper(!showClipper)}
-                data-tooltip="Clip page"
-                style={{
-                  backgroundColor: showClipper ? "hsl(var(--muted))" : "transparent"
-                }}
-              >
-                <GlobeIcon size={17} className="w-[17px] h-[17px]" />
-              </button>
-
-              {/* Tools & Settings */}
-              <button
-                className="floating-header-btn"
-                onClick={() => window.dispatchEvent(new CustomEvent("open-import-export-sheet"))}
-                data-tooltip="Tools & Settings"
-              >
-                <SettingsIcon size={17} className="w-full h-full flex items-center justify-center" />
-              </button>
-            </div>
-          </div>
-
-          {/* Right Section (Hidden when thinking or recording) */}
-          <div className="flex items-center gap-2 pointer-events-none" style={{ opacity: globalAiThinking ? 0 : 1, transition: 'opacity 0.2s', marginTop: 6 }}>
-            <div className="apple-glass-block">
-              <button
-                className="floating-header-btn spin-on-hover"
-                onClick={() => window.dispatchEvent(new CustomEvent("open-note-chat"))}
-                data-tooltip="Ask AI"
-              >
-                <span style={{ fontSize: 18, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>✦</span>
-              </button>
-            </div>
-
-            <div className="apple-glass-block">
-              <button
-                className="floating-header-btn no-zoom group"
-                onClick={handleCreateNote}
-                data-tooltip="New note"
-                style={{
-                  backgroundColor: "hsl(45 90% 55%)",
-                  color: "#000"
-                }}
-              >
-                <PlusIcon className="w-[17px] h-[17px]" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      ) : null}
 
       {/* ─── Main Content ─── */}
-      <div className="flex-1 flex flex-col min-w-0 h-full">
+      <motion.div 
+        id="blacknote-root"
+        animate={{ 
+          borderTopRightRadius: showRightToolbar ? 16 : 0, 
+          borderBottomRightRadius: showRightToolbar ? 16 : 0,
+        }}
+        className={`flex-1 flex flex-col min-w-0 h-full bg-background transition-all z-10 overflow-hidden relative `}
+      >
+        <AnimatePresence>
+          {!showRightToolbar && !isRecording && !isSTTActive && !isMeetSyncActive && (
+            <motion.button 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute top-4 right-2 z-40 flex items-center justify-center w-9 h-9 rounded-md text-muted-foreground opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              onClick={() => setShowRightToolbar(true)}
+              data-tooltip="Open menu"
+            >
+              <Menu size={20} strokeWidth={1.25} />
+            </motion.button>
+          )}
+        </AnimatePresence>
         <NoteEditor
           note={activeNote}
           theme={theme}
@@ -1028,7 +993,9 @@ export function App() {
           onUpdateNote={(id, updates) => updateNote(id, updates)}
           toggleTheme={toggleTheme}
         />
-      </div>
+      
+
+        {/* -- SHEETS MOVED HERE TO NOT OVERLAP RIGHT SIDEBAR -- */}
 
       {/* ─── Web Clipper Bottom Sheet ─── */}
       <AnimatePresence>
@@ -1036,7 +1003,7 @@ export function App() {
           <>
             <motion.div
               className="history-sheet-backdrop"
-              onClick={() => setShowClipper(false)}
+              onClick={() => { setActivePanel(null); setShowClipper(false); }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -1049,13 +1016,13 @@ export function App() {
               exit={{ bottom: "-100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 350, mass: 0.8 }}
             >
-              <div className="history-sheet-handle" onClick={() => setShowClipper(false)}>
+              <div className="history-sheet-handle" onClick={() => { setActivePanel(null); setShowClipper(false); }}>
                 <div className="history-sheet-handle-bar" />
               </div>
               <div className="clipper-sheet-content">
                 <WebClipper
                   onSaveAsNote={handleClipSaveAsNote}
-                  onClose={() => setShowClipper(false)}
+                  onClose={() => { setActivePanel(null); setShowClipper(false); }}
                 />
               </div>
             </motion.div>
@@ -1111,7 +1078,7 @@ export function App() {
             }}
             onClose={() => {
               cleanupEmptyNotes();
-              setShowHistory(false);
+              setActivePanel(null); setShowHistory(false);
             }}
           />
         )}
@@ -1124,7 +1091,7 @@ export function App() {
             <motion.div
               key="history-backdrop"
               className="history-sheet-backdrop"
-              onClick={() => { setShowAccountMenu(false); setAccountGuestText(null); }}
+              onClick={() => { setActivePanel(null); setShowAccountMenu(false); setAccountGuestText(null); }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -1137,7 +1104,7 @@ export function App() {
               exit={{ bottom: "-100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 350, mass: 0.8 }}
             >
-              <div className="history-sheet-handle" onClick={() => { setShowAccountMenu(false); setAccountGuestText(null); }}>
+              <div className="history-sheet-handle" onClick={() => { setActivePanel(null); setShowAccountMenu(false); setAccountGuestText(null); }}>
                 <div className="history-sheet-handle-bar" />
               </div>
               <div style={{ padding: 0, overflow: "visible" }}>
@@ -1146,12 +1113,12 @@ export function App() {
                   credits={credits}
                   proIconIndex={proIconIndex}
                   onSignOut={async () => {
-                    setShowAccountMenu(false);
+                    setActivePanel(null); setShowAccountMenu(false);
                     setShowSignOutConfirm(true);
                   }}
                   onLogin={handleLogin}
                   isLoggingIn={isLoggingIn}
-                  onClose={() => { setShowAccountMenu(false); setAccountGuestText(null); }}
+                  onClose={() => { setActivePanel(null); setShowAccountMenu(false); setAccountGuestText(null); }}
                   onRefreshCredits={refreshCredits}
                   guestTitle={accountGuestText?.title}
                   guestSubtitle={accountGuestText?.subtitle}
@@ -1164,7 +1131,7 @@ export function App() {
 
       <AnimatePresence>
         {showSupportSheet && (
-          <SupportActionSheet onClose={() => setShowSupportSheet(false)} />
+          <SupportActionSheet onClose={() => { setActivePanel(null); setShowSupportSheet(false); }} />
         )}
       </AnimatePresence>
 
@@ -1269,6 +1236,155 @@ export function App() {
         )}
       </AnimatePresence>
 
+      
+      </motion.div>
+
+      {/* ─── Vertical Right Toolbar ─── */}
+      <AnimatePresence>
+        {showRightToolbar && !isRecording && !isSTTActive && !isMeetSyncActive && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 40, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="h-full flex-shrink-0 flex flex-col items-center py-4 z-0 overflow-y-auto overflow-x-hidden no-scrollbar gap-3"
+            style={{
+              backgroundColor: "hsl(var(--sidebar-bg))",
+            }}
+          >
+            <div className="flex flex-col items-center gap-3 w-full opacity-100 min-w-[40px]">
+              <button
+                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                onClick={() => setShowRightToolbar(false)}
+                data-tooltip="Close menu"
+                data-placement="left"
+              >
+                <ChevronFirstIcon size={20} className="w-5 h-5 rotate-180" />
+              </button>
+
+              <button
+                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                onClick={handleCreateNote}
+                data-tooltip="New note"
+                data-placement="left"
+              >
+                <PlusIcon className="w-5 h-5" />
+              </button>
+              
+              <button
+                className={`flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group ${activePanel === "note-chat" ? "text-foreground opacity-100 bg-black/5 dark:bg-white/10" : "text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"}`}
+                onClick={() => handleTogglePanel("note-chat")}
+                data-tooltip="Ask AI"
+                data-placement="left"
+              >
+                <MessageSquareMoreIcon className="w-5 h-5" size={20} />
+              </button>
+
+              <button
+                className={`flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group ${activePanel === "history" ? "text-foreground opacity-100 bg-black/5 dark:bg-white/10" : "text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"}`}
+                onClick={() => handleTogglePanel("history")}
+                data-tooltip="History"
+                data-placement="left"
+              >
+                <LayoutListIcon size={20} />
+              </button>
+
+              <button
+                className={`flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group ${activePanel === "clipper" ? "text-foreground opacity-100 bg-black/5 dark:bg-white/10" : "text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"}`}
+                onClick={() => handleTogglePanel("clipper")}
+                data-tooltip="Clip page"
+                data-placement="left"
+                
+              >
+                <ScanLineIcon size={20} />
+              </button>
+
+              <button
+                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                onClick={() => handleToolbarMediaAction("stt")}
+                data-tooltip="Speech to Text"
+                data-placement="left"
+              >
+                <MicIcon className="w-5 h-5" />
+              </button>
+              <button
+                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                onClick={() => handleToolbarMediaAction("audio")}
+                data-tooltip="Record Audio"
+                data-placement="left"
+              >
+                <AudioLinesIcon className="w-5 h-5" />
+              </button>
+              <button
+                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                onClick={() => handleToolbarMediaAction("screen")}
+                data-tooltip="Record Screen"
+                data-placement="left"
+              >
+                <VideoIcon className="w-5 h-5" />
+              </button>
+              <button
+                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                onClick={() => handleToolbarMediaAction("meet")}
+                data-tooltip="Meet Live Sync"
+                data-placement="left"
+              >
+                <MeetIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-auto flex flex-col items-center gap-3 w-full min-w-[40px]">
+              <button
+                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                onClick={() => window.dispatchEvent(new CustomEvent("open-support-sheet"))}
+                data-tooltip="Help"
+                data-placement="left"
+              >
+                <CircleHelpIcon className="w-5 h-5" />
+              </button>
+
+              <button
+                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                onClick={toggleTheme}
+                data-tooltip={theme === "light" ? "Dark mode" : "Light mode"}
+                data-placement="left"
+              >
+                {theme === "light" ? (
+                  <MoonIcon size={20} className="w-5 h-5" />
+                ) : (
+                  <SunIcon size={20} className="w-5 h-5" />
+                )}
+              </button>
+
+              <button
+                className={`flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group ${activePanel === "settings" ? "text-foreground opacity-100 bg-black/5 dark:bg-white/10" : "text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"}`}
+                onClick={() => handleTogglePanel("settings")}
+                data-tooltip="Settings"
+                data-placement="left"
+              >
+                <SettingsIcon size={20} />
+              </button>
+
+              <button
+                className={`flex items-center justify-center w-9 h-9 rounded-full transition-all group ${activePanel === "account" ? "text-foreground opacity-100 bg-black/5 dark:bg-white/10" : "text-muted-foreground opacity-100 hover:bg-black/5 dark:hover:bg-white/10"}`}
+                onClick={() => handleTogglePanel("account")}
+                data-tooltip={!user ? "Sign in / Account" : "Account"}
+                data-placement="left"
+              >
+                {!user ? (
+                  <div className="scale-[0.85]"><GuestAvatarIcon /></div>
+                ) : getUserAvatar(user) ? (
+                  <img src={getUserAvatar(user)!} alt="" className="w-[30px] h-[30px] rounded-full object-cover border border-border/20 shadow-sm" />
+                ) : (
+                  <div className="w-[30px] h-[30px] rounded-full bg-muted flex items-center justify-center text-[12px] font-bold border border-border/20 shadow-sm">
+                    {(user.displayName || user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <GlobalTooltip />
     </div>
   );
