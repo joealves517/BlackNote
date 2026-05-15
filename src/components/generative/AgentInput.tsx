@@ -443,7 +443,7 @@ export function AgentInput() {
         style={{
           background: "linear-gradient(135deg, rgba(120, 120, 128, var(--icon-bg-start)) 0%, rgba(120, 120, 128, var(--icon-bg-end)) 100%), hsl(var(--background) / 0.82)",
           border: "1px solid rgba(120, 120, 128, var(--icon-border))",
-          boxShadow: "0 8px 32px -8px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255, 255, 255, 0.18)",
+          boxShadow: "0 8px 32px -8px rgba(0,0,0,0.25)",
           backdropFilter: "blur(40px) saturate(200%)",
           WebkitBackdropFilter: "blur(40px) saturate(200%)",
         }}
