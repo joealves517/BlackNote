@@ -472,7 +472,8 @@ export function AgentInput() {
                   {[0, 1, 2].map((i) => (
                     <motion.div
                       key={i}
-                      className="w-1.5 h-1.5 bg-primary/70 rounded-full"
+                      className="w-1.5 h-1.5 bg-zinc-500 dark:bg-zinc-400 rounded-full"
+                      initial={{ opacity: 0.3, scale: 0.8 }}
                       animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
                       transition={{
                         duration: 1.2,
