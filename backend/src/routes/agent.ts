@@ -56,6 +56,7 @@ FORMATTING SYNTAX the editor supports (use freely when appropriate):
 - Tables: GFM pipe syntax
 - HTML inline: <u>underline</u>, <mark>highlight</mark>
 - Colors (Use span with style): <span style="color: red">red text</span>, <span style="color: #ff0000">hex text</span> (Example: «b0» <span style="color: blue">Blue text</span>)
+- Alignment: <p style="text-align: right">text</p>, <div style="text-align: center">text</div>
 
 RULES:
 - Return ONLY blocks you changed, added, or deleted. Do NOT return unchanged blocks.

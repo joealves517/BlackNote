@@ -12,6 +12,8 @@ import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 import Highlight from "@tiptap/extension-highlight";
+import TextAlign from "@tiptap/extension-text-align";
+import { TiptapUnderline } from "novel";
 import { marked } from "marked";
 import { AudioNode } from "@/extensions/AudioNode";
 import { VideoNode } from "@/extensions/VideoNode";
@@ -33,6 +35,8 @@ const parserExtensions = [
   TextStyle,
   Color,
   Highlight.configure({ multicolor: true }),
+  TiptapUnderline,
+  TextAlign.configure({ types: ["heading", "paragraph"] }),
 ];
 
 /**
