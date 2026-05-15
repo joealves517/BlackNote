@@ -410,10 +410,15 @@ export function App() {
       const width = container?.clientWidth || 420;
       const height = container?.clientHeight || 650;
       
-      const left = window.screenX;
-      const top = window.screenY;
-
       const currentWin = await chrome.windows.getCurrent();
+
+      // Calculate position relative to the main browser window (assuming side panel is on the right)
+      const left = currentWin.left !== undefined && currentWin.width !== undefined
+        ? currentWin.left + currentWin.width - width
+        : undefined;
+      
+      // Use the same top coordinate as the browser window
+      const top = currentWin.top !== undefined ? currentWin.top : undefined;
 
       const response = await chrome.runtime.sendMessage({
         type: "OPEN_PIP_WINDOW",
