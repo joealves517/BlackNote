@@ -47,6 +47,15 @@ function serializeWithBlockIds(editor: ReturnType<typeof useEditor>["editor"]): 
 
     editor.state.doc.forEach((node, offset) => {
       const blockId = `b${idx}`;
+
+      // Protect media nodes: skip sending them to the AI to prevent transcript leaks and hallucinated edits.
+      // We still increment idx to maintain 1:1 mapping with applyChanges logic.
+      if (node.type.name === "audioNode" || node.type.name === "videoNode") {
+        blockMap.set(blockId, { from: offset, to: offset + node.nodeSize });
+        idx++;
+        return;
+      }
+
       let md = "";
 
       try {
@@ -55,7 +64,7 @@ function serializeWithBlockIds(editor: ReturnType<typeof useEditor>["editor"]): 
         wrapper.appendChild(dom);
         md = turndown.turndown(wrapper.innerHTML).trim();
       } catch {
-        // Fallback for custom nodes (AudioNode, VideoNode, etc.)
+        // Fallback for custom nodes
         md = node.textContent || "";
       }
 
