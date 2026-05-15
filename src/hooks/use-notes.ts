@@ -147,7 +147,7 @@ export function useNotes() {
                         { type: "text", marks: [{ type: "bold" }], text: "Agent input box" },
                         { type: "text", text: " at the bottom of the editor to command the AI to autonomously write, edit, format, or translate content. Watch it work and " },
                         { type: "text", marks: [{ type: "bold" }], text: "review changes inline" },
-                        { type: "text", text: " block-by-block! (Note: Highlighting text opens the separate AI Context Menu)." }
+                        { type: "text", text: " block-by-block!" }
                       ]
                     }
                   ]
