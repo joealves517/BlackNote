@@ -107,7 +107,7 @@ export function useNotes() {
               attrs: {
                 mediaId: "welcome-audio",
                 status: "saved",
-                duration: 69,
+                duration: 60,
                 fileName: "Welcome to BlackNote 🎙️"
               }
             },
@@ -244,7 +244,7 @@ export function useNotes() {
               noteId: firstNote.id,
               type: "audio",
               blob,
-              duration: 69,
+              duration: 60,
               fileName: "Welcome to BlackNote 🎙️",
               createdAt: now,
             });
