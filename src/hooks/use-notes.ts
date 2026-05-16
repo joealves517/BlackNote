@@ -425,16 +425,18 @@ export function useNotes() {
       // Debounce persist to IndexedDB + optional cloud sync
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(async () => {
-        const dbUpdates = pendingUpdatesRef.current[id];
-        if (!dbUpdates) return;
-        delete pendingUpdatesRef.current[id];
-
-        await db.notes.update(id, dbUpdates);
-
-        // Background cloud sync
-        if (userId) {
-          const note = await db.notes.get(id);
-          if (note) pushNote(note, userId);
+        // Capture all pending updates and clear the ref
+        const allPending = { ...pendingUpdatesRef.current };
+        pendingUpdatesRef.current = {};
+        
+        for (const [noteId, dbUpdates] of Object.entries(allPending)) {
+          await db.notes.update(noteId, dbUpdates);
+          
+          // Background cloud sync
+          if (userId) {
+            const note = await db.notes.get(noteId);
+            if (note) pushNote(note, userId);
+          }
         }
       }, 400);
     },
@@ -443,22 +445,22 @@ export function useNotes() {
 
   const deleteNote = useCallback(
     async (id: string) => {
+      // Determine next active note before updating state
+      let nextActiveId = activeNoteId;
+      if (activeNoteId === id) {
+        const filtered = notes.filter((n) => n.id !== id);
+        nextActiveId = filtered.length > 0 ? filtered[0].id : null;
+      }
+
       // Optimistic delete
-      setNotes((prev) => {
-        const filtered = prev.filter((n) => n.id !== id);
-        if (activeNoteId === id && filtered.length > 0) {
-          setActiveNoteId(filtered[0].id);
-        } else if (filtered.length === 0) {
-          setActiveNoteId(null);
-        }
-        return filtered;
-      });
+      setActiveNoteId(nextActiveId);
+      setNotes((prev) => prev.filter((n) => n.id !== id));
 
       // Extract mediaIds to clean up before deleting the note
       const noteToDelete = await db.notes.get(id);
       if (noteToDelete && noteToDelete.content) {
         try {
-          const doc = JSON.parse(noteToDelete.content);
+          const doc = typeof noteToDelete.content === "string" ? JSON.parse(noteToDelete.content) : noteToDelete.content;
           const extractMediaIds = (node: any): string[] => {
             let ids: string[] = [];
             if (node.type === "audioNode" || node.type === "videoNode") {
@@ -487,7 +489,7 @@ export function useNotes() {
         deleteRemoteNote(id);
       }
     },
-    [activeNoteId, userId]
+    [activeNoteId, userId, notes]
   );
 
   const setActiveNoteIdWithCleanup = useCallback(

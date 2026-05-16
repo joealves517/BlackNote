@@ -4,6 +4,8 @@ import {
   createOrUpdateUser,
   deductCreditsByEmail,
   logUsage,
+  checkFreeCreditLimit,
+  deductFreeCredits
 } from "../services/firestore.js";
 import { streamWritingAI } from "../services/vertex-ai.js";
 import { streamFreeWritingAI } from "../services/gemini-free.js";
@@ -59,6 +61,13 @@ router.post(
 
     // Fallback to free API when quota exhausted (same experience as free users)
     if (user.credits <= 0) {
+      const canProceed = await checkFreeCreditLimit(authReq.userEmail);
+      if (!canProceed) {
+        res.write("⚠️ You have reached your daily limit for free AI services. Consider upgrading to Pro for unlimited access.");
+        res.end();
+        return;
+      }
+
       await streamFreeWritingAI(
         safePrompt,
         option,
@@ -68,6 +77,7 @@ router.post(
           },
           onDone: () => {
             res.end();
+            deductFreeCredits(authReq.userEmail, 2).catch(console.error);
           },
           onError: (error: Error) => {
             console.error("[AI] Gemini Free fallback error:", error.message);

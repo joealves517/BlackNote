@@ -2712,6 +2712,8 @@ button:active .hover-zoom-icon-removed,
 
 /* ===== Agent Fake Highlight ===== */
 .agent-highlight-fake {
-  background-color: var(--color-bg-green);
+  background-color: var(--agent-highlight);
   border-radius: 2px;
+  padding: 0 1px;
+  box-shadow: 0 0 0 1px var(--agent-highlight);
 }

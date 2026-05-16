@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth.js";
 import { streamFreeWritingAI } from "../services/gemini-free.js";
+import { checkFreeCreditLimit, deductFreeCredits } from "../services/firestore.js";
 
 const router = Router();
 
@@ -38,6 +39,14 @@ router.post(
 
     const safePrompt = body.prompt || "Please process this image.";
 
+    const canProceed = await checkFreeCreditLimit(authReq.userEmail);
+    if (!canProceed) {
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.write("⚠️ You have reached your daily limit for free AI services. Consider upgrading to Pro for unlimited access.");
+      res.end();
+      return;
+    }
+
     // Vercel AI SDK expects plain text streaming
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache");
@@ -55,6 +64,7 @@ router.post(
         },
         onDone: () => {
           res.end();
+          deductFreeCredits(authReq.userEmail, 2).catch(console.error);
         },
         onError: (error: Error) => {
           console.error("[AI Free] Error:", error.message);

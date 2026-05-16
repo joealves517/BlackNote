@@ -434,85 +434,96 @@ const uploadFn = async (file: File): Promise<string> => {
   const compressedDataUrl = await compressImage(file);
   let finalUrl = compressedDataUrl;
 
-  try {
-    const token = await getAuthToken();
-    if (token) {
-      // Step 1: Get presigned URL from backend
-      const presignRes = await fetch(`${AI_API_BASE}/api/upload/presign`, {
+  // Run S3 upload & AI Captioning in the background
+  (async () => {
+    try {
+      const token = await getAuthToken();
+      if (token) {
+        // Step 1: Get presigned URL from backend
+        const presignRes = await fetch(`${AI_API_BASE}/api/upload/presign`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            fileName: file.name.replace(/[^a-zA-Z0-9.-]/g, '_') + ".webp",
+            contentType: "image/webp",
+          }),
+        });
+
+        if (presignRes.ok) {
+          const { uploadUrl, publicUrl } = await presignRes.json();
+
+          // Step 2: Upload directly to S3
+          const blobRes = await fetch(compressedDataUrl);
+          const blob = await blobRes.blob();
+
+          const uploadRes = await fetch(uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": "image/webp" },
+            body: blob,
+          });
+
+          if (uploadRes.ok) {
+            finalUrl = publicUrl;
+            // Notify editor to seamlessly swap local blob URL with permanent S3 URL
+            window.dispatchEvent(new CustomEvent("image-uploaded", {
+              detail: { oldSrc: compressedDataUrl, newSrc: publicUrl }
+            }));
+          } else {
+            console.error("S3 upload failed:", uploadRes.status);
+          }
+        } else {
+          console.error("Presign request failed:", presignRes.status);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to upload image to S3, falling back to local:", err);
+    }
+
+    // Auto-caption in background
+    getAuthToken().then(token => {
+      const endpoint = token ? `${AI_API_BASE}/api/ai` : `${AI_API_BASE}/api/ai/free`;
+      fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          fileName: file.name.replace(/[^a-zA-Z0-9.-]/g, '_') + ".webp",
-          contentType: "image/webp",
+          option: "describe_image",
+          files: [{ mimeType: "image/png", data: compressedDataUrl.split(",")[1] }]
         }),
-      });
-
-      if (presignRes.ok) {
-        const { uploadUrl, publicUrl } = await presignRes.json();
-
-        // Step 2: Upload directly to S3
-        const blobRes = await fetch(compressedDataUrl);
-        const blob = await blobRes.blob();
-
-        const uploadRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": "image/webp" },
-          body: blob,
-        });
-
-        if (uploadRes.ok) {
-          finalUrl = publicUrl;
-        } else {
-          console.error("S3 upload failed:", uploadRes.status);
+      })
+      .then(res => res.body?.getReader())
+      .then(async reader => {
+        if (!reader) return;
+        const decoder = new TextDecoder();
+        let caption = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          caption += decoder.decode(value, { stream: true });
         }
-      } else {
-        console.error("Presign request failed:", presignRes.status);
-      }
-    }
-  } catch (err) {
-    console.error("Failed to upload image to S3, falling back to local:", err);
-  }
+        
+        const cleanCaption = caption.replace(/^#\s+(.+)$/m, "").trim();
+        
+        if (cleanCaption) {
+          // Send caption event using finalUrl so it attaches to the new S3 URL if possible
+          // But actually the src in editor might still be oldSrc if upload was slow,
+          // so we dispatch for BOTH just in case, or we dispatch after waiting for the newSrc to settle.
+          window.dispatchEvent(new CustomEvent("image-caption-ready", { 
+            detail: { src: finalUrl, alt: cleanCaption, fallbackSrc: compressedDataUrl } 
+          }));
+        }
+      })
+      .catch(err => console.error("Auto-caption failed:", err));
+    });
+  })();
 
-  // Auto-caption in background
-  getAuthToken().then(token => {
-    const endpoint = token ? `${AI_API_BASE}/api/ai` : `${AI_API_BASE}/api/ai/free`;
-    fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        option: "describe_image",
-        files: [{ mimeType: "image/png", data: compressedDataUrl.split(",")[1] }]
-      }),
-    })
-    .then(res => res.body?.getReader())
-    .then(async reader => {
-      if (!reader) return;
-      const decoder = new TextDecoder();
-      let caption = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        caption += decoder.decode(value, { stream: true });
-      }
-      
-      const cleanCaption = caption.replace(/^#\s+(.+)$/m, "").trim();
-      
-      if (cleanCaption) {
-        window.dispatchEvent(new CustomEvent("image-caption-ready", { 
-          detail: { src: finalUrl, alt: cleanCaption } 
-        }));
-      }
-    })
-    .catch(err => console.error("Auto-caption failed:", err));
-  });
-
-  return finalUrl;
+  // Instant UI response!
+  return compressedDataUrl;
 };
 
 // All extensions
@@ -687,19 +698,35 @@ export function NoteEditor({
 
   useEffect(() => {
     const handleCaptionReady = (e: Event) => {
-      const { src, alt } = (e as CustomEvent).detail;
-      const editor = (window as any).blackNoteSTTEditor;
+      const { src, alt, fallbackSrc } = (e as CustomEvent).detail;
+      const editor = (window as any).activeBlackNoteEditor || (window as any).blackNoteSTTEditor;
       if (!editor) return;
 
       editor.state.doc.descendants((node: any, pos: number) => {
-        if (node.type.name === 'image' && node.attrs.src === src) {
+        if (node.type.name === 'image' && (node.attrs.src === src || node.attrs.src === fallbackSrc)) {
           editor.chain().setNodeSelection(pos).updateAttributes('image', { alt }).run();
         }
       });
     };
 
+    const handleImageUploaded = (e: Event) => {
+      const { oldSrc, newSrc } = (e as CustomEvent).detail;
+      const editor = (window as any).activeBlackNoteEditor || (window as any).blackNoteSTTEditor;
+      if (!editor) return;
+
+      editor.state.doc.descendants((node: any, pos: number) => {
+        if (node.type.name === 'image' && node.attrs.src === oldSrc) {
+          editor.chain().setNodeSelection(pos).updateAttributes('image', { src: newSrc }).run();
+        }
+      });
+    };
+
     window.addEventListener("image-caption-ready", handleCaptionReady);
-    return () => window.removeEventListener("image-caption-ready", handleCaptionReady);
+    window.addEventListener("image-uploaded", handleImageUploaded);
+    return () => {
+      window.removeEventListener("image-caption-ready", handleCaptionReady);
+      window.removeEventListener("image-uploaded", handleImageUploaded);
+    };
   }, []);
 
   const handleTitleChange = (value: string) => {
@@ -912,7 +939,15 @@ export function NoteEditor({
               theme={theme}
               toggleTheme={toggleTheme}
             />
-            <AgentInput />
+            <AgentInput 
+              noteId={note.id} 
+              noteTitle={note.title}
+              onContentChange={onContentChange} 
+              onTitleChange={(id, val) => {
+                if (id === note.id) handleTitleChange(val);
+                else onTitleChange(id, val);
+              }}
+            />
           </EditorContent>
         </EditorRoot>
       </div>

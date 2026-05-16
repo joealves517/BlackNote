@@ -12,6 +12,8 @@ import {
   createOrUpdateUser,
   deductCreditsByEmail,
   logUsage,
+  checkFreeCreditLimit,
+  deductFreeCredits
 } from "../services/firestore.js";
 import { GoogleGenAI } from "@google/genai";
 import { config } from "../config/index.js";
@@ -65,8 +67,7 @@ router.post(
       return;
     }
 
-    // Ensure user record exists (for usage tracking)
-    await createOrUpdateUser(
+    const user = await createOrUpdateUser(
       authReq.userId,
       {
         email: authReq.userEmail,
@@ -76,12 +77,26 @@ router.post(
       "BlackNote"
     );
 
+    const usePremium = user.credits > 0;
+    if (!usePremium) {
+      const canProceed = await checkFreeCreditLimit(authReq.userEmail);
+      if (!canProceed) {
+        res.status(403).json({ error: "You have reached your daily limit for free AI services. Consider upgrading to Pro for unlimited access." });
+        return;
+      }
+    }
+
     try {
-      // Groq Whisper — free, no credit deduction
+      // Groq Whisper — free, deduct fixed amount for free users
       const result = await transcribeWithGroq(
         audioBase64,
         mimeType || "audio/mpeg"
       );
+
+      if (!usePremium) {
+        deductFreeCredits(authReq.userEmail, 5).catch(console.error);
+      }
+
 
       res.json({
         segments: result.segments,
@@ -139,6 +154,13 @@ router.post(
     );
 
     const usePremium = user.credits > 0;
+    if (!usePremium) {
+      const canProceed = await checkFreeCreditLimit(authReq.userEmail);
+      if (!canProceed) {
+        res.status(403).json({ error: "You have reached your daily limit for free AI services. Consider upgrading to Pro for unlimited access." });
+        return;
+      }
+    }
     const { client, model } = pickAIClient(usePremium);
 
     try {
@@ -176,6 +198,9 @@ router.post(
           inputTokens,
           outputTokens,
         }).catch(console.error);
+      } else {
+        const { creditsUsed } = extractTokenCost(response);
+        deductFreeCredits(authReq.userEmail, creditsUsed).catch(console.error);
       }
 
       res.json({ summary: (response.text || "").trim() });
@@ -211,6 +236,13 @@ router.post(
     );
 
     const usePremium = user.credits > 0;
+    if (!usePremium) {
+      const canProceed = await checkFreeCreditLimit(authReq.userEmail);
+      if (!canProceed) {
+        res.status(403).json({ error: "You have reached your daily limit for free AI services. Consider upgrading to Pro for unlimited access." });
+        return;
+      }
+    }
     const { client, model } = pickAIClient(usePremium);
 
     try {
@@ -276,6 +308,9 @@ ${JSON.stringify(textsPayload)}`,
           inputTokens,
           outputTokens,
         }).catch(console.error);
+      } else {
+        const { creditsUsed } = extractTokenCost(response);
+        deductFreeCredits(authReq.userEmail, creditsUsed).catch(console.error);
       }
 
       res.json({ translatedSegments });
@@ -311,6 +346,13 @@ router.post(
     );
 
     const usePremium = user.credits > 0;
+    if (!usePremium) {
+      const canProceed = await checkFreeCreditLimit(authReq.userEmail);
+      if (!canProceed) {
+        res.status(403).json({ error: "You have reached your daily limit for free AI services. Consider upgrading to Pro for unlimited access." });
+        return;
+      }
+    }
     const { client, model } = pickAIClient(usePremium);
 
     try {
@@ -363,6 +405,9 @@ Respond in this exact JSON format:
           inputTokens,
           outputTokens,
         }).catch(console.error);
+      } else {
+        const { creditsUsed } = extractTokenCost(response);
+        deductFreeCredits(authReq.userEmail, creditsUsed).catch(console.error);
       }
 
       res.json({
@@ -402,6 +447,13 @@ router.post(
     );
 
     const usePremium = user.credits > 0;
+    if (!usePremium) {
+      const canProceed = await checkFreeCreditLimit(authReq.userEmail);
+      if (!canProceed) {
+        res.status(403).json({ error: "You have reached your daily limit for free AI services. Consider upgrading to Pro for unlimited access." });
+        return;
+      }
+    }
     const { client, model } = pickAIClient(usePremium);
 
     try {
@@ -472,6 +524,9 @@ ${transcript.slice(0, 8000)}`,
           inputTokens,
           outputTokens,
         }).catch(console.error);
+      } else {
+        const { creditsUsed } = extractTokenCost(response);
+        deductFreeCredits(authReq.userEmail, creditsUsed).catch(console.error);
       }
 
       res.json({ timestamps });
