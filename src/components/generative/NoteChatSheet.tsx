@@ -21,6 +21,7 @@ import { CheckCheckIcon } from "@/components/icons/check-check";
 import { BrainIcon } from "@/components/icons/brain";
 import { GripIcon } from "@/components/icons/grip";
 import { ScanTextIcon } from "@/components/icons/scan-text";
+import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { DynamicThinking } from "@/components/ui/dynamic-thinking";
 import { useAuth } from "@/hooks/use-auth";
 import { useCredits } from "@/hooks/use-credits";
