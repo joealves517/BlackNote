@@ -20,7 +20,6 @@ import { BookTextIcon } from "@/components/icons/book-text";
 import { CheckCheckIcon } from "@/components/icons/check-check";
 import { BrainIcon } from "@/components/icons/brain";
 import { GripIcon } from "@/components/icons/grip";
-import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { ScanTextIcon } from "@/components/icons/scan-text";
 import { DynamicThinking } from "@/components/ui/dynamic-thinking";
 import { useAuth } from "@/hooks/use-auth";
@@ -273,7 +272,7 @@ export function NoteChatSheet({
       console.warn("[Scan] editor is undefined or null!");
       return;
     }
-    
+
     // Clean up quote text
     const searchText = quoteText.trim();
     if (!searchText) return;
@@ -281,7 +280,7 @@ export function NoteChatSheet({
     // We will extract only alphanumeric characters from the editor to ignore formatting differences (like \n, "1.", etc.)
     const strippedToPos: number[] = [];
     const strippedChars: string[] = [];
-    
+
     editor.state.doc.descendants((node, pos) => {
       if (node.isText && node.text) {
         for (let i = 0; i < node.text.length; i++) {
@@ -320,12 +319,12 @@ export function NoteChatSheet({
       const startPos = strippedToPos[matchIndex];
       // The end position should be just after the last matched character
       const endPos = strippedToPos[matchIndex + matchLength - 1] + 1;
-      
+
       onClose(); // close the bottom sheet
 
       setTimeout(() => {
         editor.chain().focus().setTextSelection({ from: startPos, to: endPos }).run();
-        
+
         // Safely scroll to the selected text without mutating Prosemirror's DOM
         try {
           const domInfo = editor.view.domAtPos(startPos);
@@ -732,7 +731,7 @@ export function NoteChatSheet({
                     opacity: hasValue ? 1 : 0.5,
                   }}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></svg>
                 </button>
               </div>
             </div>
@@ -752,12 +751,12 @@ export function NoteChatSheet({
 
 /* ===== Quick Actions ===== */
 const QUICK_ACTIONS = [
-  { id: "summarize", label: "Summarize", icon: <AlignLeftIcon className="w-4 h-4" />, color: "hsl(280 80% 65%)", colorRgb: "168, 85, 247" },
-  { id: "explain", label: "Explain", icon: <BookTextIcon className="w-4 h-4" />, color: "hsl(45 90% 55%)", colorRgb: "245, 158, 11" },
-  { id: "key-takeaways", label: "Key Takeaways", icon: <CheckCheckIcon className="w-4 h-4" />, color: "hsl(160 60% 50%)", colorRgb: "16, 185, 129" },
-  { id: "brainstorm", label: "Brainstorm", icon: <BrainIcon className="w-4 h-4" />, color: "hsl(210 80% 60%)", colorRgb: "59, 130, 246" },
-  { id: "action-items", label: "Action Items", icon: <ClipboardCheckIcon className="w-4 h-4" />, color: "hsl(340 70% 60%)", colorRgb: "244, 63, 94" },
-  { id: "fix-grammar", label: "Fix Grammar", icon: <SparklesIcon className="w-4 h-4" />, color: "hsl(20 80% 60%)", colorRgb: "249, 115, 22" },
+  { id: "summarize", label: "Summarize", icon: <AlignLeftIcon className="w-4 h-4" />, color: "hsl(280 80% 65%)" },
+  { id: "explain", label: "Explain", icon: <BookTextIcon className="w-4 h-4" />, color: "hsl(45 90% 55%)" },
+  { id: "key-takeaways", label: "Key Takeaways", icon: <CheckCheckIcon className="w-4 h-4" />, color: "hsl(160 60% 50%)" },
+  { id: "brainstorm", label: "Brainstorm", icon: <BrainIcon className="w-4 h-4" />, color: "hsl(210 80% 60%)" },
+  { id: "action-items", label: "Action Items", icon: <ClipboardCheckIcon className="w-4 h-4" />, color: "hsl(340 70% 60%)" },
+  { id: "fix-grammar", label: "Fix Grammar", icon: <SparklesIcon className="w-4 h-4" />, color: "hsl(20 80% 60%)" },
 ];
 
 function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuickAction, userName }: {
@@ -779,7 +778,7 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
         if (typeof dotLottie.stateMachineFireEvent === "function") {
           dotLottie.stateMachineFireEvent("jumpClick");
         }
-      } catch (err) {}
+      } catch (err) { }
     };
 
     const fireYesClick = () => {
@@ -787,7 +786,7 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
         if (typeof dotLottie.stateMachineFireEvent === "function") {
           dotLottie.stateMachineFireEvent("yesClick");
         }
-      } catch (err) {}
+      } catch (err) { }
     };
 
     let interval: NodeJS.Timeout;
@@ -826,7 +825,7 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
               style={{ width: "150%", height: "150%", transform: "scale(1.35) translateY(2%)", position: "absolute" }}
             />
           </div>
-          
+
           <div style={{ textAlign: "center", fontSize: 22, fontWeight: 600, color: "hsl(var(--foreground))" }}>
             Hi {userName} 👋<br />Where should we start?
           </div>
@@ -921,7 +920,7 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
 }
 
 function ActionItem({ action, index, total, onAction }: {
-  action: { id: string; label: string; icon: React.ReactNode; color: string; colorRgb: string };
+  action: { id: string; label: string; icon: React.ReactNode; color: string };
   index: number;
   total: number;
   onAction: () => void;
@@ -951,11 +950,8 @@ function ActionItem({ action, index, total, onAction }: {
         overflow: "hidden",
         display: "flex",
         alignItems: "center",
-        gap: 8,
-        paddingTop: 10,
-        paddingBottom: 10,
-        paddingLeft: isLeftColumn ? 0 : 8,
-        paddingRight: isLeftColumn ? 8 : 0,
+        gap: 12,
+        padding: "12px 16px",
         backgroundColor: "hsl(var(--background))",
         border: "none",
         color: "hsl(var(--foreground))",
@@ -972,12 +968,7 @@ function ActionItem({ action, index, total, onAction }: {
       onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "hsl(var(--accent))")}
       onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "hsl(var(--background))")}
     >
-      <div className="novel-slash-icon" style={{
-        background: `linear-gradient(135deg, rgba(${action.colorRgb}, var(--icon-bg-start)) 0%, rgba(${action.colorRgb}, var(--icon-bg-end)) 100%)`,
-        border: `1px solid rgba(${action.colorRgb}, var(--icon-border))`,
-        color: `rgba(${action.colorRgb}, 1)`,
-        zIndex: 1
-      }}>
+      <div style={{ color: action.color, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1 }}>
         <AnimatedIcon animation="hover">
           {animatedIcon}
         </AnimatedIcon>
@@ -1003,7 +994,7 @@ function ActionItem({ action, index, total, onAction }: {
 /* ===== Action Button with Tooltip ===== */
 function ActionButtonWithTooltip({ icon, label, onClick, isActive = false }: { icon: React.ReactNode, label: string, onClick: () => void, isActive?: boolean }) {
   const [showTooltip, setShowTooltip] = useState(false);
-  
+
   return (
     <div style={{ position: "relative", display: "inline-flex" }} onMouseEnter={() => setShowTooltip(true)} onMouseLeave={() => setShowTooltip(false)}>
       <button
@@ -1067,3 +1058,4 @@ function ActionButtonWithTooltip({ icon, label, onClick, isActive = false }: { i
     </div>
   );
 }
+
