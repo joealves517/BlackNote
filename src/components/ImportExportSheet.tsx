@@ -38,6 +38,9 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
 
   const [hideAgent, setHideAgent] = useState(() => localStorage.getItem("blacknote_hide_agent") === "true");
 
+  const isMac = typeof window !== "undefined" && navigator.userAgent.toLowerCase().includes("mac");
+  const shortcutText = isMac ? "⌘J" : "Ctrl+J";
+
   const toggleAgent = () => {
     const newValue = !hideAgent;
     setHideAgent(newValue);
@@ -291,7 +294,7 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
                       className="novel-slash-item w-full text-left cursor-pointer"
                       onClick={(e) => { e.stopPropagation(); toggleAgent(); }}
                     >
-                      <div className="novel-slash-icon text-xs flex items-center justify-center font-bold select-none" style={{
+                      <div className="novel-slash-icon text-[17px] leading-none flex items-center justify-center select-none" style={{
                         background: "linear-gradient(135deg, rgba(139, 92, 246, var(--icon-bg-start)) 0%, rgba(139, 92, 246, var(--icon-bg-end)) 100%)",
                         border: "1px solid rgba(139, 92, 246, var(--icon-border))",
                         color: "rgba(139, 92, 246, 1)",
@@ -301,7 +304,7 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
                       <div className="flex-1">
                         <p className="text-[13px] font-medium">AI Agent</p>
                         <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                          {hideAgent ? "Hidden" : "Visible"}
+                          {hideAgent ? "Hidden" : `Visible • ${shortcutText}`}
                         </p>
                       </div>
                       <div className="mr-1 flex items-center justify-center w-7 h-7 text-muted-foreground group-hover:text-foreground transition-colors">
