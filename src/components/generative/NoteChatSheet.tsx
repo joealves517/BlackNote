@@ -21,7 +21,6 @@ import { CheckCheckIcon } from "@/components/icons/check-check";
 import { BrainIcon } from "@/components/icons/brain";
 import { GripIcon } from "@/components/icons/grip";
 import { ScanTextIcon } from "@/components/icons/scan-text";
-import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { DynamicThinking } from "@/components/ui/dynamic-thinking";
 import { useAuth } from "@/hooks/use-auth";
 import { useCredits } from "@/hooks/use-credits";
@@ -969,11 +968,7 @@ function ActionItem({ action, index, total, onAction }: {
       onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "hsl(var(--accent))")}
       onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "hsl(var(--background))")}
     >
-      <div style={{ color: action.color, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1 }}>
-        <AnimatedIcon animation="hover">
-          {animatedIcon}
-        </AnimatedIcon>
-      </div>
+      <div style={{ color: "hsl(var(--muted-foreground))", zIndex: 1 }}>{animatedIcon}</div>
       <div style={{ fontSize: 13, fontWeight: 500, zIndex: 1 }}>{action.label}</div>
 
       {/* Spotlight Hover Overlay */}
@@ -1059,4 +1054,3 @@ function ActionButtonWithTooltip({ icon, label, onClick, isActive = false }: { i
     </div>
   );
 }
-
