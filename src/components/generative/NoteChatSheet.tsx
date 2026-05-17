@@ -20,6 +20,7 @@ import { BookTextIcon } from "@/components/icons/book-text";
 import { CheckCheckIcon } from "@/components/icons/check-check";
 import { BrainIcon } from "@/components/icons/brain";
 import { GripIcon } from "@/components/icons/grip";
+import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { ScanTextIcon } from "@/components/icons/scan-text";
 import { DynamicThinking } from "@/components/ui/dynamic-thinking";
 import { useAuth } from "@/hooks/use-auth";
@@ -751,12 +752,12 @@ export function NoteChatSheet({
 
 /* ===== Quick Actions ===== */
 const QUICK_ACTIONS = [
-  { id: "summarize", label: "Summarize", icon: <AlignLeftIcon className="w-4 h-4" />, color: "hsl(280 80% 65%)" },
-  { id: "explain", label: "Explain", icon: <BookTextIcon className="w-4 h-4" />, color: "hsl(45 90% 55%)" },
-  { id: "key-takeaways", label: "Key Takeaways", icon: <CheckCheckIcon className="w-4 h-4" />, color: "hsl(160 60% 50%)" },
-  { id: "brainstorm", label: "Brainstorm", icon: <BrainIcon className="w-4 h-4" />, color: "hsl(210 80% 60%)" },
-  { id: "action-items", label: "Action Items", icon: <ClipboardCheckIcon className="w-4 h-4" />, color: "hsl(340 70% 60%)" },
-  { id: "fix-grammar", label: "Fix Grammar", icon: <SparklesIcon className="w-4 h-4" />, color: "hsl(20 80% 60%)" },
+  { id: "summarize", label: "Summarize", icon: <AlignLeftIcon className="w-4 h-4" />, color: "hsl(280 80% 65%)", colorRgb: "168, 85, 247" },
+  { id: "explain", label: "Explain", icon: <BookTextIcon className="w-4 h-4" />, color: "hsl(45 90% 55%)", colorRgb: "245, 158, 11" },
+  { id: "key-takeaways", label: "Key Takeaways", icon: <CheckCheckIcon className="w-4 h-4" />, color: "hsl(160 60% 50%)", colorRgb: "16, 185, 129" },
+  { id: "brainstorm", label: "Brainstorm", icon: <BrainIcon className="w-4 h-4" />, color: "hsl(210 80% 60%)", colorRgb: "59, 130, 246" },
+  { id: "action-items", label: "Action Items", icon: <ClipboardCheckIcon className="w-4 h-4" />, color: "hsl(340 70% 60%)", colorRgb: "244, 63, 94" },
+  { id: "fix-grammar", label: "Fix Grammar", icon: <SparklesIcon className="w-4 h-4" />, color: "hsl(20 80% 60%)", colorRgb: "249, 115, 22" },
 ];
 
 function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuickAction, userName }: {
@@ -920,7 +921,7 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
 }
 
 function ActionItem({ action, index, total, onAction }: {
-  action: { id: string; label: string; icon: React.ReactNode; color: string };
+  action: { id: string; label: string; icon: React.ReactNode; color: string; colorRgb: string };
   index: number;
   total: number;
   onAction: () => void;
@@ -968,7 +969,16 @@ function ActionItem({ action, index, total, onAction }: {
       onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "hsl(var(--accent))")}
       onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "hsl(var(--background))")}
     >
-      <div style={{ color: "hsl(var(--muted-foreground))", zIndex: 1 }}>{animatedIcon}</div>
+      <div className="novel-slash-icon" style={{
+        background: `linear-gradient(135deg, rgba(${action.colorRgb}, var(--icon-bg-start)) 0%, rgba(${action.colorRgb}, var(--icon-bg-end)) 100%)`,
+        border: `1px solid rgba(${action.colorRgb}, var(--icon-border))`,
+        color: `rgba(${action.colorRgb}, 1)`,
+        zIndex: 1
+      }}>
+        <AnimatedIcon animation="hover">
+          {animatedIcon}
+        </AnimatedIcon>
+      </div>
       <div style={{ fontSize: 13, fontWeight: 500, zIndex: 1 }}>{action.label}</div>
 
       {/* Spotlight Hover Overlay */}
