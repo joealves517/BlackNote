@@ -48,7 +48,7 @@ export function AIProcessingView({ title, messages }: AIProcessingViewProps) {
 
   return (
     <motion.div
-      className="relative pt-4 px-4 pb-4"
+      className="pt-4 px-4 pb-4"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
@@ -61,7 +61,7 @@ export function AIProcessingView({ title, messages }: AIProcessingViewProps) {
       }}
     >
       {/* ─── Floating Robot ─── */}
-      <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10">
+      <div className="floating-robot-wrapper">
         <div
           className="w-[84px] h-[84px] flex items-center justify-center relative"
           style={{ clipPath: "inset(-100% -100% 0 -100%)" }}
@@ -84,7 +84,7 @@ export function AIProcessingView({ title, messages }: AIProcessingViewProps) {
       </div>
 
       {/* ─── Header ─── */}
-      <div className="text-center pt-4 pb-3">
+      <div className="text-center pt-4 pb-1">
         <h3 className="text-lg font-bold text-foreground mb-1 tracking-tight">
           {title}
         </h3>
@@ -93,14 +93,13 @@ export function AIProcessingView({ title, messages }: AIProcessingViewProps) {
         </p>
       </div>
 
-      {/* ─── Bouncing Fruits ─── */}
-      <div style={{ width: 160, height: 160 }}>
+      {/* ─── Vector Loading Bar ─── */}
+      <div className="simple-loader-container">
         <DotLottieReact
-          src={chrome.runtime.getURL("bouncing-fruits.json")}
+          src={chrome.runtime.getURL("simple-loading-bar.json")}
           autoplay
           loop
           backgroundColor="transparent"
-          style={{ width: "100%", height: "100%" }}
         />
       </div>
     </motion.div>

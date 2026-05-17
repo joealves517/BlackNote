@@ -263,11 +263,11 @@ export function MediaActionSheet({
           <div className="history-sheet-handle-bar" />
         </div>
 
-        <div className={`relative px-4 pb-4 ${phase !== "analyzed" ? "pt-4" : "pt-1"}`}>
+        <div className={`px-4 pb-4 ${phase !== "analyzed" ? "pt-4" : "pt-1"}`}>
           {/* ─── Header & Robot (Idle Only) ─── */}
           {phase === "idle" && (
             <>
-              <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10">
+              <div className="floating-robot-wrapper">
                 <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
                   <DotLottieReact
                     src={chrome.runtime.getURL("ai-robo.lottie")}

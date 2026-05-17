@@ -644,16 +644,27 @@ body {
 .history-sheet-handle {
   display: flex;
   justify-content: center;
-  padding: 12px 0 6px;
+  padding: 6px 0 4px; /* Sát viền trên hơn */
   flex-shrink: 0;
   cursor: pointer;
 }
 
 .history-sheet-handle-bar {
   width: 36px;
-  height: 5px;
-  border-radius: 3px;
-  background-color: hsl(var(--muted-foreground) / 0.25);
+  height: 3px; /* Mỏng hơn (sleek) */
+  border-radius: 9999px;
+  background-color: hsl(var(--muted-foreground) / 0.2);
+}
+
+/* Đối với sheet có vết cắt tròn: ẩn thanh pill bar nhưng giữ handle wrapper làm khối đệm (22px) để khớp robot hoàn hảo vào vết cắt tròn (1/2 trên, 1/2 dưới) và tạo khoảng cách hợp lý cho text */
+.account-sheet .history-sheet-handle {
+  display: block !important;
+  height: 22px !important;
+  padding: 0 !important;
+  cursor: default;
+}
+.account-sheet .history-sheet-handle-bar {
+  display: none !important;
 }
 
 .history-sheet-search {
@@ -868,7 +879,7 @@ body {
   -webkit-backdrop-filter: none !important;
   border: none !important;
   box-shadow: none !important;
-  max-width: 400px;
+  max-width: 400px !important;
 }
 
 .account-sheet::before {
@@ -885,6 +896,14 @@ body {
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
   mask-image: radial-gradient(circle 38px at 50% 0px, transparent 38px, black 39px);
   -webkit-mask-image: radial-gradient(circle 38px at 50% 0px, transparent 38px, black 39px);
+}
+
+.floating-robot-wrapper {
+  position: absolute !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  top: -46px !important;
+  z-index: 10 !important;
 }
 
 .dark .account-sheet::before {
@@ -2716,4 +2735,29 @@ button:active .hover-zoom-icon-removed,
   border-radius: 2px;
   padding: 0 1px;
   box-shadow: 0 0 0 1px var(--agent-highlight);
+}
+
+/* ===== Lottie crop-container for transparent vector loading bar ===== */
+.simple-loader-container {
+  position: relative;
+  width: 100%;
+  height: 48px;
+  overflow: hidden;
+  margin-top: 12px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.simple-loader-container > div {
+  width: 100% !important;
+  height: 300px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1.15); /* Vector scale: thick bar, fits perfectly within margins without clipping */
 }

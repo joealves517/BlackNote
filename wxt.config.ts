@@ -35,6 +35,18 @@ export default defineConfig({
       },
       default_title: 'Open BlackNote',
     },
+    web_accessible_resources: [
+      {
+        resources: [
+          '*.json',
+          '*.lottie',
+          'icon/*.png',
+          '*.png',
+          '*.wasm'
+        ],
+        matches: ['<all_urls>']
+      }
+    ],
   },
   vite: () => ({
     plugins: [tailwindcss()],

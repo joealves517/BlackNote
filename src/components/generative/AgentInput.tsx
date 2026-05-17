@@ -164,7 +164,7 @@ function applyChanges(
     const parsedNodes = parseMarkdownToNodes(replaceAllChange.content);
     editor.commands.setContent({ type: "doc", content: parsedNodes });
 
-    const decorationRanges: {from: number, to: number}[] = [];
+    const decorationRanges: { from: number, to: number }[] = [];
     editor.state.doc.forEach((node, offset) => {
       decorationRanges.push({ from: offset, to: offset + node.nodeSize });
     });
@@ -176,7 +176,7 @@ function applyChanges(
         const domPos = editor.view.domAtPos(1);
         const targetEl = domPos.node instanceof HTMLElement ? domPos.node : domPos.node.parentElement;
         targetEl?.scrollIntoView({ behavior: "smooth", block: "start" });
-      } catch {}
+      } catch { }
     });
     return;
   }
@@ -230,8 +230,8 @@ function applyChanges(
   // Highlight the modified blocks using fake decorations and scroll to the first one
   let hlIdx = 0;
   let firstModifiedPos = -1;
-  const decorationRanges: {from: number, to: number}[] = [];
-  
+  const decorationRanges: { from: number, to: number }[] = [];
+
   editor.state.doc.forEach((node, offset) => {
     if (modifiedIndices.has(hlIdx)) {
       decorationRanges.push({ from: offset, to: offset + node.nodeSize });
@@ -253,21 +253,21 @@ function applyChanges(
           ? domPos.node
           : domPos.node.parentElement;
         targetEl?.scrollIntoView({ behavior: "smooth", block: "center" });
-      } catch {}
+      } catch { }
     });
   }
 }
 
 // --- Component ---
-export function AgentInput({ 
-  noteId, 
+export function AgentInput({
+  noteId,
   noteTitle,
   onContentChange,
-  onTitleChange 
-}: { 
-  noteId?: string; 
+  onTitleChange
+}: {
+  noteId?: string;
   noteTitle?: string;
-  onContentChange?: (id: string, content: string) => void; 
+  onContentChange?: (id: string, content: string) => void;
   onTitleChange?: (id: string, title: string) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -391,7 +391,7 @@ export function AgentInput({
     // Take a snapshot for Reject functionality
     snapshotRef.current = ed.getJSON();
     snapshotTitleRef.current = noteTitle || null;
-    
+
     // Serialize document with block IDs
     const { markdown, blockMap } = serializeWithBlockIds(ed);
     blockMapRef.current = blockMap;
@@ -456,7 +456,7 @@ export function AgentInput({
   const acceptAll = useCallback(() => {
     if (!editor || !editor.state) return;
     editor.view.dispatch(editor.state.tr.setMeta(agentDecorationKey, { clear: true }));
-    
+
     // Force an update to ensure onUpdate triggers save
     editor.chain().focus().run();
 
@@ -464,7 +464,7 @@ export function AgentInput({
     if (noteId && onContentChange) {
       onContentChange(noteId, JSON.stringify(editor.getJSON()));
     }
-    
+
     setHasPendingModifications(false);
     snapshotRef.current = null;
     setAgentMessage(null);
@@ -473,12 +473,12 @@ export function AgentInput({
   const rejectAll = useCallback(() => {
     if (!editor || !editor.state || !snapshotRef.current) return;
     editor.commands.setContent(snapshotRef.current);
-    
+
     // Revert title if needed
     if (noteId && onTitleChange && snapshotTitleRef.current !== null) {
       onTitleChange(noteId, snapshotTitleRef.current);
     }
-    
+
     editor.view.dispatch(editor.state.tr.setMeta(agentDecorationKey, { clear: true }));
     setHasPendingModifications(false);
     snapshotRef.current = null;
@@ -522,104 +522,104 @@ export function AgentInput({
             <span style={{ fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", paddingTop: "1px" }}>✦</span>
           ) : (
             <div className="flex flex-col w-full h-full animate-in fade-in duration-300">
-            {/* Agent Message Area */}
-            {agentMessage && !isProcessing && !hasPendingModifications && (
-              <>
-                <div 
-                  className="px-5 py-4 text-[14px] text-foreground leading-relaxed max-h-[350px] overflow-y-auto custom-scrollbar whitespace-pre-wrap pointer-events-auto"
-                  onScroll={(e) => e.stopPropagation()}
-                >
-                  {agentMessage}
-                </div>
-                <div className="h-[1px] w-full bg-border" />
-              </>
-            )}
-            
-            {/* Loading State */}
-            {isProcessing ? (
-              <div className="px-5 py-3 flex items-center gap-3 text-muted-foreground">
-                <div className="flex items-center gap-1.5 px-1">
-                  {[0, 1, 2].map((i) => (
-                    <motion.div
-                      key={i}
-                      className="w-1.5 h-1.5 bg-zinc-500 dark:bg-zinc-400 rounded-full"
-                      initial={{ opacity: 0.3, scale: 0.8 }}
-                      animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
-                      transition={{
-                        duration: 1.2,
-                        repeat: Infinity,
-                        delay: i * 0.2,
-                        ease: "easeInOut",
-                      }}
-                    />
-                  ))}
-                </div>
-                <span className="text-[14px] font-medium w-20 text-foreground/70">Thinking{loadingDots}</span>
-              </div>
-            ) : hasPendingModifications ? (
-              /* Review Mode */
-              <div className="p-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 flex items-center gap-2 px-2 text-primary">
-                    <SparklesIcon className="w-4 h-4" />
-                    <span className="text-[13px] font-medium text-foreground whitespace-nowrap">Review</span>
+              {/* Agent Message Area */}
+              {agentMessage && !isProcessing && !hasPendingModifications && (
+                <>
+                  <div
+                    className="px-5 py-4 text-[14px] text-foreground leading-relaxed max-h-[350px] overflow-y-auto custom-scrollbar whitespace-pre-wrap pointer-events-auto"
+                    onScroll={(e) => e.stopPropagation()}
+                  >
+                    {agentMessage}
                   </div>
-                  <button
-                    onClick={acceptAll}
-                    className="flex items-center justify-center gap-1.5 text-xs font-medium text-green-600 dark:text-green-400 py-2 px-4 bg-green-500/10 hover:bg-green-500/20 rounded-xl transition-colors"
-                  >
-                    <CheckIcon className="w-4 h-4" />
-                    Accept
-                  </button>
-                  <button
-                    onClick={rejectAll}
-                    className="flex items-center justify-center gap-1.5 text-xs font-medium text-red-500 dark:text-red-400 py-2 px-4 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-colors"
-                  >
-                    <XIcon className="w-4 h-4" />
-                    Reject
-                  </button>
+                  <div className="h-[1px] w-full bg-border" />
+                </>
+              )}
+
+              {/* Loading State */}
+              {isProcessing ? (
+                <div className="px-5 py-3 flex items-center gap-3 text-muted-foreground">
+                  <div className="flex items-center gap-1.5 px-1">
+                    {[0, 1, 2].map((i) => (
+                      <motion.div
+                        key={i}
+                        className="w-1.5 h-1.5 bg-zinc-500 dark:bg-zinc-400 rounded-full"
+                        initial={{ opacity: 0.3, scale: 0.8 }}
+                        animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
+                        transition={{
+                          duration: 1.2,
+                          repeat: Infinity,
+                          delay: i * 0.2,
+                          ease: "easeInOut",
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[14px] font-medium w-20 text-foreground/70">Thinking{loadingDots}</span>
                 </div>
-              </div>
-            ) : (
-              /* Normal Input Mode */
-              <form
-                onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
-                className="p-1 flex items-end relative"
-              >
-                <textarea
-                  ref={inputRef as any}
-                  value={localInput}
-                  onChange={(e) => {
-                    setLocalInput(e.target.value);
-                    e.target.style.height = "auto";
-                    e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
-                  }}
-                  placeholder="Make it professional..."
-                  className="flex-1 bg-transparent px-5 py-2 text-[15px] text-foreground outline-none resize-none overflow-y-auto"
-                  rows={1}
-                  style={{ minHeight: "36px", maxHeight: "120px" }}
-                  disabled={isProcessing}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === "Escape") setIsExpanded(false);
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSubmit();
-                    }
-                  }}
-                  onKeyUp={(e) => e.stopPropagation()}
-                />
-                <button
-                  type="submit"
-                  disabled={!localInput.trim() || isProcessing}
-                  className="mb-1 mr-1 shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-sm disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              ) : hasPendingModifications ? (
+                /* Review Mode */
+                <div className="p-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2 px-2 text-primary">
+                      <SparklesIcon className="w-4 h-4" />
+                      <span className="text-[13px] font-medium text-foreground whitespace-nowrap">Review</span>
+                    </div>
+                    <button
+                      onClick={acceptAll}
+                      className="flex items-center justify-center gap-1.5 text-xs font-medium text-green-600 dark:text-green-400 py-2 px-4 bg-green-500/10 hover:bg-green-500/20 rounded-xl transition-colors"
+                    >
+                      <CheckIcon className="w-4 h-4" />
+                      Accept
+                    </button>
+                    <button
+                      onClick={rejectAll}
+                      className="flex items-center justify-center gap-1.5 text-xs font-medium text-red-500 dark:text-red-400 py-2 px-4 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-colors"
+                    >
+                      <XIcon className="w-4 h-4" />
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Normal Input Mode */
+                <form
+                  onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
+                  className="p-1 flex items-end relative"
                 >
-                  <ArrowUpIcon className="w-4 h-4" />
-                </button>
-              </form>
-            )}
-          </div>
-        )}
+                  <textarea
+                    ref={inputRef as any}
+                    value={localInput}
+                    onChange={(e) => {
+                      setLocalInput(e.target.value);
+                      e.target.style.height = "auto";
+                      e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+                    }}
+                    placeholder="Make it professional..."
+                    className="flex-1 bg-transparent px-5 py-2 text-[15px] text-foreground outline-none resize-none overflow-y-auto"
+                    rows={1}
+                    style={{ minHeight: "36px", maxHeight: "120px" }}
+                    disabled={isProcessing}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === "Escape") setIsExpanded(false);
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSubmit();
+                      }
+                    }}
+                    onKeyUp={(e) => e.stopPropagation()}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!localInput.trim() || isProcessing}
+                    className="mb-1 mr-1 shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-sm disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ArrowUpIcon className="w-4 h-4" />
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

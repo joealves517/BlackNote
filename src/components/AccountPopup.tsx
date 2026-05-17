@@ -203,8 +203,8 @@ export function AccountPopup({
   // GUEST VIEW
   if (!user) {
     return (
-      <div className="relative pt-4 px-4 pb-4">
-        <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10">
+      <div className="pt-4 px-4 pb-4">
+        <div className="floating-robot-wrapper">
           <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
             <DotLottieReact
               src={chrome.runtime.getURL("ai-robo.lottie")}
@@ -253,8 +253,8 @@ export function AccountPopup({
   };
 
   return (
-    <div className="relative pt-4 px-4 pb-4">
-      <div className="absolute left-1/2 -top-[68px] -translate-x-1/2 z-10">
+    <div className="pt-4 px-4 pb-4">
+      <div className="floating-robot-wrapper">
         <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
           {getUserAvatar(user) ? (
             <img src={getUserAvatar(user)!} alt={firstName} className="w-[84px] h-[84px] object-cover rounded-full bg-transparent" />
