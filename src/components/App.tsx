@@ -175,6 +175,26 @@ export function App() {
   const [activePanel, setActivePanel] = useState<"history" | "clipper" | "account" | "note-chat" | "settings" | "support" | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showRightToolbar, setShowRightToolbar] = useState(true);
+
+  // Load right toolbar visibility state on mount
+  useEffect(() => {
+    chrome.storage.local.get("blacknote_show_right_toolbar", (res) => {
+      if (res?.blacknote_show_right_toolbar !== undefined) {
+        setShowRightToolbar(!!res.blacknote_show_right_toolbar);
+      }
+    });
+  }, []);
+
+  // Save right toolbar visibility state when it changes
+  const isFirstRenderToolbar = useRef(true);
+  useEffect(() => {
+    if (isFirstRenderToolbar.current) {
+      isFirstRenderToolbar.current = false;
+      return;
+    }
+    chrome.storage.local.set({ blacknote_show_right_toolbar: showRightToolbar }).catch(console.error);
+  }, [showRightToolbar]);
+
   const [showClipper, setShowClipper] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showSupportSheet, setShowSupportSheet] = useState(false);
@@ -1480,7 +1500,7 @@ export function App() {
               <button
                 className={`flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group ${activePanel === "history" ? "text-foreground opacity-100 bg-black/5 dark:bg-white/10" : "text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"}`}
                 onClick={() => handleTogglePanel("history")}
-                data-tooltip="History"
+                data-tooltip="My Notes"
                 data-placement="left"
               >
                 <LayoutListIcon size={20} />

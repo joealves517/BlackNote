@@ -179,6 +179,10 @@ export function HistorySheet({
     // Max lines for natural organic staggering (Google Keep allows around 8-10 lines)
     const maxLines = 6;
 
+    const isColored = tagColor !== null;
+    const neutralColor = "120, 120, 128"; // Premium Apple-style neutral gray
+    const displayColor = isColored || isActive ? cardColor : neutralColor;
+
     return (
       <button
         key={note.id}
@@ -187,17 +191,11 @@ export function HistorySheet({
           onSelectNote(note.id);
           onClose();
         }}
-        className="history-sheet-item group relative"
+        className="history-sheet-item group relative transition-all duration-200"
         style={{
-          background: tagColor || isActive 
-            ? `linear-gradient(135deg, rgba(${cardColor}, var(--icon-bg-start)) 0%, rgba(${cardColor}, var(--icon-bg-end)) 100%)`
-            : "hsl(var(--sidebar-hover) / 0.5)",
-          border: tagColor || isActive 
-            ? `1px solid rgba(${cardColor}, var(--icon-border))` 
-            : "1px solid hsl(var(--border) / 0.5)",
-          boxShadow: tagColor || isActive 
-            ? `inset 0 1px 0 rgba(255, 255, 255, 0.5)` 
-            : "none",
+          background: `linear-gradient(135deg, rgba(${displayColor}, var(--icon-bg-start)) 0%, rgba(${displayColor}, var(--icon-bg-end)) 100%)`,
+          border: `1px solid rgba(${displayColor}, var(--icon-border))`,
+          boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.4)`,
         }}
       >
         {firstImageSrc && (

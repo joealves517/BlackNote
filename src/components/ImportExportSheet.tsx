@@ -291,12 +291,12 @@ export function ImportExportSheet({ noteId, noteTitle, theme = "dark", toggleThe
                       className="novel-slash-item w-full text-left cursor-pointer"
                       onClick={(e) => { e.stopPropagation(); toggleAgent(); }}
                     >
-                      <div className="novel-slash-icon" style={{
+                      <div className="novel-slash-icon text-xs flex items-center justify-center font-bold select-none" style={{
                         background: "linear-gradient(135deg, rgba(139, 92, 246, var(--icon-bg-start)) 0%, rgba(139, 92, 246, var(--icon-bg-end)) 100%)",
                         border: "1px solid rgba(139, 92, 246, var(--icon-border))",
                         color: "rgba(139, 92, 246, 1)",
                       }}>
-                        <SparklesIcon className="w-4 h-4" />
+                        ✦
                       </div>
                       <div className="flex-1">
                         <p className="text-[13px] font-medium">AI Agent</p>

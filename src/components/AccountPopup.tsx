@@ -7,7 +7,7 @@ import { LogoutIcon } from "@/components/icons/logout";
 import { CircleCheckIcon } from "@/components/icons/circle-check";
 import { LoaderIcon } from "@/components/ui/loader";
 
-import { MessageSquare, PenLine, Mic, Wand2, Zap, Minus, Video, HelpCircle } from "lucide-react";
+import { MessageSquare, PenLine, Mic, Wand2, Zap, Minus, Video, HelpCircle, Check } from "lucide-react";
 import { CHECKOUT_BASE } from "@/lib/constants";
 import type { AppUser } from "@/lib/auth-client";
 
@@ -41,116 +41,99 @@ function getUserDisplayName(user: AppUser): string {
   return user.displayName || user.email || "User";
 }
 
-const AIFeatureItem = ({ icon, title, description, available, colorRgb = "59, 130, 246", isLast = false, isGuest = false }: any) => {
+const AIFeatureItem = ({ icon, title, description, available, colorRgb = "59, 130, 246", isGuest = false }: any) => {
   const [hovered, setHovered] = useState(false);
   return (
-    <>
-      <div
-        role="button"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "14px",
-          padding: "12px 14px",
-          borderRadius: "14px",
-          background: hovered
-            ? `linear-gradient(90deg, rgba(${colorRgb}, 0) 0%, rgba(${colorRgb}, 0.08) 30%, rgba(${colorRgb}, 0.08) 70%, rgba(${colorRgb}, 0) 100%)`
-            : `linear-gradient(90deg, rgba(${colorRgb}, 0) 0%, rgba(${colorRgb}, 0.04) 30%, rgba(${colorRgb}, 0.04) 70%, rgba(${colorRgb}, 0) 100%)`,
-          transition: "all 0.25s ease",
-          cursor: "pointer",
-          transform: hovered ? "scale(1.01)" : "scale(1)",
-        }}
-        onMouseOver={() => setHovered(true)}
-        onMouseOut={() => setHovered(false)}
-      >
+    <div
+      role="button"
+      className="novel-slash-item w-full text-left"
+      style={{
+        gap: "8px",
+        padding: "6px 8px",
+        borderRadius: "6px",
+        background: hovered
+          ? `linear-gradient(90deg, rgba(${colorRgb}, 0) 0%, rgba(${colorRgb}, 0.08) 30%, rgba(${colorRgb}, 0.08) 70%, rgba(${colorRgb}, 0) 100%)`
+          : `linear-gradient(90deg, rgba(${colorRgb}, 0) 0%, rgba(${colorRgb}, 0.04) 30%, rgba(${colorRgb}, 0.04) 70%, rgba(${colorRgb}, 0) 100%)`,
+        transition: "all 0.2s ease",
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div className="novel-slash-icon" style={{
+        background: `linear-gradient(135deg, rgba(${colorRgb}, var(--icon-bg-start)) 0%, rgba(${colorRgb}, var(--icon-bg-end)) 100%)`,
+        border: `1px solid rgba(${colorRgb}, var(--icon-border))`,
+        color: `rgba(${colorRgb}, 1)`,
+        flexShrink: 0,
+      }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="text-[13px] font-medium text-foreground leading-snug">{title}</div>
+        <div className="text-[11px] text-muted-foreground leading-snug mt-[1px]">{description}</div>
+      </div>
+      {available && (
         <div style={{
-          flexShrink: 0,
+          width: "20px",
+          height: "20px",
+          borderRadius: "50%",
+          background: isGuest ? "rgba(255, 255, 255, 0.15)" : "rgba(16, 185, 129, 0.12)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          width: "38px",
-          height: "38px",
-          borderRadius: "10px",
-          background: `linear-gradient(135deg, rgba(${colorRgb}, var(--icon-bg-start)) 0%, rgba(${colorRgb}, var(--icon-bg-end)) 100%)`,
-          border: `1px solid rgba(${colorRgb}, var(--icon-border))`,
-          boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.5)",
+          border: isGuest ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(16, 185, 129, 0.18)",
+          flexShrink: 0,
         }}>
-          {icon}
+          <AnimatedIcon animation="none">
+            {isGuest ? (
+              <Minus size={12} color="#888" strokeWidth={2.5} style={{ display: "flex", alignItems: "center", justifyContent: "center" }} />
+            ) : (
+              <Check size={11} className="text-emerald-500" strokeWidth={3.5} style={{ display: "flex", alignItems: "center", justifyContent: "center" }} />
+            )}
+          </AnimatedIcon>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="text-[13px] font-semibold text-foreground leading-snug">{title}</div>
-          <div className="text-[11.5px] text-muted-foreground leading-snug mt-[2px]">{description}</div>
-        </div>
-        {available && (
-          <div style={{
-            width: "20px",
-            height: "20px",
-            borderRadius: "50%",
-            background: isGuest ? "rgba(255, 255, 255, 0.15)" : "rgba(52, 211, 153, 0.15)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            border: isGuest ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(52, 211, 153, 0.2)"
-          }}>
-            <AnimatedIcon animation="none">
-              {isGuest ? (
-                <Minus size={14} color="#888" strokeWidth={2.5} style={{ display: "flex", alignItems: "center", justifyContent: "center" }} />
-              ) : (
-                <CircleCheckIcon size={14} color="#34d399" strokeWidth={2.5} style={{ display: "flex", alignItems: "center", justifyContent: "center" }} />
-              )}
-            </AnimatedIcon>
-          </div>
-        )}
-      </div>
-      {!isLast && (
-        <div style={{
-          height: "1px",
-          width: "85%",
-          margin: "0 auto",
-          background: `linear-gradient(90deg, rgba(${colorRgb}, 0) 0%, rgba(${colorRgb}, 0.15) 50%, rgba(${colorRgb}, 0) 100%)`,
-        }} />
       )}
-    </>
+    </div>
   );
 };
 
 const FeatureList = ({ isPro, quotaExhausted, isGuest = false }: { isPro: boolean, quotaExhausted: boolean, isGuest?: boolean }) => (
-  <div className="flex flex-col mb-3.5">
-    <AIFeatureItem
-      icon={<AnimatedIcon animation="none"><MessageSquare className="text-blue-500 w-5 h-5 flex items-center justify-center" strokeWidth={1.5} /></AnimatedIcon>}
-      title="Chat with Note"
-      description={isPro && !quotaExhausted ? "Powered by Gemini Nano" : "Limited usage"}
-      available={true}
-      colorRgb="59, 130, 246"
-      isGuest={isGuest}
-    />
-    <AIFeatureItem
-      icon={<AnimatedIcon animation="none"><Video className="text-purple-500 w-5 h-5 flex items-center justify-center" strokeWidth={1.5} /></AnimatedIcon>}
-      title="Chat with Video/Audio"
-      description={isPro && !quotaExhausted ? "Deep media insights" : "Limited usage"}
-      available={true}
-      colorRgb="168, 85, 247"
-      isGuest={isGuest}
-    />
-    <AIFeatureItem
-      icon={<AnimatedIcon animation="none"><Wand2 className="text-amber-500 w-5 h-5 flex items-center justify-center" strokeWidth={1.5} /></AnimatedIcon>}
-      title="AI Summarization"
-      description={isPro && !quotaExhausted ? "Extract key insights" : "Limited usage"}
-      available={true}
-      colorRgb="245, 158, 11"
-      isGuest={isGuest}
-    />
-    <AIFeatureItem
-      icon={<AnimatedIcon animation="none"><CircleCheckIcon className="text-emerald-500 w-5 h-5 flex items-center justify-center" strokeWidth={1.5} /></AnimatedIcon>}
-      title="Fix Spelling & Grammar"
-      description={isPro && !quotaExhausted ? "Professional polish" : "Limited usage"}
-      available={true}
-      colorRgb="16, 185, 129"
-      isLast={true}
-      isGuest={isGuest}
-    />
+  <div className="ai-cmd-groups mb-3.5">
+    <div className="ai-cmd-group">
+      <AIFeatureItem
+        icon={<MessageSquare className="w-4 h-4" strokeWidth={1.5} />}
+        title="Chat with Note"
+        description={isPro && !quotaExhausted ? "Powered by Gemini Nano" : "Limited usage"}
+        available={true}
+        colorRgb="59, 130, 246"
+        isGuest={isGuest}
+      />
+      <AIFeatureItem
+        icon={<Video className="w-4 h-4" strokeWidth={1.5} />}
+        title="Chat with Video/Audio"
+        description={isPro && !quotaExhausted ? "Deep media insights" : "Limited usage"}
+        available={true}
+        colorRgb="168, 85, 247"
+        isGuest={isGuest}
+      />
+      <AIFeatureItem
+        icon={<Wand2 className="w-4 h-4" strokeWidth={1.5} />}
+        title="AI Summarization"
+        description={isPro && !quotaExhausted ? "Extract key insights" : "Limited usage"}
+        available={true}
+        colorRgb="245, 158, 11"
+        isGuest={isGuest}
+      />
+      <AIFeatureItem
+        icon={<CircleCheckIcon className="w-4 h-4" strokeWidth={1.5} />}
+        title="Fix Spelling & Grammar"
+        description={isPro && !quotaExhausted ? "Professional polish" : "Limited usage"}
+        available={true}
+        colorRgb="16, 185, 129"
+        isGuest={isGuest}
+      />
+    </div>
   </div>
 );
 
@@ -257,9 +240,17 @@ export function AccountPopup({
       <div className="floating-robot-wrapper">
         <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
           {getUserAvatar(user) ? (
-            <img src={getUserAvatar(user)!} alt={firstName} className="w-[84px] h-[84px] object-cover rounded-full bg-transparent" />
+            <img 
+              src={getUserAvatar(user)!} 
+              alt={firstName} 
+              className="w-[76px] h-[76px] object-cover rounded-full bg-transparent" 
+              style={{ transform: "translateY(4px)" }}
+            />
           ) : (
-            <div className="w-[84px] h-[84px] bg-muted/80 backdrop-blur-md rounded-full flex items-center justify-center">
+            <div 
+              className="w-[76px] h-[76px] bg-muted/80 backdrop-blur-md rounded-full flex items-center justify-center" 
+              style={{ transform: "translateY(4px)" }}
+            >
               <span className="text-3xl font-bold text-muted-foreground">{firstName.charAt(0).toUpperCase()}</span>
             </div>
           )}

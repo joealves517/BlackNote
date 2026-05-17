@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { SparklesIcon } from "@/components/icons/sparkles";
 import { ArrowUpIcon } from "@/components/icons/arrow-up";
 import { getAuthToken } from "@/lib/auth-client";
 import { AI_API_BASE } from "@/lib/constants";
@@ -275,6 +274,7 @@ export function AgentInput({
   const [agentMessage, setAgentMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasPendingModifications, setHasPendingModifications] = useState(false);
+  const [changeCount, setChangeCount] = useState<number>(0);
   const [loadingDots, setLoadingDots] = useState("");
   const [isHidden, setIsHidden] = useState(() => localStorage.getItem("blacknote_hide_agent") === "true");
 
@@ -435,6 +435,7 @@ export function AgentInput({
       if (changes.length > 0) {
         applyChanges(ed, blockMap, changes, noteId, onTitleChange);
         setHasPendingModifications(true);
+        setChangeCount(changes.length);
       } else {
         // No block markers → AI answered a general question
         // Strip out any <think> tags and their contents
@@ -561,8 +562,10 @@ export function AgentInput({
                 <div className="p-2">
                   <div className="flex items-center gap-2">
                     <div className="flex-1 flex items-center gap-2 px-2 text-primary">
-                      <SparklesIcon className="w-4 h-4" />
-                      <span className="text-[13px] font-medium text-foreground whitespace-nowrap">Review</span>
+                      <span className="text-[13px] font-medium leading-none select-none">✦</span>
+                      <span className="text-[13px] font-medium text-foreground whitespace-nowrap">
+                        {changeCount === 1 ? "1 change" : `${changeCount} changes`}
+                      </span>
                     </div>
                     <button
                       onClick={acceptAll}
