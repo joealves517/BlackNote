@@ -952,7 +952,7 @@ function ActionItem({ action, index, total, onAction }: {
         display: "flex",
         alignItems: "center",
         gap: 12,
-        padding: "12px 16px",
+        padding: "12px 12px",
         backgroundColor: "hsl(var(--background))",
         border: "none",
         color: "hsl(var(--foreground))",
