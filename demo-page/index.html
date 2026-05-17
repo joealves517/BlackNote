@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BlackNote — AI Workspace & Meeting Notes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0b;
+      --surface: #111113;
+      --border: rgba(255,255,255,0.07);
+      --text: #f0f0f2;
+      --muted: #888897;
+      --accent: #7c6af7;
+      --accent-2: #a78bf9;
+      --glow: rgba(124, 106, 247, 0.35);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ── Background noise & gradient ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% -10%, rgba(124,106,247,0.18) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 10% 80%, rgba(80,170,255,0.08) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 24px 80px;
+    }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(124,106,247,0.12);
+      border: 1px solid rgba(124,106,247,0.3);
+      color: var(--accent-2);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 5px 14px;
+      border-radius: 100px;
+      margin-bottom: 32px;
+      text-transform: uppercase;
+    }
+
+    .badge-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      box-shadow: 0 0 6px var(--accent-2);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Logo row ── */
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .logo-img {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      box-shadow: 0 0 28px var(--glow), 0 4px 16px rgba(0,0,0,0.5);
+    }
+
+    .logo-name {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 40%, var(--accent-2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* ── Headline ── */
+    h1 {
+      font-size: clamp(36px, 6vw, 58px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      text-align: center;
+      max-width: 700px;
+      margin-bottom: 20px;
+    }
+
+    h1 .highlight {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 50%, #c4b5fd 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* ── Sub ── */
+    .sub {
+      font-size: 17px;
+      color: var(--muted);
+      text-align: center;
+      max-width: 520px;
+      line-height: 1.65;
+      margin-bottom: 44px;
+      font-weight: 400;
+    }
+
+    /* ── CTA buttons ── */
+    .cta-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 72px;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 4px 20px var(--glow);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px var(--glow);
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 500;
+      padding: 12px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255,255,255,0.09);
+      transform: translateY(-2px);
+    }
+
+    /* ── Feature grid ── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      max-width: 760px;
+      width: 100%;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px 20px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(124,106,247,0.35);
+      transform: translateY(-3px);
+    }
+
+    .feature-icon {
+      font-size: 24px;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .feature-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .feature-desc {
+      font-size: 12.5px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 64px;
+      font-size: 12px;
+      color: rgba(136,136,151,0.5);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- Badge -->
+    <div class="badge">
+      <span class="badge-dot"></span>
+      Chrome Extension · Free to use
+    </div>
+
+    <!-- Logo -->
+    <div class="logo-row">
+      <img src="icon-512.png" alt="BlackNote" class="logo-img" />
+      <span class="logo-name">BlackNote</span>
+    </div>
+
+    <!-- Headline -->
+    <h1>Your <span class="highlight">AI Workspace</span><br />lives in your browser</h1>
+
+    <!-- Subtitle -->
+    <p class="sub">
+      Take smarter notes. Record audio & video. Chat with your documents.
+      Let the autonomous AI Agent write, edit, and organize for you — all without leaving the page.
+    </p>
+
+    <!-- CTA -->
+    <div class="cta-row">
+      <a href="https://chromewebstore.google.com" class="btn-primary">
+        <!-- Official Chrome extension puzzle-piece icon -->
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20.5 11H19V7a2 2 0 0 0-2-2h-4V3.5a2.5 2.5 0 0 0-5 0V5H4a2 2 0 0 0-2 2v3.8h1.5a2.7 2.7 0 0 1 0 5.4H2V20a2 2 0 0 0 2 2h3.8v-1.5a2.7 2.7 0 0 1 5.4 0V22H17a2 2 0 0 0 2-2v-4h1.5a2.5 2.5 0 0 0 0-5Z"/>
+        </svg>
+        Add to Chrome — Free
+      </a>
+      <a href="#" class="btn-ghost">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Watch Demo
+      </a>
+    </div>
+
+    <!-- Features -->
+    <div class="features">
+      <div class="feature-card">
+        <span class="feature-icon">🎙️</span>
+        <div class="feature-title">Audio & Video AI</div>
+        <div class="feature-desc">Record directly into your note. Transcribe, summarize, and chat with any media block.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">✦</span>
+        <div class="feature-title">Autonomous AI Agent</div>
+        <div class="feature-desc">Command AI to write, edit, format, or translate your document. Review every change inline.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">💬</span>
+        <div class="feature-title">Chat with Notes</div>
+        <div class="feature-desc">Ask questions, extract insights, and get instant answers from any note you've written.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🌐</span>
+        <div class="feature-title">Web Clipper</div>
+        <div class="feature-desc">Clip any webpage or YouTube video into your notes with a single click — AI-powered summaries included.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🔄</span>
+        <div class="feature-title">Seamless Sync</div>
+        <div class="feature-desc">Connect your Google account. Every note syncs securely across all your devices.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🎨</span>
+        <div class="feature-title">3D Sticky Notes</div>
+        <div class="feature-desc">Pin beautiful 3D-styled notes on any page. Personalize colors, shapes, and place them anywhere.</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      &copy; 2025 BlackNote · Built for thinkers, makers &amp; learners.
+    </div>
+
+  </div>
+</body>
+</html>
