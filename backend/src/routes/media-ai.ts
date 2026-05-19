@@ -32,8 +32,8 @@ const freeAI = new GoogleGenAI({
   apiKey: "AIzaSyCO3F6Znpad9_cZo6nQyVq18kSeXjjti8Y",
 });
 
-const PREMIUM_MODEL = "gemini-2.5-flash";
-const FREE_MODEL = "gemini-2.5-flash-lite";
+const PREMIUM_MODEL = "gemini-3.1-flash-lite";
+const FREE_MODEL = "gemini-3.1-flash-lite";
 
 function pickAIClient(hasPremiumCredits: boolean) {
   return hasPremiumCredits

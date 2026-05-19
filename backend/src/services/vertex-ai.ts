@@ -12,7 +12,7 @@ const ai = new GoogleGenAI({
   location: config.gcp.region,
 });
 
-const MODEL_NAME = "gemini-2.5-flash";
+const MODEL_NAME = "gemini-3.1-flash-lite";
 
 const WRITING_SYSTEM_PROMPT = `You are an expert AI writing assistant embedded in a note-taking editor called BlackNote.
 You help users improve, expand, summarize, translate, and fix their writing.

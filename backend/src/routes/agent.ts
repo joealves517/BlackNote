@@ -38,7 +38,7 @@ const groq = createGroq({
   apiKey: config.groq.apiKey || process.env.GROQ_API_KEY || "dummy_key",
 });
 
-const PREMIUM_MODEL = "gemini-2.5-flash";
+const PREMIUM_MODEL = "gemini-3.1-flash-lite";
 const FALLBACK_FREE_MODEL = "gemini-3.1-flash-lite";
 const GROQ_MODELS = [
   "meta-llama/llama-4-scout-17b-16e-instruct",
