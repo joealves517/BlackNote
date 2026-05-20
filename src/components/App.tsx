@@ -16,7 +16,7 @@ import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { motion, AnimatePresence } from "framer-motion";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Mic, MicOff, Menu, Sparkles, AppWindow, PanelRight } from "lucide-react";
+import { Mic, MicOff, Menu, Sparkles, AppWindow, PanelRight, MoreHorizontal } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
 import { RecordingHeader } from "@/components/RecordingHeader";
 import { AIErrorSheet } from "@/components/AIErrorSheet";
@@ -175,6 +175,92 @@ export function App() {
   const [activePanel, setActivePanel] = useState<"history" | "clipper" | "account" | "note-chat" | "settings" | "support" | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showRightToolbar, setShowRightToolbar] = useState(true);
+  const [isWide, setIsWide] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIsWide(window.innerWidth > 400);
+    const handleResize = () => {
+      setIsWide(window.innerWidth > 400);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const [showMorePopover, setShowMorePopover] = useState(false);
+  const [popoverCoords, setPopoverCoords] = useState<{ top: number } | null>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnterMore = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    if (moreButtonRef.current) {
+      const rect = moreButtonRef.current.getBoundingClientRect();
+      const buttonCenter = rect.top + rect.height / 2;
+      const popoverHeight = 120; // compact popover grid height
+      let targetTop = buttonCenter - popoverHeight / 2;
+      targetTop = Math.max(16, Math.min(window.innerHeight - popoverHeight - 16, targetTop));
+      setPopoverCoords({ top: targetTop });
+      setShowMorePopover(true);
+    }
+  };
+
+  const handleMouseLeaveMore = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setShowMorePopover(false);
+    }, 150); // 150ms delay for smooth transition to popover
+  };
+
+  const handleMouseEnterPopover = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  };
+
+  const handleMouseLeavePopover = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setShowMorePopover(false);
+    }, 150);
+  };
+
+  // Close popover when switching isWide
+  useEffect(() => {
+    if (!isWide) {
+      setShowMorePopover(false);
+    }
+  }, [isWide]);
+
+  // Click outside to close popover
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (
+        showMorePopover &&
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node) &&
+        moreButtonRef.current &&
+        !moreButtonRef.current.contains(e.target as Node)
+      ) {
+        setShowMorePopover(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [showMorePopover]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
+
 
   // Load right toolbar visibility state on mount
   useEffect(() => {
@@ -1461,7 +1547,7 @@ export function App() {
         {showRightToolbar && !isRecording && !isSTTActive && !isMeetSyncActive && (
           <motion.div
             initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 40, opacity: 1 }}
+            animate={{ width: isWide ? 56 : 40, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
             className="h-full flex-shrink-0 flex flex-col items-center py-4 z-0 overflow-y-auto overflow-x-hidden no-scrollbar gap-3"
@@ -1469,9 +1555,9 @@ export function App() {
               backgroundColor: "hsl(var(--sidebar-bg))",
             }}
           >
-            <div className="flex flex-col items-center gap-3 w-full opacity-100 min-w-[40px]">
+            <div className={`flex flex-col items-center gap-3 w-full opacity-100 ${isWide ? "px-0.5" : "min-w-[40px]"}`}>
               <button
-                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-background cursor-pointer"
                 onClick={() => setShowRightToolbar(false)}
                 data-tooltip="Close menu"
                 data-placement="left"
@@ -1480,102 +1566,191 @@ export function App() {
               </button>
 
               <button
-                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={handleCreateNote}
                 data-tooltip="New note"
                 data-placement="left"
               >
-                <PlusIcon className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
+                  <PlusIcon className="w-5 h-5" />
+                </div>
+                {isWide && <span className="text-[10px] font-medium leading-none mt-1 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">New</span>}
               </button>
               
               <button
-                className={`flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group ${activePanel === "note-chat" ? "text-foreground opacity-100 bg-black/5 dark:bg-white/10" : "text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"}`}
+                className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={() => handleTogglePanel("note-chat")}
                 data-tooltip="Ask AI"
                 data-placement="left"
               >
-                <MessageSquareMoreIcon className="w-5 h-5" size={20} />
+                <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
+                  activePanel === "note-chat"
+                    ? "bg-background text-foreground opacity-100"
+                    : "opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground"
+                }`}>
+                  <MessageSquareMoreIcon className="w-5 h-5" size={20} />
+                </div>
+                {isWide && (
+                  <span className={`text-[10px] font-medium leading-none mt-1 text-center truncate w-full transition-all ${
+                    activePanel === "note-chat"
+                      ? "text-foreground opacity-100 font-semibold"
+                      : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
+                  }`}>
+                    Ask AI
+                  </span>
+                )}
               </button>
 
               <button
-                className={`flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group ${activePanel === "history" ? "text-foreground opacity-100 bg-black/5 dark:bg-white/10" : "text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"}`}
+                className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={() => handleTogglePanel("history")}
                 data-tooltip="My Notes"
                 data-placement="left"
               >
-                <LayoutListIcon size={20} />
+                <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
+                  activePanel === "history"
+                    ? "bg-background text-foreground opacity-100"
+                    : "opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground"
+                }`}>
+                  <LayoutListIcon size={20} />
+                </div>
+                {isWide && (
+                  <span className={`text-[10px] font-medium leading-none mt-1 text-center truncate w-full transition-all ${
+                    activePanel === "history"
+                      ? "text-foreground opacity-100 font-semibold"
+                      : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
+                  }`}>
+                    Notes
+                  </span>
+                )}
               </button>
 
               <button
-                className={`flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group ${activePanel === "clipper" ? "text-foreground opacity-100 bg-black/5 dark:bg-white/10" : "text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"}`}
+                className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={() => handleTogglePanel("clipper")}
                 data-tooltip="Clip page"
                 data-placement="left"
-                
               >
-                <ScanLineIcon size={20} />
+                <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
+                  activePanel === "clipper"
+                    ? "bg-background text-foreground opacity-100"
+                    : "opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground"
+                }`}>
+                  <ScanLineIcon size={20} />
+                </div>
+                {isWide && (
+                  <span className={`text-[10px] font-medium leading-none mt-1 text-center truncate w-full transition-all ${
+                    activePanel === "clipper"
+                      ? "text-foreground opacity-100 font-semibold"
+                      : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
+                  }`}>
+                    Clip
+                  </span>
+                )}
               </button>
 
-              <button
-                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
-                onClick={() => handleToolbarMediaAction("stt")}
-                data-tooltip="Speech to Text"
-                data-placement="left"
-              >
-                <MicIcon className="w-5 h-5" />
-              </button>
-              <button
-                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
-                onClick={() => handleToolbarMediaAction("audio")}
-                data-tooltip="Record Audio"
-                data-placement="left"
-              >
-                <AudioLinesIcon className="w-5 h-5" />
-              </button>
-              <button
-                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
-                onClick={() => handleToolbarMediaAction("screen")}
-                data-tooltip="Record Screen"
-                data-placement="left"
-              >
-                <VideoIcon className="w-5 h-5" />
-              </button>
-              <button
-                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
-                onClick={() => handleToolbarMediaAction("meet")}
-                data-tooltip="Meet Live Sync"
-                data-placement="left"
-              >
-                <MeetIcon className="w-5 h-5" />
-              </button>
+              {!isWide ? (
+                <>
+                  <button
+                    className="flex w-9 h-9 justify-center items-center group cursor-pointer text-muted-foreground"
+                    onClick={() => handleToolbarMediaAction("stt")}
+                    data-tooltip="Speech to Text"
+                    data-placement="left"
+                  >
+                    <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
+                      <MicIcon className="w-5 h-5" />
+                    </div>
+                  </button>
+                  <button
+                    className="flex w-9 h-9 justify-center items-center group cursor-pointer text-muted-foreground"
+                    onClick={() => handleToolbarMediaAction("audio")}
+                    data-tooltip="Record Audio"
+                    data-placement="left"
+                  >
+                    <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
+                      <AudioLinesIcon className="w-5 h-5" />
+                    </div>
+                  </button>
+                  <button
+                    className="flex w-9 h-9 justify-center items-center group cursor-pointer text-muted-foreground"
+                    onClick={() => handleToolbarMediaAction("screen")}
+                    data-tooltip="Record Screen"
+                    data-placement="left"
+                  >
+                    <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
+                      <VideoIcon className="w-5 h-5" />
+                    </div>
+                  </button>
+                  <button
+                    className="flex w-9 h-9 justify-center items-center group cursor-pointer text-muted-foreground"
+                    onClick={() => handleToolbarMediaAction("meet")}
+                    data-tooltip="Meet Live Sync"
+                    data-placement="left"
+                  >
+                    <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
+                      <MeetIcon className="w-5 h-5" />
+                    </div>
+                  </button>
+                </>
+              ) : (
+                <button
+                  ref={moreButtonRef}
+                  className="flex flex-col gap-0.5 w-full min-h-[48px] py-1 justify-center items-center group cursor-pointer text-muted-foreground"
+                  onMouseEnter={handleMouseEnterMore}
+                  onMouseLeave={handleMouseLeaveMore}
+                  data-tooltip="More options"
+                  data-placement="left"
+                >
+                  <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
+                    showMorePopover
+                      ? "bg-background text-foreground opacity-100 shadow-sm"
+                      : "opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground"
+                  }`}>
+                    <MoreHorizontal className="w-5 h-5" />
+                  </div>
+                  <span className={`text-[10px] font-medium leading-none mt-1 text-center truncate w-full transition-all ${
+                    showMorePopover
+                      ? "text-foreground opacity-100 font-semibold"
+                      : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
+                  }`}>
+                    More
+                  </span>
+                </button>
+              )}
             </div>
 
-            <div className="mt-auto flex flex-col items-center gap-3 w-full min-w-[40px]">
+            <div className={`mt-auto flex flex-col items-center gap-3 w-full ${isWide ? "px-0.5" : "min-w-[40px]"}`}>
               <button
-                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={() => window.dispatchEvent(new CustomEvent("open-support-sheet"))}
                 data-tooltip="Help"
                 data-placement="left"
               >
-                <CircleHelpIcon className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
+                  <CircleHelpIcon className="w-5 h-5" />
+                </div>
+                {isWide && <span className="text-[10px] font-medium leading-none mt-1 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">Help</span>}
               </button>
 
               <button
-                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={toggleTheme}
                 data-tooltip={theme === "light" ? "Dark mode" : "Light mode"}
                 data-placement="left"
               >
-                {theme === "light" ? (
-                  <MoonIcon size={20} className="w-5 h-5" />
-                ) : (
-                  <SunIcon size={20} className="w-5 h-5" />
-                )}
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
+                  {theme === "light" ? (
+                    <MoonIcon size={20} className="w-5 h-5" />
+                  ) : (
+                    <SunIcon size={20} className="w-5 h-5" />
+                  )}
+                </div>
+                {isWide && <span className="text-[10px] font-medium leading-none mt-1 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">Theme</span>}
               </button>
 
               {/* Always on Top — Pop-out Window */}
               <button
-                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={handleTogglePiP}
                 data-tooltip={
                   isPopoutInstance.current
@@ -1586,42 +1761,149 @@ export function App() {
                 }
                 data-placement="left"
               >
-                {isPinnedToTop || isPopoutInstance.current ? (
-                  <PanelRight className="w-5 h-5" />
-                ) : (
-                  <AppWindow className="w-5 h-5" />
-                )}
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
+                  {isPinnedToTop || isPopoutInstance.current ? (
+                    <PanelRight className="w-5 h-5" />
+                  ) : (
+                    <AppWindow className="w-5 h-5" />
+                  )}
+                </div>
+                {isWide && <span className="text-[10px] font-medium leading-none mt-1 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">Popout</span>}
               </button>
 
               <button
-                className={`flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group ${activePanel === "settings" ? "text-foreground opacity-100 bg-black/5 dark:bg-white/10" : "text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"}`}
+                className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={() => handleTogglePanel("settings")}
                 data-tooltip="Settings"
                 data-placement="left"
               >
-                <SettingsIcon size={20} />
+                <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
+                  activePanel === "settings"
+                    ? "bg-background text-foreground opacity-100"
+                    : "opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground"
+                }`}>
+                  <SettingsIcon size={20} />
+                </div>
+                {isWide && (
+                  <span className={`text-[10px] font-medium leading-none mt-1 text-center truncate w-full transition-all ${
+                    activePanel === "settings"
+                      ? "text-foreground opacity-100 font-semibold"
+                      : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
+                  }`}>
+                    Settings
+                  </span>
+                )}
               </button>
 
               <button
-                className={`flex items-center justify-center w-9 h-9 rounded-full transition-all group ${activePanel === "account" ? "text-foreground opacity-100 bg-black/5 dark:bg-white/10" : "text-muted-foreground opacity-100 hover:bg-black/5 dark:hover:bg-white/10"}`}
+                className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[52px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={() => handleTogglePanel("account")}
                 data-tooltip={!user ? "Sign in / Account" : "Account"}
                 data-placement="left"
               >
-                {!user ? (
-                  <div className="scale-[0.85]"><GuestAvatarIcon /></div>
-                ) : getUserAvatar(user) ? (
-                  <img src={getUserAvatar(user)!} alt="" className="w-[30px] h-[30px] rounded-full object-cover border border-border/20 shadow-sm" />
-                ) : (
-                  <div className="w-[30px] h-[30px] rounded-full bg-muted flex items-center justify-center text-[12px] font-bold border border-border/20 shadow-sm">
-                    {(user.displayName || user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
-                  </div>
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                  activePanel === "account"
+                    ? "bg-background text-foreground opacity-100"
+                    : "opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground"
+                }`}>
+                  {!user ? (
+                    <div className="scale-[0.85]"><GuestAvatarIcon /></div>
+                  ) : getUserAvatar(user) ? (
+                    <img src={getUserAvatar(user)!} alt="" className="w-[30px] h-[30px] rounded-full object-cover border border-border/20 shadow-sm" />
+                  ) : (
+                    <div className="w-[30px] h-[30px] rounded-full bg-muted flex items-center justify-center text-[12px] font-bold border border-border/20 shadow-sm">
+                      {(user.displayName || user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                {isWide && (
+                  <span className={`text-[10px] font-medium leading-none mt-1 text-center truncate w-full transition-all ${
+                    activePanel === "account"
+                      ? "text-foreground opacity-100 font-semibold"
+                      : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
+                  }`}>
+                    Account
+                  </span>
                 )}
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+      {/* ─── More Popover Grid ─── */}
+      <AnimatePresence>
+        {showMorePopover && popoverCoords && (
+          <motion.div
+            ref={popoverRef}
+            initial={{ opacity: 0, scale: 0.95, x: 10 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 0.95, x: 10 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            onMouseEnter={handleMouseEnterPopover}
+            onMouseLeave={handleMouseLeavePopover}
+            className="fixed z-[100] w-[210px] bg-background rounded-xl shadow-2xl p-2 flex flex-col gap-2"
+            style={{
+              top: popoverCoords.top,
+              right: 64, // Cách toolbar mở rộng 56px + margin 8px
+            }}
+          >
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                className="flex flex-col items-center gap-1 p-1 cursor-pointer text-muted-foreground group"
+                onClick={() => {
+                  handleToolbarMediaAction("stt");
+                  setShowMorePopover(false);
+                }}
+              >
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-muted group-hover:text-foreground">
+                  <MicIcon className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-medium text-center truncate w-full group-hover:text-foreground mt-0.5">STT</span>
+              </button>
+
+              <button
+                className="flex flex-col items-center gap-1 p-1 cursor-pointer text-muted-foreground group"
+                onClick={() => {
+                  handleToolbarMediaAction("audio");
+                  setShowMorePopover(false);
+                }}
+              >
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-muted group-hover:text-foreground">
+                  <AudioLinesIcon className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-medium text-center truncate w-full group-hover:text-foreground mt-0.5">Audio</span>
+              </button>
+
+              <button
+                className="flex flex-col items-center gap-1 p-1 cursor-pointer text-muted-foreground group"
+                onClick={() => {
+                  handleToolbarMediaAction("screen");
+                  setShowMorePopover(false);
+                }}
+              >
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-muted group-hover:text-foreground">
+                  <VideoIcon className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-medium text-center truncate w-full group-hover:text-foreground mt-0.5">Screen</span>
+              </button>
+
+              <button
+                className="flex flex-col items-center gap-1 p-1 cursor-pointer text-muted-foreground group"
+                onClick={() => {
+                  handleToolbarMediaAction("meet");
+                  setShowMorePopover(false);
+                }}
+              >
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-muted group-hover:text-foreground">
+                  <MeetIcon className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-medium text-center truncate w-full group-hover:text-foreground mt-0.5">Meet</span>
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <GlobalTooltip />
     </div>
   );

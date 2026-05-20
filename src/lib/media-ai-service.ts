@@ -20,7 +20,8 @@ export type AnalysisStep =
   | "transcribing"
   | "saving"
   | "done"
-  | "error";
+  | "error"
+  | "retrying";
 
 export interface AnalysisProgress {
   step: AnalysisStep;

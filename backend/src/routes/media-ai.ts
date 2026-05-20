@@ -18,7 +18,7 @@ import {
 import { GoogleGenAI } from "@google/genai";
 import { config } from "../config/index.js";
 import { calculateTokenCost } from "../services/token-cost.js";
-import { transcribeWithGroq } from "../services/groq-queue.js";
+import { transcribeWithGemini } from "../services/gemini-transcribe.js";
 
 const router = Router();
 
@@ -28,17 +28,10 @@ const vertexAI = new GoogleGenAI({
   location: config.gcp.region,
 });
 
-const freeAI = new GoogleGenAI({
-  apiKey: "AIzaSyCO3F6Znpad9_cZo6nQyVq18kSeXjjti8Y",
-});
-
 const PREMIUM_MODEL = "gemini-3.1-flash-lite";
-const FREE_MODEL = "gemini-3.1-flash-lite";
 
 function pickAIClient(hasPremiumCredits: boolean) {
-  return hasPremiumCredits
-    ? { client: vertexAI, model: PREMIUM_MODEL }
-    : { client: freeAI, model: FREE_MODEL };
+  return { client: vertexAI, model: PREMIUM_MODEL };
 }
 
 function extractTokenCost(response: any): {
@@ -87,14 +80,23 @@ router.post(
     }
 
     try {
-      // Groq Whisper — free, deduct fixed amount for free users
-      const result = await transcribeWithGroq(
+      // Gemini Flash Lite — free/premium, deduct credits based on token cost
+      const result = await transcribeWithGemini(
         audioBase64,
-        mimeType || "audio/mpeg"
+        mimeType || "audio/mpeg",
+        usePremium
       );
 
-      if (!usePremium) {
-        deductFreeCredits(authReq.userEmail, 5).catch(console.error);
+      const creditsUsed = result.usage
+        ? calculateTokenCost(result.usage)
+        : 5;
+
+      console.log(`[Media AI] Transcribe completed. Cost: ${creditsUsed} credits (tokens: ${JSON.stringify(result.usage)})`);
+
+      if (usePremium) {
+        deductCreditsByEmail(authReq.userEmail, creditsUsed).catch(console.error);
+      } else {
+        deductFreeCredits(authReq.userEmail, creditsUsed).catch(console.error);
       }
 
 
@@ -104,9 +106,8 @@ router.post(
       });
     } catch (error: any) {
       console.error("[Media AI] Transcribe error:", error?.message);
-      const isRateLimit = error?.status === 429;
-      res.status(isRateLimit ? 429 : 500).json({
-        error: isRateLimit ? "rate_limited" : "transcription_failed",
+      res.status(500).json({
+        error: "We are facing high traffic. Please try again later.",
       });
     }
   }
@@ -206,7 +207,7 @@ router.post(
       res.json({ summary: (response.text || "").trim() });
     } catch (error) {
       console.error("[Media AI] Summarize error:", error);
-      res.status(500).json({ error: "summarization_failed" });
+      res.status(500).json({ error: "We are facing high traffic. Please try again later." });
     }
   }
 );
@@ -316,7 +317,7 @@ ${JSON.stringify(textsPayload)}`,
       res.json({ translatedSegments });
     } catch (error) {
       console.error("[Media AI] Translate error:", error);
-      res.status(500).json({ error: "translation_failed" });
+      res.status(500).json({ error: "We are facing high traffic. Please try again later." });
     }
   }
 );
@@ -417,7 +418,7 @@ Respond in this exact JSON format:
       });
     } catch (error) {
       console.error("[Media AI] Title error:", error);
-      res.status(500).json({ error: "title_generation_failed" });
+      res.status(500).json({ error: "We are facing high traffic. Please try again later." });
     }
   }
 );
@@ -532,7 +533,7 @@ ${transcript.slice(0, 8000)}`,
       res.json({ timestamps });
     } catch (error) {
       console.error("[Media AI] Keyframes error:", error);
-      res.status(500).json({ error: "keyframe_selection_failed" });
+      res.status(500).json({ error: "We are facing high traffic. Please try again later." });
     }
   }
 );

@@ -1,6 +1,5 @@
 const requiredVars = [
   "GCP_PROJECT_ID",
-  "GEMINI_API_KEY",
   "AWS_REGION",
   "AWS_ACCESS_KEY_ID",
   "AWS_SECRET_ACCESS_KEY",

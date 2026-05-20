@@ -147,9 +147,7 @@ export function NoteChatSheet({
     },
     onError: (err) => {
       console.error("[NoteChatSheet] onError called:", err);
-      const errorMsg = isPremium
-        ? "An error occurred, please try again."
-        : "We are facing high traffic, consider upgrading to PRO to enjoy the best experience.";
+      const errorMsg = "We are facing high traffic. Please try again later.";
 
       setMessages((prev) => {
         const updated = [...prev, { role: "ai", content: errorMsg }];
@@ -216,9 +214,7 @@ export function NoteChatSheet({
       });
     } catch (err) {
       console.error("[NoteChatSheet] complete() failed:", err);
-      const errorMsg = isPremium
-        ? "An error occurred, please try again."
-        : "We are facing high traffic, consider upgrading to PRO.";
+      const errorMsg = "We are facing high traffic. Please try again later.";
       setMessages((prev) => {
         const updated = [...prev, { role: "ai", content: errorMsg }];
         onHistoryChange(updated);

@@ -63,7 +63,7 @@ router.post(
     if (user.credits <= 0) {
       const canProceed = await checkFreeCreditLimit(authReq.userEmail);
       if (!canProceed) {
-        res.write("⚠️ You have reached your daily limit for free AI services. Consider upgrading to Pro for unlimited access.");
+        res.write("You have reached your daily limit for free AI services. Consider upgrading to Pro for unlimited access.");
         res.end();
         return;
       }
@@ -82,9 +82,9 @@ router.post(
           onError: (error: Error) => {
             console.error("[AI] Gemini Free fallback error:", error.message);
             if (error.message.includes("429") || error.message.includes("RESOURCE_EXHAUSTED")) {
-              res.write("⚠️ API rate limit reached. Please wait a moment and try again.");
+              res.write("API rate limit reached. Please wait a moment and try again.");
             } else {
-              res.write("⚠️ An error occurred while generating the response. Please try again.");
+              res.write("An error occurred while generating the response. Please try again.");
             }
             res.end();
           },
@@ -126,9 +126,9 @@ router.post(
           console.error("[AI Premium] Vertex AI error:", error.message);
           // No credits deducted on error — fair billing
           if (error.message.includes("429") || error.message.includes("RESOURCE_EXHAUSTED")) {
-            res.write("⚠️ API rate limit reached. Please wait a moment and try again.");
+            res.write("API rate limit reached. Please wait a moment and try again.");
           } else {
-            res.write("⚠️ An error occurred while generating the response. Please try again.");
+            res.write("An error occurred while generating the response. Please try again.");
           }
           res.end();
         },

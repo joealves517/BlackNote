@@ -164,8 +164,8 @@ export function ImageClipper({ dataUrl, onSaveAsNote, onClose }: ImageClipperPro
         }
 
         // Check if the backend streamed an error message instead of real content
-        if (result.includes("⚠️") || result.includes("We are facing high traffic")) {
-          throw new Error(result.replace("⚠️", "").trim());
+        if (result.includes("We are facing high traffic") || result.includes("You have reached your daily limit")) {
+          throw new Error(result.trim());
         }
 
         // Processing done

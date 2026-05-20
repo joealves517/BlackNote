@@ -42,7 +42,7 @@ router.post(
     const canProceed = await checkFreeCreditLimit(authReq.userEmail);
     if (!canProceed) {
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
-      res.write("⚠️ You have reached your daily limit for free AI services. Consider upgrading to Pro for unlimited access.");
+      res.write("You have reached your daily limit for free AI services. Consider upgrading to Pro for unlimited access.");
       res.end();
       return;
     }
@@ -68,7 +68,7 @@ router.post(
         },
         onError: (error: Error) => {
           console.error("[AI Free] Error:", error.message);
-          res.write("We are facing high traffic, consider upgrading to PRO to enjoy the best experience.");
+          res.write("We are facing high traffic. Please try again later.");
           res.end();
         },
       },

@@ -56,7 +56,7 @@ export function AIAssistant({ selectedText, onInsertText, onClose }: AIAssistant
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "AI request failed";
-      setResponse(`⚠️ ${message}`);
+      setResponse(message);
     } finally {
       setIsStreaming(false);
     }

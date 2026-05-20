@@ -482,44 +482,7 @@ const uploadFn = async (file: File): Promise<string> => {
       console.error("Failed to upload image to S3, falling back to local:", err);
     }
 
-    // Auto-caption in background
-    getAuthToken().then(token => {
-      const endpoint = token ? `${AI_API_BASE}/api/ai` : `${AI_API_BASE}/api/ai/free`;
-      fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          option: "describe_image",
-          files: [{ mimeType: "image/png", data: compressedDataUrl.split(",")[1] }]
-        }),
-      })
-      .then(res => res.body?.getReader())
-      .then(async reader => {
-        if (!reader) return;
-        const decoder = new TextDecoder();
-        let caption = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          caption += decoder.decode(value, { stream: true });
-        }
-        
-        const cleanCaption = caption.replace(/^#\s+(.+)$/m, "").trim();
-        
-        if (cleanCaption) {
-          // Send caption event using finalUrl so it attaches to the new S3 URL if possible
-          // But actually the src in editor might still be oldSrc if upload was slow,
-          // so we dispatch for BOTH just in case, or we dispatch after waiting for the newSrc to settle.
-          window.dispatchEvent(new CustomEvent("image-caption-ready", { 
-            detail: { src: finalUrl, alt: cleanCaption, fallbackSrc: compressedDataUrl } 
-          }));
-        }
-      })
-      .catch(err => console.error("Auto-caption failed:", err));
-    });
+
   })();
 
   // Instant UI response!

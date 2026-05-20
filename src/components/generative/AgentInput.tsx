@@ -445,7 +445,7 @@ export function AgentInput({
       }
     } catch (err) {
       console.error("[Agent] Error:", err);
-      setAgentMessage("⚠️ Failed to process. Please try again.");
+      setAgentMessage("Failed to process. Please try again.");
       snapshotRef.current = null;
     } finally {
       setIsProcessing(false);
