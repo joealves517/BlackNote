@@ -1276,7 +1276,6 @@ export function App() {
               exit={{ opacity: 0 }}
               className="absolute top-4 right-2 z-40 flex items-center justify-center w-9 h-9 rounded-md text-muted-foreground opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
               onClick={() => setShowRightToolbar(true)}
-              data-tooltip="Open menu"
             >
               <Menu size={20} strokeWidth={1.25} />
             </motion.button>
@@ -1574,7 +1573,7 @@ export function App() {
                 <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
                   <PlusIcon className="w-5 h-5" />
                 </div>
-                {isWide && <span className="text-[10px] font-medium leading-none mt-1 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">New</span>}
+                {isWide && <span className="text-[10px] font-medium leading-normal mt-0 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">New</span>}
               </button>
               
               <button
@@ -1591,7 +1590,7 @@ export function App() {
                   <MessageSquareMoreIcon className="w-5 h-5" size={20} />
                 </div>
                 {isWide && (
-                  <span className={`text-[10px] font-medium leading-none mt-1 text-center truncate w-full transition-all ${
+                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
                     activePanel === "note-chat"
                       ? "text-foreground opacity-100 font-semibold"
                       : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
@@ -1615,7 +1614,7 @@ export function App() {
                   <LayoutListIcon size={20} />
                 </div>
                 {isWide && (
-                  <span className={`text-[10px] font-medium leading-none mt-1 text-center truncate w-full transition-all ${
+                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
                     activePanel === "history"
                       ? "text-foreground opacity-100 font-semibold"
                       : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
@@ -1639,7 +1638,7 @@ export function App() {
                   <ScanLineIcon size={20} />
                 </div>
                 {isWide && (
-                  <span className={`text-[10px] font-medium leading-none mt-1 text-center truncate w-full transition-all ${
+                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
                     activePanel === "clipper"
                       ? "text-foreground opacity-100 font-semibold"
                       : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
@@ -1698,7 +1697,7 @@ export function App() {
                   className="flex flex-col gap-0.5 w-full min-h-[48px] py-1 justify-center items-center group cursor-pointer text-muted-foreground"
                   onMouseEnter={handleMouseEnterMore}
                   onMouseLeave={handleMouseLeaveMore}
-                  data-tooltip="More options"
+                  data-tooltip={showMorePopover ? undefined : "More options"}
                   data-placement="left"
                 >
                   <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
@@ -1708,7 +1707,7 @@ export function App() {
                   }`}>
                     <MoreHorizontal className="w-5 h-5" />
                   </div>
-                  <span className={`text-[10px] font-medium leading-none mt-1 text-center truncate w-full transition-all ${
+                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
                     showMorePopover
                       ? "text-foreground opacity-100 font-semibold"
                       : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
@@ -1729,7 +1728,7 @@ export function App() {
                 <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
                   <CircleHelpIcon className="w-5 h-5" />
                 </div>
-                {isWide && <span className="text-[10px] font-medium leading-none mt-1 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">Help</span>}
+                {isWide && <span className="text-[10px] font-medium leading-normal mt-0 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">Help</span>}
               </button>
 
               <button
@@ -1745,7 +1744,7 @@ export function App() {
                     <SunIcon size={20} className="w-5 h-5" />
                   )}
                 </div>
-                {isWide && <span className="text-[10px] font-medium leading-none mt-1 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">Theme</span>}
+                {isWide && <span className="text-[10px] font-medium leading-normal mt-0 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">Theme</span>}
               </button>
 
               {/* Always on Top — Pop-out Window */}
@@ -1768,7 +1767,7 @@ export function App() {
                     <AppWindow className="w-5 h-5" />
                   )}
                 </div>
-                {isWide && <span className="text-[10px] font-medium leading-none mt-1 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">Popout</span>}
+                {isWide && <span className="text-[10px] font-medium leading-normal mt-0 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">Popout</span>}
               </button>
 
               <button
@@ -1785,7 +1784,7 @@ export function App() {
                   <SettingsIcon size={20} />
                 </div>
                 {isWide && (
-                  <span className={`text-[10px] font-medium leading-none mt-1 text-center truncate w-full transition-all ${
+                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
                     activePanel === "settings"
                       ? "text-foreground opacity-100 font-semibold"
                       : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
@@ -1804,7 +1803,9 @@ export function App() {
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
                   activePanel === "account"
                     ? "bg-background text-foreground opacity-100"
-                    : "opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground"
+                    : !user
+                      ? "opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground"
+                      : "opacity-100 group-hover:bg-background group-hover:text-foreground"
                 }`}>
                   {!user ? (
                     <div className="scale-[0.85]"><GuestAvatarIcon /></div>
@@ -1817,7 +1818,7 @@ export function App() {
                   )}
                 </div>
                 {isWide && (
-                  <span className={`text-[10px] font-medium leading-none mt-1 text-center truncate w-full transition-all ${
+                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
                     activePanel === "account"
                       ? "text-foreground opacity-100 font-semibold"
                       : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"

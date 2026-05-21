@@ -353,7 +353,7 @@ export function Sidebar({
                     </div>
                     
                     <div className="flex items-center justify-between w-full mt-2 gap-1">
-                      <p className="text-[10px] whitespace-nowrap flex-shrink-0 text-muted-foreground/40 bg-background/50 px-1.5 py-0.5 rounded-md">
+                      <p className="text-[10px] whitespace-nowrap flex-shrink-0 text-muted-foreground/80 font-medium">
                         {formatRelativeTime(note.updatedAt)}
                       </p>
 

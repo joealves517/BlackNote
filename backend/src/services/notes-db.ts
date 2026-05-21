@@ -40,6 +40,8 @@ export interface DynamoNote {
   isPinned?: boolean;
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp
+  color?: string;
+  tags?: string[];
 }
 
 // ─── CRUD Operations ────────────────────────────────────────────────

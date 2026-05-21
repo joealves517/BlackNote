@@ -278,7 +278,7 @@ export function HistorySheet({
         )}
 
         <div className="flex items-center justify-between w-full mt-2 gap-1">
-          <span className="text-[9px] whitespace-nowrap flex-shrink-0 text-muted-foreground/40 bg-background/50 px-1.5 py-0.5 rounded-md">
+          <span className="text-[9px] whitespace-nowrap flex-shrink-0 text-muted-foreground/80 font-medium">
             {formatRelativeTime(note.updatedAt)}
           </span>
           <button

@@ -22,9 +22,11 @@ import { BrainIcon } from "@/components/icons/brain";
 import { GripIcon } from "@/components/icons/grip";
 import { ScanTextIcon } from "@/components/icons/scan-text";
 import { DynamicThinking } from "@/components/ui/dynamic-thinking";
+import { ThreeDot } from "react-loading-indicators";
 import { useAuth } from "@/hooks/use-auth";
 import { useCredits } from "@/hooks/use-credits";
 import { getTranscriptsForNote } from "@/lib/media-ai-service";
+import { buildChatContext, buildQuickActionContext, buildUnanalyzedMediaContext } from "@/lib/context-builder";
 
 interface ChatMessage {
   role: "user" | "ai";
@@ -88,12 +90,9 @@ export function NoteChatSheet({
     getTranscriptsForNote(noteId, docStr).then((transcripts) => {
       setMediaTranscripts(transcripts);
       if (transcripts.size === 0) {
-        // Check if there are unanalyzed media nodes
-        const hasMedia = docStr.includes('"audioNode"') || docStr.includes('"videoNode"');
-        if (hasMedia) {
-          setMediaContext(
-            `\n\n--- MEDIA: Audio/Video recording(s) present in this note but NOT yet analyzed ---\nIf the user asks about any recording, respond: "This recording hasn't been analyzed yet. Please tap on the recording and select 'Analyze with AI' to transcribe it first."\n---`
-          );
+        const fallback = buildUnanalyzedMediaContext(docStr);
+        if (fallback) {
+          setMediaContext(fallback);
         }
         return;
       }
@@ -193,16 +192,13 @@ export function NoteChatSheet({
     // Keep only last 10 messages to avoid exceeding token limits
     const trimmedHistory = allHistory.slice(-10);
 
-    // Only send full noteContext on first message or when content changes
-    const currentContextFingerprint = `${noteTitle}|${noteContent}|${mediaContext}`;
-    const isFirstOrChanged = lastSentContextRef.current !== currentContextFingerprint;
-
-    const fullContext = `--- STRICT SYSTEM RULES ---\n1. Always reply in the exact same language as the user's prompt.\n2. When referencing TEXT from the note, you MUST quote the exact source text using markdown blockquotes (e.g. > quote text). NEVER provide an answer without citing the exact blockquote if your answer relies on TEXT from the note.\n3. When quoting multiple lines or lists of TEXT, you MUST preserve the exact line breaks and list numbers from the original text.\n4. IMPORTANT: The note may contain appended MEDIA TRANSCRIPT sections at the end. You MUST read and use them to answer questions about the recordings. Ignore any dummy text like 'Video Transcript Unavailable' if a MEDIA TRANSCRIPT is actually provided below it.\n5. STRICT RULE FOR MEDIA: If your answer relies on a MEDIA TRANSCRIPT, NEVER quote or regurgitate the raw transcript text. Just summarize the information naturally in your own words to answer the user's question. DO NOT use blockquotes or media citations for information coming from the transcript.\n\n# NOTE TITLE: ${noteTitle}\n\n# NOTE CONTENT:\n${noteContent}${mediaContext}`;
-
-    const lightContext = `--- SYSTEM RULES ---\nContinue the conversation. The note context was already provided. Refer to conversation history for note content.\nAlways reply in the same language as the user. If referencing the note, use blockquotes. For MEDIA TRANSCRIPT info, summarize naturally without quoting raw text.\n\n# NOTE TITLE: ${noteTitle}`;
-
-    const contextToSend = isFirstOrChanged ? fullContext : lightContext;
-    lastSentContextRef.current = currentContextFingerprint;
+    const { context: contextToSend, fingerprint } = buildChatContext({
+      noteTitle,
+      noteContent,
+      mediaContext,
+      previousContextFingerprint: lastSentContextRef.current,
+    });
+    lastSentContextRef.current = fingerprint;
 
     try {
       await complete(currentInput, {
@@ -434,7 +430,7 @@ export function NoteChatSheet({
                   body: {
                     option: "chat",
                     history: [userMsg],
-                    noteContext: `# ${noteTitle}\n\n${noteContent}${mediaContext}\n\n--- System Instruction ---\nYou are a smart note assistant. When referencing TEXT from the note, you MUST quote the exact source text using markdown blockquotes (e.g. > quote text). IMPORTANT: The note may contain appended MEDIA TRANSCRIPT sections at the end. You MUST read and use them to answer questions about the recordings. Ignore any dummy text like 'Video Transcript Unavailable' if a MEDIA TRANSCRIPT is actually provided below it. STRICT RULE FOR MEDIA: If your answer relies on a MEDIA TRANSCRIPT, NEVER quote or regurgitate the raw transcript text. Just summarize the information naturally in your own words. DO NOT use blockquotes or media citations for information coming from the transcript.`,
+                    noteContext: buildQuickActionContext(noteTitle, noteContent, mediaContext),
                   },
                 });
               }}
@@ -641,7 +637,9 @@ export function NoteChatSheet({
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
                   >
-                    <GripIcon loop style={{ width: 16, height: 16 }} />
+                    <div style={{ display: "flex", alignItems: "center", height: 16, width: 24, justifyContent: "center" }}>
+                      <ThreeDot color={["#32cd32", "#327fcd", "#cd32cd", "#cd8032"]} size="small" style={{ fontSize: "5px" }} />
+                    </div>
                     <DynamicThinking messages={["Thinking", "Analyzing history", "Drafting response"]} />
                   </motion.div>
                 )}
@@ -755,6 +753,14 @@ const QUICK_ACTIONS = [
   { id: "fix-grammar", label: "Fix Grammar", icon: <SparklesIcon className="w-4 h-4" />, color: "hsl(20 80% 60%)" },
 ];
 
+function stripMarkdown(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/[\#\*\_`\~\[\]\(\)\-\+\>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuickAction, userName }: {
   noteTitle: string;
   wordCount: number;
@@ -764,38 +770,6 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
   userName: string;
 }) {
   const isEmptyNote = wordCount === 0;
-  const [dotLottie, setDotLottie] = useState<DotLottie | null>(null);
-
-  useEffect(() => {
-    if (!dotLottie) return;
-
-    const fireJump = () => {
-      try {
-        if (typeof dotLottie.stateMachineFireEvent === "function") {
-          dotLottie.stateMachineFireEvent("jumpClick");
-        }
-      } catch (err) { }
-    };
-
-    const fireYesClick = () => {
-      try {
-        if (typeof dotLottie.stateMachineFireEvent === "function") {
-          dotLottie.stateMachineFireEvent("yesClick");
-        }
-      } catch (err) { }
-    };
-
-    let interval: NodeJS.Timeout;
-    const initialTimeout = setTimeout(() => {
-      fireJump();
-      interval = setInterval(fireYesClick, 3000);
-    }, 200);
-
-    return () => {
-      clearTimeout(initialTimeout);
-      if (interval) clearInterval(interval);
-    };
-  }, [dotLottie]);
 
   if (isEmptyNote) {
     return (
@@ -810,15 +784,13 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
       >
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 16 }}>
           {/* Lottie Animation */}
-          <div className="w-[64px] h-[64px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
+          <div className="flex items-center justify-center relative" style={{ width: 160, height: 160, marginBottom: -28 }}>
             <DotLottieReact
-              src={chrome.runtime.getURL("ai-robo.lottie")}
+              src={chrome.runtime.getURL("message-icon.json")}
               autoplay
               loop
-              stateMachineId="StateMachine1"
-              dotLottieRefCallback={setDotLottie}
               backgroundColor="transparent"
-              style={{ width: "150%", height: "150%", transform: "scale(1.35) translateY(2%)", position: "absolute" }}
+              style={{ width: "100%", height: "100%" }}
             />
           </div>
 
@@ -843,15 +815,13 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
       }}
     >
       {/* Lottie Animation instead of Icon */}
-      <div className="w-[64px] h-[64px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
+      <div className="flex items-center justify-center relative" style={{ width: 160, height: 160, marginBottom: -28 }}>
         <DotLottieReact
-          src={chrome.runtime.getURL("ai-robo.lottie")}
+          src={chrome.runtime.getURL("message-icon.json")}
           autoplay
           loop
-          stateMachineId="StateMachine1"
-          dotLottieRefCallback={setDotLottie}
           backgroundColor="transparent"
-          style={{ width: "150%", height: "150%", transform: "scale(1.35) translateY(2%)", position: "absolute" }}
+          style={{ width: "100%", height: "100%" }}
         />
       </div>
 
@@ -883,7 +853,7 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
           </div>
           {noteTextPreview && (
             <div style={{ fontSize: 13, color: "hsl(var(--muted-foreground))", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-              {noteTextPreview}
+              {stripMarkdown(noteTextPreview)}
             </div>
           )}
         </div>

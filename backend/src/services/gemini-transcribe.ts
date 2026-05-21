@@ -7,7 +7,7 @@ const vertexAI = new GoogleGenAI({
   location: config.gcp.region,
 });
 
-const MODEL_NAME = "gemini-3.1-flash-lite";
+const MODEL_NAME = "gemini-2.5-flash-lite";
 
 interface TranscriptionSegment {
   start: number;

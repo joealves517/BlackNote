@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth.js";
-import { createOrUpdateUser, deductCreditsByEmail, logUsage, checkFreeCreditLimit, deductFreeCredits } from "../services/firestore.js";
+import { createOrUpdateUser, deductCreditsByEmail, logUsage, checkFreeCreditLimit, deductFreeCredits, addCreditsByEmail } from "../services/firestore.js";
 import { streamText, tool, stepCountIs } from "ai";
 import { z } from "zod";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -8,6 +8,9 @@ import { createVertex } from "@ai-sdk/google-vertex";
 import { GoogleGenAI } from "@google/genai";
 import { config } from "../config/index.js";
 import { calculateTokenCost } from "../services/token-cost.js";
+import { PROMPTS } from "../prompts/index.js";
+import { routeInstruction, getModeGuidance } from "../agents/router.js";
+import { detectAmbiguity } from "../agents/clarification.js";
 
 const s3 = new S3Client({
   region: config.aws.region,
@@ -34,40 +37,9 @@ const vertexAI = new GoogleGenAI({
   location: config.gcp.region,
 });
 
-const PREMIUM_MODEL = "gemini-3.1-flash-lite";
+const PREMIUM_MODEL = "gemini-2.5-flash-lite";
 
-const SYSTEM_PROMPT = `You are an AI writing assistant in BlackNote, a rich-text note editor.
-You receive a document where each block starts with a marker like «b0», «b1», etc.
-The user gives an instruction to modify the document.
-
-OUTPUT FORMAT — follow exactly:
-- Changed block: «bN» followed by the new content
-- New block: «new» followed by content
-- Delete a block: «bN» [DELETE]
-- Update Note Title: «title» followed by the new title text (Use this ONLY if the user asks to rename the note or if you decide to improve the title based on the content).
-- Full Rewrite: «replace_all» followed by the entire new document content. (CRITICAL: You MUST use this if the user asks to summarize, translate, rewrite the whole document, 'make it professional', change the global format, or if you are combining many blocks into fewer blocks).
-
-FORMATTING SYNTAX the editor supports (use freely when appropriate):
-- Markdown: # headings, **bold**, *italic*, ~~strikethrough~~, ==highlight==, \`inline code\`, \`\`\`code blocks\`\`\`
-- Lists: - bullet items, 1. numbered items
-- Task lists (Must use exact syntax): - [ ] unchecked task, - [x] checked task (Example: «new» - [ ] Buy milk)
-- Blockquote: > text
-- Horizontal rule: ---
-- Links: [text](url)
-- Tables: GFM pipe syntax
-- HTML inline: <u>underline</u>, <mark>highlight</mark>, ==highlight==
-- Colors (Use span with style): <span style="color: red">red text</span>, <span style="color: #ff0000">hex text</span> (Example: «b0» <span style="color: blue">Blue text</span>)
-- Alignment: <p style="text-align: right">text</p>, <div style="text-align: center">text</div>
-
-RULES:
-- Return ONLY blocks you changed, added, or deleted. Do NOT return unchanged blocks.
-- Be thorough: if the instruction affects a block, include it. Do NOT skip blocks that need changes.
-- CRITICAL: If you modify the beginning of the document but ignore the rest, the rest WILL REMAIN on the screen! If a block becomes empty, merged, or irrelevant after your edits, you MUST explicitly delete it using \`«bN» [DELETE]\`. If there are too many blocks to delete manually, use \`«replace_all»\` instead.
-- Do NOT include the » character anywhere in your content.
-- If the user asks to generate, draw, or create an image/picture, you MUST use the \`generate_image\` tool to create it. Once the tool returns the image URL, output it using Markdown image syntax \`![Description](URL)\` at the correct location.
-- Do NOT hallucinate image URLs. Only use the URL returned by the \`generate_image\` tool.
-- No explanations, no commentary — output ONLY the block lines.
-- If the user asks a general question (not editing), answer normally without block markers.`;
+const SYSTEM_PROMPT = PROMPTS.agent.system;
 
 router.post(
   "/",
@@ -102,8 +74,32 @@ router.post(
       }
     }
 
+    // Classify instruction → agent mode (Factor 10: Small Focused Agents)
+    const documentIsEmpty = !markdown || markdown.trim().length === 0;
+    const blockCount = (markdown || "").split(/«b\d+»/).length - 1;
+    const route = routeInstruction(instruction, documentIsEmpty);
+
+    // Pre-LLM gate: check for ambiguity (Factor 11: Human-in-the-Loop)
+    const clarification = detectAmbiguity(instruction, documentIsEmpty, blockCount);
+    if (clarification.needed) {
+      console.log(`[Agent] Clarification needed: ${clarification.reason}`);
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      const clarifyResponse = `«clarify»${JSON.stringify({
+        reason: clarification.reason,
+        suggestions: clarification.suggestions,
+      })}`;
+      res.write(clarifyResponse);
+      res.end();
+      return;
+    }
+
+    const modeGuidance = getModeGuidance(route.mode);
+    const enhancedSystemPrompt = `${modeGuidance}\n\n${SYSTEM_PROMPT}`;
+
+    console.log(`[Agent] Mode: ${route.mode} | Temp: ${route.temperature} | MaxTokens: ${route.maxOutputTokens}`);
+
     // Estimate tokens to decide routing
-    const fullPrompt = `${SYSTEM_PROMPT}\n\nNote Title: ${title || "Untitled"}\n\nDocument Content:\n${safeMarkdown}\n\n---\nInstruction: ${instruction}`;
+    const fullPrompt = `${enhancedSystemPrompt}\n\nNote Title: ${title || "Untitled"}\n\nDocument Content:\n${safeMarkdown}\n\n---\nInstruction: ${instruction}`;
     const totalInputTokens = Math.ceil(fullPrompt.length / 4);
 
     const model = vertex(PREMIUM_MODEL);
@@ -113,7 +109,7 @@ router.post(
       try {
         const result = streamText({
           model: modelToUse,
-          system: SYSTEM_PROMPT,
+          system: enhancedSystemPrompt,
           stopWhen: stepCountIs(3),
           tools: {
             generate_image: tool<{ prompt: string }, any>({
@@ -124,6 +120,26 @@ router.post(
               execute: async ({ prompt }) => {
                 try {
                   console.log(`[Agent Tool] Generating image for prompt: ${prompt}`);
+
+                  const imageCreditsCost = 30; // 30 credits = $0.03
+                  let balanceDeducted = false;
+
+                  // 1. Pre-billing check & deduction
+                  if (isPro) {
+                    balanceDeducted = await deductCreditsByEmail(authReq.userEmail, imageCreditsCost);
+                    if (!balanceDeducted) {
+                      console.error(`[Agent Tool] Insufficient credits for Pro user: ${authReq.userEmail}`);
+                      return { error: "Failed to generate image. Please check your account balance or upgrade to Pro to continue." };
+                    }
+                  } else {
+                    const canProceed = await checkFreeCreditLimit(authReq.userEmail);
+                    if (!canProceed) {
+                      console.error(`[Agent Tool] Free credit limit reached for user: ${authReq.userEmail}`);
+                      return { error: "Failed to generate image. Daily limit reached. Please upgrade to Pro to generate images." };
+                    }
+                    await deductFreeCredits(authReq.userEmail, imageCreditsCost);
+                    balanceDeducted = true;
+                  }
                   
                   const apiResponse = await vertexAI.models.generateImages({
                     model: "imagen-3.0-generate-002",
@@ -137,7 +153,16 @@ router.post(
                   const base64Image = apiResponse.generatedImages?.[0]?.image?.imageBytes;
                   if (!base64Image) {
                     console.error("[Agent Tool] Image generation failed: No imageBytes returned");
-                    return { error: "Failed to generate image. Inform the user." };
+                    // 2. Safe Auto-Refund upon failures
+                    if (balanceDeducted) {
+                      if (isPro) {
+                        await addCreditsByEmail(authReq.userEmail, imageCreditsCost);
+                      } else {
+                        await deductFreeCredits(authReq.userEmail, -imageCreditsCost);
+                      }
+                      console.log(`[Agent Tool] Refunded ${imageCreditsCost} credits to ${authReq.userEmail} due to generation error`);
+                    }
+                    return { error: "Failed to generate image due to a temporary API error. Please try again." };
                   }
                   
                   const key = `agent-images/${authReq.userId.replace(/[^a-zA-Z0-9]/g, "_")}/${Date.now()}.jpeg`;
@@ -151,6 +176,17 @@ router.post(
                   await s3.send(new PutObjectCommand(uploadParams));
                   const publicUrl = `${S3_PUBLIC_URL}/${key}`;
                   console.log(`[Agent Tool] Image uploaded to S3: ${publicUrl}`);
+
+                  // 3. Log usage
+                  logUsage({
+                    userId: authReq.userId,
+                    app: "blacknote",
+                    action: "imagen_generate",
+                    creditsUsed: imageCreditsCost,
+                    model: "imagen-3.0-generate-002",
+                    timestamp: new Date(),
+                  }).catch(console.error);
+
                   return { url: publicUrl };
                 } catch (err: any) {
                   console.error("[Agent Tool] Error in generate_image tool:", err);

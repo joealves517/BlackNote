@@ -2,7 +2,7 @@
   "name": "blacknote",
   "description": "Notion-like note-taking Chrome extension with AI",
   "private": true,
-  "version": "0.2.11",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "wxt",
@@ -58,6 +58,7 @@
     "novel": "^1.0.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-loading-indicators": "^1.0.1",
     "react-markdown": "^10.1.0",
     "react-masonry-css": "^1.0.16",
     "remark-gfm": "^4.0.1",

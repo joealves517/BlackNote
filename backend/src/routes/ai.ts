@@ -117,7 +117,7 @@ router.post(
             userId: authReq.userId,
             app: "blacknote",
             creditsUsed,
-            model: "gemini-3.1-flash-lite",
+            model: "gemini-2.5-flash-lite",
             timestamp: new Date(),
             ...(usage && { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens }),
           }).catch(console.error);

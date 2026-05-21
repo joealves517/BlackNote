@@ -19,6 +19,7 @@ import { GoogleGenAI } from "@google/genai";
 import { config } from "../config/index.js";
 import { calculateTokenCost } from "../services/token-cost.js";
 import { transcribeWithGemini } from "../services/gemini-transcribe.js";
+import { PROMPTS } from "../prompts/index.js";
 
 const router = Router();
 
@@ -28,7 +29,7 @@ const vertexAI = new GoogleGenAI({
   location: config.gcp.region,
 });
 
-const PREMIUM_MODEL = "gemini-3.1-flash-lite";
+const PREMIUM_MODEL = "gemini-2.5-flash-lite";
 
 function pickAIClient(hasPremiumCredits: boolean) {
   return { client: vertexAI, model: PREMIUM_MODEL };
@@ -115,22 +116,7 @@ router.post(
 
 // ─── Summarize ──────────────────────────────────────────────────
 
-const SUMMARIZE_PROMPTS: Record<string, (transcript: string) => string> = {
-  meeting_minutes: (t) =>
-    `Generate professional Meeting Minutes from this recording transcript. Include:\n- Meeting Goal / Context\n- Key Discussion Points\n- Decisions Made\n- Action Items (as Markdown checkboxes "- [ ]")\n\n${t}`,
-  summary: (t) =>
-    `Summarize the following recording transcript concisely in 2-4 paragraphs. Capture all important points:\n\n${t}`,
-  keypoints: (t) =>
-    `Extract the key points from this recording transcript as a bullet-point list. Each point should be a concise, actionable insight:\n\n${t}`,
-  action_items: (t) =>
-    `Extract all action items, tasks, and to-dos from this recording transcript. Format as a Markdown checklist using "- [ ] task". Group by topic if applicable:\n\n${t}`,
-  chapters: (t) =>
-    `Generate smart chapters for this recording transcript. Format as a bulleted list with timestamps and clear, catchy titles for each section:\n\n${t}`,
-  social: (t) =>
-    `Repurpose this recording transcript into an engaging, professional social media post. Include a catchy hook, main takeaways, and relevant hashtags:\n\n${t}`,
-  quiz: (t) =>
-    `Based on this recording transcript, generate a short interactive quiz with 3 multiple choice questions. Provide the questions first, then list the correct answers at the end:\n\n${t}`,
-};
+// Summarize prompts are now in the Prompt Registry
 
 router.post(
   "/summarize",
@@ -165,20 +151,17 @@ router.post(
     const { client, model } = pickAIClient(usePremium);
 
     try {
-      const promptFn =
-        SUMMARIZE_PROMPTS[style || "summary"] || SUMMARIZE_PROMPTS.summary;
-      let prompt = promptFn(transcript);
-
-      if (isVideo) {
-        prompt += `\n\nCRITICAL INSTRUCTION: Since this is a video recording, try to explicitly mention visual details if they are described in the transcript.`;
-      }
+      const prompt = PROMPTS.media.summarize.buildPrompt({
+        transcript,
+        style: style || "summary",
+        isVideo: !!isVideo,
+      });
 
       const response = await client.models.generateContent({
         model,
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
-          systemInstruction:
-            "You are a concise content analyzer for a note-taking app. Create clear, well-structured, and actionable summaries. Respond in the same language as the transcript.",
+          systemInstruction: PROMPTS.media.summarize.system,
           temperature: 0.5,
           maxOutputTokens: 2048,
         },
@@ -259,18 +242,16 @@ router.post(
             role: "user",
             parts: [
               {
-                text: `Translate each "t" field to ${targetLang}. Keep the "i" index unchanged.
-Return ONLY a valid JSON array of objects with "i" and "t" fields.
-No markdown, no commentary.
-
-${JSON.stringify(textsPayload)}`,
+                text: PROMPTS.media.translate.buildPrompt({
+                  textsPayload,
+                  targetLang,
+                }),
               },
             ],
           },
         ],
         config: {
-          systemInstruction:
-            "You are a professional translator. Output only the JSON array.",
+          systemInstruction: PROMPTS.media.translate.system,
           temperature: 0.3,
           maxOutputTokens: 8192,
         },
@@ -357,8 +338,6 @@ router.post(
     const { client, model } = pickAIClient(usePremium);
 
     try {
-      const contextText = transcript.slice(0, 5000);
-
       const response = await client.models.generateContent({
         model,
         contents: [
@@ -366,23 +345,13 @@ router.post(
             role: "user",
             parts: [
               {
-                text: `Based on the following recording transcript, generate:
-1. A concise, descriptive title (max 60 characters)
-2. A brief description (max 200 characters)
-3. 3-5 relevant tags
-
-Transcript:
-${contextText}
-
-Respond in this exact JSON format:
-{"title": "...", "description": "...", "tags": ["...", "..."]}`,
+                text: PROMPTS.media.title.buildPrompt({ transcript }),
               },
             ],
           },
         ],
         config: {
-          systemInstruction:
-            "You are a content metadata specialist. Generate clear, SEO-friendly titles. Always respond in valid JSON format. Respond in the same language as the transcript.",
+          systemInstruction: PROMPTS.media.title.system,
           temperature: 0.6,
           maxOutputTokens: 256,
         },
@@ -467,30 +436,17 @@ router.post(
             role: "user",
             parts: [
               {
-                text: `You are analyzing a video recording that is ${Number(durationSec).toFixed(1)} seconds long.
-
-Given the transcript below, identify the ${frameCount} most visually important or meaningful moments. These should be moments where:
-- A new topic or section begins
-- Important information is being shown/discussed
-- A visual change or demonstration happens
-- Key conclusions or results are presented
-
-Return ONLY a JSON array of objects with:
-- "time": timestamp in seconds (float, between 0 and ${Number(durationSec).toFixed(1)})
-- "label": brief description of why this moment is important (max 15 words)
-
-Spread the timestamps across the full duration. Return exactly ${frameCount} items.
-No markdown, no commentary, just the JSON array.
-
-Transcript:
-${transcript.slice(0, 8000)}`,
+                text: PROMPTS.media.keyframe.buildPrompt({
+                  transcript,
+                  durationSec,
+                  frameCount,
+                }),
               },
             ],
           },
         ],
         config: {
-          systemInstruction:
-            "You are a video analysis expert. Select visually meaningful timestamps. Output only valid JSON.",
+          systemInstruction: PROMPTS.media.keyframe.system,
           temperature: 0.4,
           maxOutputTokens: 1024,
         },

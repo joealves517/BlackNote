@@ -9,6 +9,7 @@ import { BrainIcon } from "@/components/icons/brain";
 import { XIcon } from "@/components/icons/x";
 import { CircleCheckIcon } from "@/components/icons/circle-check";
 import { CropIcon } from "lucide-react";
+import { FrameIcon } from "@/components/icons/frame";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { AIProcessingView } from "@/components/ui/ai-processing-view";
 import { setWasmUrl } from "@lottiefiles/dotlottie-react";
@@ -93,6 +94,11 @@ async function streamAI(
 export function ImageClipper({ dataUrl, onSaveAsNote, onClose }: ImageClipperProps) {
   const [processing, setProcessing] = useState<string | null>(null);
   const [processError, setProcessError] = useState("");
+
+  const handleInsertIntoNote = () => {
+    window.dispatchEvent(new CustomEvent("insert-captured-image", { detail: { dataUrl } }));
+    onClose();
+  };
 
   useEffect(() => {
     // Toggle the 'account-sheet' class on the parent sheet to enable the cutout effect for the Lottie robot
@@ -287,6 +293,27 @@ export function ImageClipper({ dataUrl, onSaveAsNote, onClose }: ImageClipperPro
                   <p className="text-[13px] font-medium">Extract Text</p>
                   <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
                     Read text and structure from image
+                  </p>
+                </div>
+              </button>
+
+              <button
+                className="novel-slash-item w-full text-left"
+                onClick={handleInsertIntoNote}
+              >
+                <div className="novel-slash-icon" style={{
+                  background: "linear-gradient(135deg, rgba(16, 185, 129, var(--icon-bg-start)) 0%, rgba(16, 185, 129, var(--icon-bg-end)) 100%)",
+                  border: "1px solid rgba(16, 185, 129, var(--icon-border))",
+                  color: "rgba(16, 185, 129, 1)",
+                }}>
+                  <AnimatedIcon animation="hover">
+                    <FrameIcon className="w-4 h-4" />
+                  </AnimatedIcon>
+                </div>
+                <div>
+                  <p className="text-[13px] font-medium">Insert into Note</p>
+                  <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    Insert captured image into current note
                   </p>
                 </div>
               </button>

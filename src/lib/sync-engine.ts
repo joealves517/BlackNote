@@ -29,6 +29,8 @@ interface RemoteNote {
   isPinned?: boolean;
   createdAt: string;
   updatedAt: string;
+  color?: string;
+  tags?: string[];
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -51,6 +53,8 @@ function remoteToLocal(remote: RemoteNote): LocalNote {
     chatHistory: remote.chatHistory || "[]",
     mediaTranscripts: remote.mediaTranscripts || "{}",
     isPinned: remote.isPinned ?? false,
+    color: remote.color,
+    tags: remote.tags || [],
   };
 }
 
@@ -72,6 +76,8 @@ function localToRemote(note: LocalNote): RemoteNote {
     isPinned: note.isPinned,
     createdAt: new Date(note.createdAt).toISOString(),
     updatedAt: new Date(note.updatedAt).toISOString(),
+    color: note.color,
+    tags: note.tags,
   };
 }
 
@@ -116,13 +122,19 @@ export async function fullSync(
     // Step 3: Determine merge actions
     const toPushToCloud: LocalNote[] = [];
     const toPullToLocal: LocalNote[] = [];
+    const toDeleteLocally: string[] = [];
 
     // Check all local notes
     for (const local of localNotes) {
       const remote = remoteMap.get(local.id);
       if (!remote) {
-        // Only exists locally → push to cloud
-        toPushToCloud.push(local);
+        if (local.syncedAt !== null) {
+          // Already synced in the past but no longer on cloud -> deleted on cloud or other device
+          toDeleteLocally.push(local.id);
+        } else {
+          // New offline note -> push to cloud
+          toPushToCloud.push(local);
+        }
       } else if (local.updatedAt > remote.updatedAt) {
         // Local is newer → push to cloud
         toPushToCloud.push(local);
@@ -141,7 +153,7 @@ export async function fullSync(
       }
     }
 
-    const totalOps = toPushToCloud.length + toPullToLocal.length;
+    const totalOps = toPushToCloud.length + toPullToLocal.length + toDeleteLocally.length;
 
     if (totalOps === 0) {
       // Mark all local notes as synced
@@ -197,6 +209,49 @@ export async function fullSync(
         total: totalOps,
         message: `Syncing ${completed}/${totalOps}...`,
       });
+    }
+
+    // Step 6: Delete notes locally that were deleted on cloud
+    if (toDeleteLocally.length > 0) {
+      report({
+        current: completed,
+        total: totalOps,
+        message: `Cleaning up ${toDeleteLocally.length} deleted notes...`,
+      });
+
+      for (const id of toDeleteLocally) {
+        const noteToDelete = await db.notes.get(id);
+        if (noteToDelete && noteToDelete.content) {
+          try {
+            const doc = typeof noteToDelete.content === "string" ? JSON.parse(noteToDelete.content) : noteToDelete.content;
+            const extractMediaIds = (node: any): string[] => {
+              let ids: string[] = [];
+              if (node.type === "audioNode" || node.type === "videoNode") {
+                if (node.attrs && node.attrs.mediaId) ids.push(node.attrs.mediaId);
+              }
+              if (node.content && Array.isArray(node.content)) {
+                for (const child of node.content) {
+                  ids = ids.concat(extractMediaIds(child));
+                }
+              }
+              return ids;
+            };
+            const mediaIds = extractMediaIds(doc);
+            if (mediaIds.length > 0) {
+              await Promise.all(mediaIds.map((mediaId) => db.media_files.delete(mediaId)));
+            }
+          } catch (err) {
+            console.warn("Failed to parse note content for media cleanup in sync", err);
+          }
+        }
+        await db.notes.delete(id);
+        completed++;
+        report({
+          current: completed,
+          total: totalOps,
+          message: `Syncing ${completed}/${totalOps}...`,
+        });
+      }
     }
 
     onProgress?.({

@@ -117,7 +117,7 @@
   --color-bg-red: #F7C3C3;
 
   /* Agent Highlight */
-  --agent-highlight: #bbf7d0;
+  --agent-highlight: rgba(34, 197, 94, 0.08);
   --agent-pill-bg: #FFFFFF;
 }
 
@@ -184,7 +184,7 @@
   --color-bg-red: #7A2E2E;
 
   /* Agent Highlight - Dark Mode */
-  --agent-highlight: rgba(34, 197, 94, 0.25);
+  --agent-highlight: rgba(34, 197, 94, 0.12);
   --agent-pill-bg: #212124;
 }
 
@@ -2738,9 +2738,9 @@ button:active .hover-zoom-icon-removed,
 /* ===== Agent Fake Highlight ===== */
 .agent-highlight-fake {
   background-color: var(--agent-highlight);
-  border-radius: 2px;
-  padding: 0 1px;
-  box-shadow: 0 0 0 1px var(--agent-highlight);
+  border-radius: 4px;
+  padding: 1px 3px;
+  border-bottom: 1px dashed rgba(34, 197, 94, 0.35);
 }
 
 /* ===== Lottie crop-container for transparent vector loading bar ===== */

@@ -122,8 +122,24 @@ function AIContentInsertBridge() {
       }
     };
 
+    const handleInsertImage = async (e: Event) => {
+      const dataUrl = (e as CustomEvent).detail?.dataUrl;
+      if (!editor || !dataUrl) return;
+      try {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], "captured-image.png", { type: "image/png" });
+        const url = await uploadFn(file);
+        editor.chain().focus().setImage({ src: url }).run();
+      } catch (err) {
+        console.error("Failed to insert captured image:", err);
+        editor.chain().focus().setImage({ src: dataUrl }).run();
+      }
+    };
+
     window.addEventListener("insert-ai-content", handleInsert);
     window.addEventListener("insert-media-ai-result", handleMediaResult);
+    window.addEventListener("insert-captured-image", handleInsertImage);
     
     // Expose for external toolbar actions
     (window as any).activeBlackNoteEditor = editor;
@@ -131,6 +147,7 @@ function AIContentInsertBridge() {
     return () => {
       window.removeEventListener("insert-ai-content", handleInsert);
       window.removeEventListener("insert-media-ai-result", handleMediaResult);
+      window.removeEventListener("insert-captured-image", handleInsertImage);
       if ((window as any).activeBlackNoteEditor === editor) {
         (window as any).activeBlackNoteEditor = null;
       }

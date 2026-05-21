@@ -9,6 +9,8 @@ import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
 import { DOMSerializer } from "prosemirror-model";
 import TurndownService from "turndown";
 import { agentDecorationKey } from "@/extensions/AgentDecoration";
+import { fetchWithRetry, readStreamWithTimeout, validateAgentResponse } from "@/lib/agent-guard";
+import { ThreeDot } from "react-loading-indicators";
 
 // --- Types ---
 
@@ -131,6 +133,35 @@ function parseMarkdownToNodes(md: string): any[] {
   } catch {
     return [{ type: "paragraph", content: [{ type: "text", text: md.trim() }] }];
   }
+}
+
+
+/**
+ * Extract image URL from agent text response if it contains a generated image.
+ * Supports Markdown ![Description](URL), custom <image>URL</image>, <img>, and raw S3 URLs.
+ */
+function extractImageUrl(text: string): string | null {
+  if (!text) return null;
+  const trimmed = text.trim();
+
+  // 1. Check custom <image>URL</image> or <image>URL
+  const customTagMatch = trimmed.match(/<image>\s*(https?:\/\/[^\s<>]+)\s*(<\/image>)?/i);
+  if (customTagMatch) return customTagMatch[1];
+
+  // 2. Check Markdown syntax: ![alt](URL)
+  const markdownMatch = trimmed.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/i);
+  if (markdownMatch) return markdownMatch[1];
+
+  // 3. Check HTML img tag: <img src="URL" ...>
+  const imgTagMatch = trimmed.match(/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i);
+  if (imgTagMatch) return imgTagMatch[1];
+
+  // 4. Check raw S3 / blacknote-images URL
+  const rawUrlMatch = trimmed.match(/(https?:\/\/[^\s]+?blacknote-images[^\s]+)/i)
+    || trimmed.match(/(https?:\/\/[^\s]+?s3\.[^\s]+)/i);
+  if (rawUrlMatch) return rawUrlMatch[1];
+
+  return null;
 }
 
 
@@ -277,6 +308,7 @@ export function AgentInput({
   const [changeCount, setChangeCount] = useState<number>(0);
   const [loadingDots, setLoadingDots] = useState("");
   const [isHidden, setIsHidden] = useState(() => localStorage.getItem("blacknote_hide_agent") === "true");
+  const [clarifications, setClarifications] = useState<string[]>([]);
 
   const snapshotRef = useRef<any>(null);
   const snapshotTitleRef = useRef<string | null>(null);
@@ -374,6 +406,26 @@ export function AgentInput({
     if (!isExpanded) hasOpenedRef.current = false;
   }, [isExpanded]);
 
+  // --- Pre-fetch: serialize document on expand (Factor 13) ---
+  const prefetchedRef = useRef<{ markdown: string; blockMap: Map<string, BlockPosition> } | null>(null);
+
+  useEffect(() => {
+    if (!isExpanded || !editor || !editor.state) return;
+
+    // Pre-serialize so handleSubmit can skip the expensive step
+    const { markdown, blockMap } = serializeWithBlockIds(editor);
+    prefetchedRef.current = { markdown, blockMap };
+
+    // Invalidate cache when document changes while input is open
+    const handleUpdate = () => {
+      prefetchedRef.current = null;
+    };
+    editor.on("update", handleUpdate);
+    return () => {
+      editor.off("update", handleUpdate);
+    };
+  }, [isExpanded, editor]);
+
   // --- Core: Send instruction to AI ---
 
   const handleSubmit = useCallback(async () => {
@@ -392,9 +444,11 @@ export function AgentInput({
     snapshotRef.current = ed.getJSON();
     snapshotTitleRef.current = noteTitle || null;
 
-    // Serialize document with block IDs
-    const { markdown, blockMap } = serializeWithBlockIds(ed);
+    // Serialize document with block IDs (use pre-fetched if available)
+    const prefetched = prefetchedRef.current;
+    const { markdown, blockMap } = prefetched || serializeWithBlockIds(ed);
     blockMapRef.current = blockMap;
+    prefetchedRef.current = null; // Consume the cache
 
     const instruction = localInput;
     setLocalInput("");
@@ -402,14 +456,18 @@ export function AgentInput({
     setAgentMessage(null);
 
     try {
-      const response = await fetch(`${AI_API_BASE}/api/ai/agent`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithRetry(
+        `${AI_API_BASE}/api/ai/agent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ markdown, instruction, title: noteTitle }),
         },
-        body: JSON.stringify({ markdown, instruction, title: noteTitle }),
-      });
+        { maxAttempts: 2 }
+      );
 
       if (!response.ok) {
         if ([401, 402, 429].includes(response.status)) {
@@ -418,34 +476,77 @@ export function AgentInput({
         throw new Error(`HTTP ${response.status}`);
       }
 
-      // Read the full streamed response
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
-      let fullText = "";
+      // Read with timeout protection (Factor 9: Self-Healing)
+      const fullText = await readStreamWithTimeout(response, 30000);
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        fullText += decoder.decode(value, { stream: true });
+      // Validate before applying (Factor 7: Compact Errors into Context)
+      const validation = validateAgentResponse(fullText, blockMap.size);
+      if (validation.issues.length > 0) {
+        console.warn("[Agent Guard] Issues:", validation.issues);
       }
 
-      // Parse block changes from AI response
-      const changes = parseAgentResponse(fullText);
-
-      if (changes.length > 0) {
-        applyChanges(ed, blockMap, changes, noteId, onTitleChange);
-        setHasPendingModifications(true);
-        setChangeCount(changes.length);
-      } else {
-        // No block markers → AI answered a general question
-        // Strip out any <think> tags and their contents
-        const cleanText = fullText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-        setAgentMessage(cleanText || null);
+      // Handle clarification request (Factor 11: Human-in-the-Loop)
+      if (fullText.startsWith("«clarify»")) {
+        try {
+          const payload = JSON.parse(fullText.slice("«clarify»".length));
+          setAgentMessage(payload.reason || "Could you clarify your instruction?");
+          setClarifications(payload.suggestions || []);
+        } catch {
+          setAgentMessage(fullText.slice("«clarify»".length));
+        }
         snapshotRef.current = null;
+        setIsProcessing(false);
+        return;
+      }
+      setClarifications([]); // Clear any previous clarifications
+
+      // Strip out any <think> tags and their contents
+      const cleanText = fullText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+      // Check if the response contains a generated image URL
+      const imageUrl = extractImageUrl(cleanText);
+
+      if (imageUrl && ed) {
+        // Handle image generation: auto-insert image directly at cursor position
+        try {
+          // Check if image is already present in editor to avoid duplicates
+          const currentHtml = ed.getHTML();
+          if (!currentHtml.includes(imageUrl)) {
+            ed.chain().focus().setImage({ src: imageUrl }).run();
+            console.log(`[Agent] Auto-inserted generated image at cursor: ${imageUrl}`);
+          }
+        } catch (err) {
+          console.error("[Agent] Failed to auto-insert image:", err);
+        }
+
+        // Set the agent message to the formatted image tag so preview UI renders it
+        setAgentMessage(`<image>${imageUrl}</image>`);
+        setHasPendingModifications(false);
+        snapshotRef.current = null;
+      } else {
+        // Normal text or block-based document changes
+        const changes = parseAgentResponse(cleanText);
+
+        if (changes.length > 0) {
+          applyChanges(ed, blockMap, changes, noteId, onTitleChange);
+          setHasPendingModifications(true);
+          setChangeCount(changes.length);
+        } else {
+          // No block markers → AI answered a general question
+          setAgentMessage(cleanText || validation.suggestion || null);
+          snapshotRef.current = null;
+        }
       }
     } catch (err) {
       console.error("[Agent] Error:", err);
-      setAgentMessage("Failed to process. Please try again.");
+      const message = (err as Error)?.message || "";
+      if (message.includes("timeout")) {
+        setAgentMessage("The AI took too long to respond. Please try again.");
+      } else if (message.includes("429")) {
+        setAgentMessage("Too many requests. Please wait a moment and try again.");
+      } else {
+        setAgentMessage("Failed to process. Please try again.");
+      }
       snapshotRef.current = null;
     } finally {
       setIsProcessing(false);
@@ -509,9 +610,7 @@ export function AgentInput({
         className={`relative pointer-events-auto flex flex-col overflow-hidden transition-all duration-300 ease-out ${isExpanded ? "w-full max-w-[600px] rounded-[32px]" : "w-[76px] h-[18px] rounded-full cursor-pointer items-center justify-center hover:brightness-110"
           }`}
         style={{
-          background: "linear-gradient(135deg, rgba(120, 120, 128, var(--icon-bg-start)) 0%, rgba(120, 120, 128, var(--icon-bg-end)) 100%), hsl(var(--background) / 0.82)",
-          backdropFilter: "blur(40px) saturate(200%)",
-          WebkitBackdropFilter: "blur(40px) saturate(200%)",
+          backgroundColor: "hsl(var(--sidebar-bg))",
           boxShadow: "0 8px 32px -8px rgba(0,0,0,0.25)",
           border: isExpanded ? "0.5px solid hsl(var(--border))" : "none",
         }}
@@ -520,42 +619,104 @@ export function AgentInput({
       >
         <div className="relative z-10 flex flex-col items-center justify-center w-full h-full">
           {!isExpanded ? (
-            <span style={{ fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", paddingTop: "1px" }}>✦</span>
+            <span style={{ fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", paddingTop: "1px", opacity: 0.4 }}>✦</span>
           ) : (
             <div className="flex flex-col w-full h-full animate-in fade-in duration-300">
               {/* Agent Message Area */}
-              {agentMessage && !isProcessing && !hasPendingModifications && (
-                <>
-                  <div
-                    className="px-5 py-4 text-[14px] text-foreground leading-relaxed max-h-[350px] overflow-y-auto custom-scrollbar whitespace-pre-wrap pointer-events-auto"
-                    onScroll={(e) => e.stopPropagation()}
-                  >
-                    {agentMessage}
+              {agentMessage && !isProcessing && !hasPendingModifications && (() => {
+                const isImageResponse = agentMessage.trim().startsWith("<image>");
+                const imageUrl = isImageResponse 
+                  ? agentMessage.replace("<image>", "").replace("</image>", "").trim() 
+                  : "";
+
+                return isImageResponse ? (
+                  <div className="flex flex-col items-center justify-center p-5 gap-4 w-full pointer-events-auto">
+                    <div className="relative group max-w-full rounded-2xl overflow-hidden border border-border bg-muted/40 shadow-inner">
+                      <img
+                        src={imageUrl}
+                        alt="AI Generated"
+                        className="max-h-[240px] w-auto object-contain rounded-2xl select-none"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const link = document.createElement("a");
+                            link.href = imageUrl;
+                            link.download = "ai-generated-image.png";
+                            link.target = "_blank";
+                            link.click();
+                          }}
+                          className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-full transition-colors cursor-pointer"
+                          title="Download Image"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 w-full max-w-[320px]">
+                      <div className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold py-2.5 px-4 bg-green-600/10 dark:bg-green-500/10 text-green-600 dark:text-green-400 rounded-xl border border-green-500/20 select-none">
+                        <svg className="w-4 h-4 animate-in zoom-in duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Inserted into Note
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setAgentMessage(null)}
+                        className="px-4 py-2.5 text-xs font-semibold bg-muted hover:bg-muted/80 text-muted-foreground rounded-xl transition-all cursor-pointer"
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
-                  <div className="h-[1px] w-full bg-border" />
-                </>
-              )}
+                ) : (
+                  <>
+                    <div
+                      className="px-5 py-4 text-[14px] text-foreground leading-relaxed max-h-[350px] overflow-y-auto custom-scrollbar whitespace-pre-wrap pointer-events-auto"
+                      onScroll={(e) => e.stopPropagation()}
+                    >
+                      {agentMessage}
+                    </div>
+                    {clarifications.length > 0 && (
+                      <div className="px-4 pb-3 flex flex-wrap gap-1.5 pointer-events-auto">
+                        {clarifications.map((suggestion, idx) => (
+                          <motion.button
+                            key={idx}
+                            initial={{ opacity: 0, y: 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.08 }}
+                            className="px-3 py-1.5 text-xs rounded-full bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer border border-primary/20"
+                            onClick={() => {
+                              setLocalInput(suggestion);
+                              setClarifications([]);
+                              setAgentMessage(null);
+                              // Auto-submit after a tick to let state update
+                              setTimeout(() => {
+                                inputRef.current?.form?.requestSubmit?.();
+                              }, 50);
+                            }}
+                          >
+                            {suggestion}
+                          </motion.button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="h-[1px] w-full bg-border" />
+                  </>
+                );
+              })()}
 
               {/* Loading State */}
               {isProcessing ? (
                 <div className="px-5 py-3 flex items-center gap-3 text-muted-foreground">
-                  <div className="flex items-center gap-1.5 px-1">
-                    {[0, 1, 2].map((i) => (
-                      <motion.div
-                        key={i}
-                        className="w-1.5 h-1.5 bg-zinc-500 dark:bg-zinc-400 rounded-full"
-                        initial={{ opacity: 0.3, scale: 0.8 }}
-                        animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
-                        transition={{
-                          duration: 1.2,
-                          repeat: Infinity,
-                          delay: i * 0.2,
-                          ease: "easeInOut",
-                        }}
-                      />
-                    ))}
+                  <div className="flex items-center justify-center w-8 h-4">
+                    <ThreeDot color={["#32cd32", "#327fcd", "#cd32cd", "#cd8032"]} size="small" style={{ fontSize: "5px" }} />
                   </div>
-                  <span className="text-[14px] font-medium w-20 text-foreground/70">Thinking{loadingDots}</span>
+                  <span className="text-[14px] font-medium text-foreground/70">Thinking{loadingDots}</span>
                 </div>
               ) : hasPendingModifications ? (
                 /* Review Mode */
