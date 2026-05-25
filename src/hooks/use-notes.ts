@@ -7,6 +7,7 @@ import {
   type SyncProgress,
 } from "@/lib/sync-engine";
 import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
+import { showSyncingToast, showSyncSuccessToast, showSyncErrorToast } from "@/lib/toast";
 
 export interface Note {
   id: string;
@@ -296,14 +297,28 @@ export function useNotes() {
     syncedForUser.current = userId;
 
     const runSync = async () => {
-      await fullSync(userId, (progress) => {
-        setSyncProgress(progress);
-      });
+      showSyncingToast();
+      let lastProgress: SyncProgress | null = null;
 
-      // Reload local notes after sync merge
-      const mapped = await loadFromLocal();
-      if (mapped.length > 0 && !activeNoteId) {
-        setActiveNoteId(mapped[0].id);
+      try {
+        await fullSync(userId, (progress) => {
+          setSyncProgress(progress);
+          lastProgress = progress;
+        });
+
+        // Reload local notes after sync merge
+        const mapped = await loadFromLocal();
+        if (mapped.length > 0 && !activeNoteId) {
+          setActiveNoteId(mapped[0].id);
+        }
+
+        if (lastProgress && (lastProgress as any).status === "done") {
+          showSyncSuccessToast((lastProgress as any).total);
+        } else if (lastProgress && (lastProgress as any).status === "error") {
+          showSyncErrorToast();
+        }
+      } catch (err) {
+        showSyncErrorToast();
       }
 
       // Auto-hide progress after 3s

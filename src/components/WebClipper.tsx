@@ -1,34 +1,20 @@
 import { GlobeIcon } from "@/components/icons/globe";
-import { GripIcon } from "@/components/icons/grip";
 import { LoaderCircleIcon } from "@/components/icons/loader-circle";
 import { CircleHelpIcon } from "@/components/icons/circle-help";
 import { ClipboardCheckIcon } from "@/components/icons/clipboard-check";
 import { FileTextIcon } from "@/components/icons/file-text";
 import { SparklesIcon } from "@/components/icons/sparkles";
 import { BrainIcon } from "@/components/icons/brain";
-import { XIcon } from "@/components/icons/x";
-import { CircleCheckIcon } from "@/components/icons/circle-check";
 import { CropIcon } from "lucide-react";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
-import { AIProcessingView } from "@/components/ui/ai-processing-view";
-import { setWasmUrl } from "@lottiefiles/dotlottie-react";
 import { openSparkAIWithPageContent, openUrlViaBackground, ECOSYSTEM } from "@/lib/ecosystem";
 import sparkAIIcon from "@/assets/spark-ai-icon.png";
-
-setWasmUrl(chrome.runtime.getURL("dotlottie-player.wasm"));
-
-/**
- * WebClipper — Sidebar component for clipping the current page.
- * ALL actions go through AI → auto-save to a NEW note.
- */
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-
 import { useWebClipper } from "@/hooks/use-web-clipper";
 import { prepareForAI } from "@/lib/page-reader";
 import { getAuthToken } from "@/lib/auth-client";
 import { AI_API_BASE } from "@/lib/constants";
-
+import { showAILoaderToast, updateAISuccessToast, updateAIErrorToast } from "@/lib/toast";
 
 interface WebClipperProps {
   onSaveAsNote: (title: string, markdown: string) => void;
@@ -36,12 +22,11 @@ interface WebClipperProps {
 }
 
 const PROCESSING_LABELS: Record<string, string> = {
-  clean_page: "Cleaning page",
-  summarize_page: "Summarizing",
-  mindmap: "Generating mindmap",
+  clean_page: "Cleaning page content",
+  summarize_page: "Summarizing page content",
+  mindmap: "Generating mindmap structure",
   extract_key_points: "Extracting key points",
-  extract_todo: "Extracting to-dos",
-  spark_sent: "Sent to Spark AI! Click ✦ icon in toolbar to open",
+  extract_todo: "Extracting to-dos and action items",
 };
 
 const TITLE_PREFIXES: Record<string, string> = {
@@ -52,7 +37,6 @@ const TITLE_PREFIXES: Record<string, string> = {
   extract_todo: "To-do: ",
 };
 
-/** Stream AI completion from backend */
 async function streamAI(
   markdown: string,
   option: string,
@@ -62,10 +46,7 @@ async function streamAI(
 ) {
   try {
     const token = await getAuthToken();
-
-    const endpoint = token
-      ? `${AI_API_BASE}/api/ai`
-      : `${AI_API_BASE}/api/ai/free`;
+    const endpoint = token ? `${AI_API_BASE}/api/ai` : `${AI_API_BASE}/api/ai/free`;
 
     const response = await fetch(endpoint, {
       method: "POST",
@@ -98,47 +79,26 @@ async function streamAI(
 
 export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
   const { clip, status, content, error, reset } = useWebClipper();
-  const [processing, setProcessing] = useState<string | null>(null);
-  const [processError, setProcessError] = useState("");
-
-  useEffect(() => {
-    // Toggle the 'account-sheet' class on the parent sheet to enable the cutout effect for the Lottie robot
-    // Also remove overflow-y so the robot isn't clipped by the scroll container
-    const sheet = document.querySelector('.clipper-sheet');
-    const contentWrapper = document.querySelector('.clipper-sheet-content');
-    
-    if (processing && processing !== "spark_sent") {
-      sheet?.classList.add('account-sheet');
-      if (contentWrapper) {
-        (contentWrapper as HTMLElement).style.overflow = "visible";
-        (contentWrapper as HTMLElement).style.overflowY = "visible";
-      }
-    } else {
-      sheet?.classList.remove('account-sheet');
-      if (contentWrapper) {
-        (contentWrapper as HTMLElement).style.overflow = "";
-        (contentWrapper as HTMLElement).style.overflowY = "";
-      }
-    }
-    
-    return () => {
-      sheet?.classList.remove('account-sheet');
-      if (contentWrapper) {
-        (contentWrapper as HTMLElement).style.overflow = "";
-        (contentWrapper as HTMLElement).style.overflowY = "";
-      }
-    };
-  }, [processing]);
 
   // Auto-clip on mount
   if (status === "idle") {
     clip();
   }
 
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
   const handleAction = (option: string) => {
     if (!content) return;
-    setProcessing(option);
-    setProcessError("");
+
+    const toastId = `web-clip-toast-${Date.now()}`;
+    const featureLabel = PROCESSING_LABELS[option] || "Clipping Page";
+
+    handleClose(); // Close the sidebar immediately!
+
+    showAILoaderToast(toastId, "Clip Page", `${featureLabel}...`);
 
     const prepared = prepareForAI(content.markdown);
     let result = "";
@@ -157,10 +117,8 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
         
         if (titleMatch) {
           title = titleMatch[1];
-          // Xóa thẻ heading bị trùng lặp bên dưới khối Source
           finalResult = finalResult.replace(titleMatch[0], "").trim();
         } else {
-          // Truncate page title to keep it short
           const shortPageTitle = content.title.length > 40
             ? content.title.slice(0, 40).trim() + "…"
             : content.title;
@@ -170,26 +128,25 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
         const body = `> Source: [${content.siteName}](${content.url})\n\n${finalResult}`;
 
         onSaveAsNote(title, body);
-        reset();
-        setProcessing(null);
-        onClose();
+        updateAISuccessToast(toastId, "Clip Page", "Page clipped successfully!");
       },
       (msg) => {
-        setProcessing(null);
-        // Trigger upgrade modal for credit/auth errors
+        console.error("[WebClipper] Stream failed:", msg);
         if (msg.includes("402") || msg.includes("insufficient") || msg.includes("401")) {
           window.dispatchEvent(new CustomEvent("ai-error"));
-          onClose();
-        } else {
-          setProcessError(msg);
         }
+        updateAIErrorToast(toastId, "Clip Page", msg.includes("traffic") || msg.includes("limit") ? msg : "Failed to clip page content");
       },
     );
   };
 
-  /** Open Spark AI to chat about the current page */
   const handleChatWithPage = async () => {
     if (!content) return;
+
+    const toastId = `spark-ai-toast-${Date.now()}`;
+    handleClose(); // Close clipper immediately!
+
+    showAILoaderToast(toastId, "Spark AI", "Preparing page content for Spark AI...");
 
     const prepared = prepareForAI(content.markdown);
     const success = await openSparkAIWithPageContent(
@@ -199,22 +156,11 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
     );
 
     if (success) {
-      setProcessing("spark_sent");
-      setTimeout(() => {
-        setProcessing(null);
-        onClose();
-      }, 2500);
+      updateAISuccessToast(toastId, "Spark AI", "Sent to Spark AI successfully!");
     } else {
-      // Spark AI is not installed — open Chrome Web Store via background
+      updateAIErrorToast(toastId, "Spark AI", "Spark AI not found. Opening Chrome Web Store...");
       openUrlViaBackground(ECOSYSTEM.SPARK_AI.storeUrl);
-      onClose();
     }
-  };
-
-  const handleClose = () => {
-    reset();
-    setProcessing(null);
-    onClose();
   };
 
   return (
@@ -251,31 +197,8 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
         </div>
       )}
 
-      {/* AI processing */}
-      <AnimatePresence mode="wait">
-        {processing ? (
-          <AIProcessingView
-            key="processing"
-            title="Clipping Page"
-            messages={
-              processing === "spark_sent"
-                ? [PROCESSING_LABELS[processing] || "Processing with Spark AI"]
-                : ["Analyzing page content", "Extracting main ideas", "Reading text"]
-            }
-          />
-        ) : null}
-      </AnimatePresence>
-
-      {/* Process error */}
-      {processError && !processing && (
-        <div className="web-clipper-error">
-          <CircleHelpIcon className="w-4 h-4 shrink-0" />
-          <span>{processError}</span>
-        </div>
-      )}
-
       {/* Ready — show preview + actions */}
-      {status === "done" && content && !processing && (
+      {status === "done" && content && (
         <>
           <div className="web-clipper-preview">
             <h4 className="web-clipper-preview-title">{content.title}</h4>
@@ -432,4 +355,3 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
     </div>
   );
 }
-

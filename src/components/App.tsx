@@ -19,10 +19,23 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Mic, MicOff, Menu, Sparkles, AppWindow, PanelRight, MoreHorizontal } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
 import { RecordingHeader } from "@/components/RecordingHeader";
-import { AIErrorSheet } from "@/components/AIErrorSheet";
-import { RecordingErrorSheet, classifyRecordingError, type RecordingErrorInfo } from "@/components/RecordingErrorSheet";
-import { RecordingLimitSheet } from "@/components/RecordingLimitSheet";
-import { SignOutConfirmSheet } from "@/components/SignOutConfirmSheet";
+import { GooeyToaster, goeyToast } from "goey-toast";
+import "goey-toast/styles.css";
+import {
+  showAIErrorToast,
+  showRecordingErrorToast,
+  showRecordingLimitToast,
+  updateRecordingLimitToast,
+  showSupportSuccessToast,
+  showSupportErrorToast,
+  classifyRecordingError,
+  type RecordingErrorInfo,
+  showSignInSuccessToast,
+  showSignOutSuccessToast,
+  showOfflineToast,
+  showOnlineToast,
+  showSignOutConfirmToast,
+} from "@/lib/toast";
 import { HistorySheet } from "@/components/HistorySheet";
 import { MediaActionSheet } from "@/components/MediaActionSheet";
 import { AccountPopup } from "@/components/AccountPopup";
@@ -95,6 +108,11 @@ export function App() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
   useEffect(() => {
+    // Expose goeyToast to window context for Chrome DevTools Console testing
+    if (typeof window !== "undefined") {
+      (window as any).goeyToast = goeyToast;
+    }
+
     const handleMessage = (msg: any) => {
       if (msg.type === "REGION_CAPTURED" && msg.dataUrl) {
         setCapturedImage(msg.dataUrl);
@@ -112,7 +130,6 @@ export function App() {
     activeNoteId,
     searchQuery,
     loading: notesLoading,
-    syncProgress,
     setActiveNoteId,
     setSearchQuery,
     createNote,
@@ -135,13 +152,16 @@ export function App() {
   const handleLogin = async () => {
     setIsLoggingIn(true);
     try {
-      await signInWithGoogle();
+      const loggedUser = await signInWithGoogle();
+      if (loggedUser) {
+        showSignInSuccessToast(loggedUser.displayName || "User");
+      }
     } finally {
       setIsLoggingIn(false);
     }
   };
 
-  const { theme, toggleTheme } = useTheme();
+  const { theme, themeMode, setThemeMode, toggleTheme } = useTheme();
   const { credits, refreshCredits } = useCredits(user?.id);
   const isPremium = credits?.tier === "premium";
   const isQuotaExhausted = isPremium && credits?.credits !== undefined && credits.credits <= 0;
@@ -288,6 +308,8 @@ export function App() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [proIconIndex, setProIconIndex] = useState(() => Math.floor(Math.random() * 3));
   const headerProIconRef = useRef<any>(null);
+  const activeToastRef = useRef<any>(null);
+  const isLimitToastShownRef = useRef<boolean>(false);
 
   // Re-randomize Pro icon when extension is reopened (visibility changes)
   useEffect(() => {
@@ -301,8 +323,6 @@ export function App() {
   }, []);
 
 
-  const [aiErrorVisible, setAiErrorVisible] = useState(false);
-  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [recErrorInfo, setRecErrorInfo] = useState<{ info: RecordingErrorInfo; retryMode: "audio" | "screen" | "meet"; editor?: any } | null>(null);
   const [isSTTActive, setIsSTTActive] = useState(false);
   const [sttElapsed, setSttElapsed] = useState(0);
@@ -315,6 +335,217 @@ export function App() {
   const FREE_LIMIT_SECONDS = 1200; // 20 minutes
   const WARNING_SECONDS = 1140; // 19 minutes
   const [recordingLimitTimeLeft, setRecordingLimitTimeLeft] = useState<number | null>(null);
+
+  // Helper trigger for AI error toast using goey-toast
+  const triggerAIErrorToast = useCallback(() => {
+    // 1. Close all active bottom sheets & side panels first
+    setActivePanel(null);
+    setShowClipper(false);
+    setShowHistory(false);
+    setShowAccountMenu(false);
+    setShowSupportSheet(false);
+    setMediaSheetConfig(null);
+
+    // 2. Delay toast display by 300ms to allow bottom sheets to slide down completely
+    setTimeout(() => {
+      showAIErrorToast({
+        user,
+        isPremium,
+        isQuotaExhausted,
+        onLogin: () => {
+          signInWithGoogle();
+        },
+        onUpgrade: () => {
+          if (user?.email) {
+            const url = `${CHECKOUT_BASE}?checkout[email]=${encodeURIComponent(user.email)}&checkout[custom][user_id]=${user.id}`;
+            chrome.tabs.create({ url });
+          }
+        }
+      });
+    }, 300);
+  }, [user, isPremium, isQuotaExhausted, signInWithGoogle, CHECKOUT_BASE]);
+
+  const handleSupportSubmit = useCallback(async (title: string, content: string) => {
+    // 1. Immediately close the support sheet
+    setActivePanel(null);
+    setShowSupportSheet(false);
+
+    const SUPPORT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbww8SxkxrSOYScJNdtkhorXTqIQ10qVT8WHRgHXnrCRjyYbYhfHLWlta97sFzVk8o0pSA/exec";
+
+    const sendPromise = (async () => {
+      // Small artificial delay to allow bottom sheet to slide down smoothly
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const response = await fetch(SUPPORT_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          name: user?.displayName || "Guest User",
+          email: user?.email || "guest@blacknote.com",
+          title: title,
+          content: content
+        })
+      });
+
+      const text = await response.text();
+      let isSuccess = false;
+      
+      try {
+        const data = JSON.parse(text);
+        if (data.status === "success") isSuccess = true;
+      } catch {
+        if (response.ok) isSuccess = true;
+      }
+
+      if (!isSuccess) {
+        throw new Error("Failed to send feedback");
+      }
+    })();
+
+    goeyToast.promise(sendPromise, {
+      loading: "Sending Message...",
+      success: "Message Sent!",
+      error: "Failed to Send",
+      description: {
+        loading: "Please wait while we send your feedback...",
+        success: "Thank you for your feedback. We'll get back to you soon.",
+        error: "We encountered an issue while sending your message. Please try again."
+      }
+    });
+  }, [user]);
+
+
+
+  // Monitor connection status and show offline/online Gooey Toasts
+  useEffect(() => {
+    const handleOnline = () => {
+      showOnlineToast();
+    };
+
+    const handleOffline = () => {
+      showOfflineToast();
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    // Initial check on mount
+    if (!navigator.onLine) {
+      handleOffline();
+    }
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  // Effect to manage recording error toast dynamically
+  useEffect(() => {
+    if (recErrorInfo) {
+      const { info, retryMode, editor } = recErrorInfo;
+      
+      // 1. Close all active bottom sheets & side panels first
+      setActivePanel(null);
+      setShowClipper(false);
+      setShowHistory(false);
+      setShowAccountMenu(false);
+      setShowSupportSheet(false);
+      setMediaSheetConfig(null);
+
+      // 2. Delay toast display by 300ms to allow bottom sheets to slide down completely
+      const timer = setTimeout(() => {
+        const toastId = showRecordingErrorToast({
+          errorInfo: info,
+          onDismiss: () => {
+            setRecErrorInfo(null);
+
+            // Stop background polling if the user manually cancels Meet Live Sync
+            if (retryMode === "meet") {
+              window.dispatchEvent(new CustomEvent("stop-meet-sync"));
+            }
+
+            chrome.windows.getLastFocused({ windowTypes: ['normal'] }).then((win) => {
+              if (win?.id) {
+                chrome.tabs.query({ active: true, windowId: win.id }).then(([tab]) => {
+                  if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: "STOP_REGION_SELECTION" }).catch(() => { });
+                });
+              }
+            });
+          },
+          onRetry: () => {
+            setRecErrorInfo(null);
+            if (retryMode === "audio") {
+              window.dispatchEvent(new CustomEvent("start-audio-recording", { detail: { editor } }));
+            } else if (retryMode === "screen") {
+              window.dispatchEvent(new CustomEvent("start-screen-recording", { detail: { editor } }));
+            } else if (retryMode === "meet") {
+              window.dispatchEvent(new CustomEvent("start-meet-sync"));
+            }
+          },
+          onContinueWithoutMic: () => {
+            setRecErrorInfo(null);
+            if (retryMode === "screen") {
+              window.dispatchEvent(new CustomEvent("start-screen-recording", { detail: { skipMic: true, editor } }));
+            } else {
+              window.dispatchEvent(new CustomEvent("start-audio-recording", { detail: { skipMic: true, editor } }));
+            }
+          },
+          onOpenSettings: () => {
+            chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
+            setRecErrorInfo(null);
+          }
+        });
+
+        activeToastRef.current = toastId;
+      }, 300);
+
+      return () => {
+        clearTimeout(timer);
+        if (activeToastRef.current) {
+          goeyToast.dismiss(activeToastRef.current);
+          activeToastRef.current = null;
+        }
+      };
+    }
+  }, [recErrorInfo]);
+
+  // Effect to manage recording limit countdown/alert toast dynamically
+  useEffect(() => {
+    if (recordingLimitTimeLeft !== null) {
+      const handleUpgrade = () => {
+        setRecordingLimitTimeLeft(null);
+        if (user?.email) {
+          const url = `${CHECKOUT_BASE}?checkout[email]=${encodeURIComponent(user.email)}&checkout[custom][user_id]=${user.id}`;
+          chrome.tabs.create({ url });
+        }
+      };
+
+      const handleDismiss = () => {
+        setRecordingLimitTimeLeft(null);
+      };
+
+      if (!isLimitToastShownRef.current) {
+        showRecordingLimitToast({
+          timeLeft: recordingLimitTimeLeft,
+          onUpgrade: handleUpgrade,
+          onDismiss: handleDismiss,
+        });
+        isLimitToastShownRef.current = true;
+      } else {
+        updateRecordingLimitToast(
+          recordingLimitTimeLeft,
+          handleUpgrade,
+          handleDismiss
+        );
+      }
+    } else {
+      if (isLimitToastShownRef.current) {
+        goeyToast.dismiss("recording-limit-toast");
+        isLimitToastShownRef.current = false;
+      }
+    }
+  }, [recordingLimitTimeLeft, user, CHECKOUT_BASE]);
 
   useEffect(() => {
     if (!isPremium && isRecording) {
@@ -1020,14 +1251,13 @@ export function App() {
 
   // Listen for AI error events from the editor
   useEffect(() => {
-    const handler = () => setAiErrorVisible(true);
-    window.addEventListener("ai-error", handler);
-    window.addEventListener("ai-error-refunded", handler);
+    window.addEventListener("ai-error", triggerAIErrorToast);
+    window.addEventListener("ai-error-refunded", triggerAIErrorToast);
     return () => {
-      window.removeEventListener("ai-error", handler);
-      window.removeEventListener("ai-error-refunded", handler);
+      window.removeEventListener("ai-error", triggerAIErrorToast);
+      window.removeEventListener("ai-error-refunded", triggerAIErrorToast);
     };
-  }, []);
+  }, [triggerAIErrorToast]);
 
   
   // Listen for Ask Note
@@ -1284,6 +1514,8 @@ export function App() {
         <NoteEditor
           note={activeNote}
           theme={theme}
+          themeMode={themeMode}
+          setThemeMode={setThemeMode}
           onContentChange={handleContentChange}
           onTitleChange={handleTitleChange}
           onCreateNote={handleCreateNote}
@@ -1412,7 +1644,17 @@ export function App() {
                   proIconIndex={proIconIndex}
                   onSignOut={async () => {
                     setActivePanel(null); setShowAccountMenu(false);
-                    setShowSignOutConfirm(true);
+                    showSignOutConfirmToast({
+                      onConfirm: async () => {
+                        setIsSigningOut(true);
+                        try {
+                          await signOut();
+                          showSignOutSuccessToast();
+                        } finally {
+                          setIsSigningOut(false);
+                        }
+                      }
+                    });
                   }}
                   onLogin={handleLogin}
                   isLoggingIn={isLoggingIn}
@@ -1429,100 +1671,24 @@ export function App() {
 
       <AnimatePresence>
         {showSupportSheet && (
-          <SupportActionSheet onClose={() => { setActivePanel(null); setShowSupportSheet(false); }} />
+          <SupportActionSheet 
+            onClose={() => { setActivePanel(null); setShowSupportSheet(false); }} 
+            onSubmit={handleSupportSubmit}
+          />
         )}
       </AnimatePresence>
 
-      {/* ─── AI Error Sheet ─── */}
-      <AIErrorSheet
-        visible={aiErrorVisible}
-        onDismiss={() => setAiErrorVisible(false)}
-        user={user}
-        isPremium={isPremium}
-        isQuotaExhausted={isQuotaExhausted}
-        onLogin={() => { setAiErrorVisible(false); signInWithGoogle(); }}
-        onUpgrade={() => {
-          setAiErrorVisible(false);
-          if (user?.email) {
-            const url = `${CHECKOUT_BASE}?checkout[email]=${encodeURIComponent(user.email)}&checkout[custom][user_id]=${user.id}`;
-            chrome.tabs.create({ url });
-          }
-        }}
+      <GooeyToaster 
+        position="top-left" 
+        duration={4000} 
+        theme={theme === "dark" ? "dark" : "light"} 
+        showProgress={false} 
+        expand={false} 
+        visibleToasts={3} 
+        gap={8} 
       />
 
-      {/* Recording Limit Countdown/Error Sheet */}
-      <RecordingLimitSheet
-        visible={recordingLimitTimeLeft !== null}
-        timeLeft={recordingLimitTimeLeft || 0}
-        onDismiss={() => setRecordingLimitTimeLeft(null)}
-        onUpgrade={() => {
-          setRecordingLimitTimeLeft(null);
-          if (user?.email) {
-            const url = `${CHECKOUT_BASE}?checkout[email]=${encodeURIComponent(user.email)}&checkout[custom][user_id]=${user.id}`;
-            chrome.tabs.create({ url });
-          }
-        }}
-      />
 
-      {/* ─── Recording Error Sheet ─── */}
-      <RecordingErrorSheet
-        visible={!!recErrorInfo}
-        errorInfo={recErrorInfo?.info ?? null}
-        onDismiss={() => {
-          const mode = recErrorInfo?.retryMode;
-          setRecErrorInfo(null);
-
-          // Stop background polling if the user manually cancels Meet Live Sync
-          if (mode === "meet") {
-            window.dispatchEvent(new CustomEvent("stop-meet-sync"));
-          }
-
-          chrome.windows.getLastFocused({ windowTypes: ['normal'] }).then((win) => {
-            if (win?.id) {
-              chrome.tabs.query({ active: true, windowId: win.id }).then(([tab]) => {
-                if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: "STOP_REGION_SELECTION" }).catch(() => { });
-              });
-            }
-          });
-        }}
-        onRetry={() => {
-          const mode = recErrorInfo?.retryMode;
-          const editor = recErrorInfo?.editor;
-          setRecErrorInfo(null);
-          if (mode === "audio") {
-            window.dispatchEvent(new CustomEvent("start-audio-recording", { detail: { editor } }));
-          } else if (mode === "screen") {
-            window.dispatchEvent(new CustomEvent("start-screen-recording", { detail: { editor } }));
-          } else if (mode === "meet") {
-            window.dispatchEvent(new CustomEvent("start-meet-sync"));
-          }
-        }}
-        onContinueWithoutMic={() => {
-          const mode = recErrorInfo?.retryMode;
-          const editor = recErrorInfo?.editor;
-          setRecErrorInfo(null);
-          if (mode === "screen") {
-            window.dispatchEvent(new CustomEvent("start-screen-recording", { detail: { skipMic: true, editor } }));
-          } else {
-            window.dispatchEvent(new CustomEvent("start-audio-recording", { detail: { skipMic: true, editor } }));
-          }
-        }}
-        onOpenSettings={() => {
-          chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
-          setRecErrorInfo(null);
-        }}
-      />
-
-      {/* ─── Sign Out Confirm Sheet ─── */}
-      <SignOutConfirmSheet
-        visible={showSignOutConfirm}
-        onDismiss={() => setShowSignOutConfirm(false)}
-        onConfirm={async () => {
-          setShowSignOutConfirm(false);
-          setIsSigningOut(true);
-          await signOut();
-        }}
-      />
 
       <AnimatePresence>
         {mediaSheetConfig && (
@@ -1731,21 +1897,7 @@ export function App() {
                 {isWide && <span className="text-[10px] font-medium leading-normal mt-0 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">Help</span>}
               </button>
 
-              <button
-                className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
-                onClick={toggleTheme}
-                data-tooltip={theme === "light" ? "Dark mode" : "Light mode"}
-                data-placement="left"
-              >
-                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
-                  {theme === "light" ? (
-                    <MoonIcon size={20} className="w-5 h-5" />
-                  ) : (
-                    <SunIcon size={20} className="w-5 h-5" />
-                  )}
-                </div>
-                {isWide && <span className="text-[10px] font-medium leading-normal mt-0 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">Theme</span>}
-              </button>
+
 
               {/* Always on Top — Pop-out Window */}
               <button

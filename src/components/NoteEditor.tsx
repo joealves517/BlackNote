@@ -71,7 +71,6 @@ import { ColorSelector } from "@/components/generative/ColorSelector";
 import { NoteChatSheet } from "@/components/generative/NoteChatSheet";
 import { AgentInput } from "@/components/generative/AgentInput";
 import TurndownService from "turndown";
-import { MediaAIResultSheet } from "@/components/generative/MediaAIResultSheet";
 import { getAuthToken } from "@/lib/auth-client";
 import { AI_API_BASE } from "@/lib/constants";
 import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
@@ -264,6 +263,8 @@ function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
 interface NoteEditorProps {
   note: Note | null;
   theme: "light" | "dark";
+  themeMode?: "light" | "dark" | "system";
+  setThemeMode?: (mode: "light" | "dark" | "system") => void;
   onContentChange: (noteId: string, content: string) => void;
   onTitleChange: (noteId: string, title: string) => void;
   onCreateNote: (title: string, content: string) => void;
@@ -588,6 +589,8 @@ const extensions = [
 export function NoteEditor({
   note,
   theme,
+  themeMode,
+  setThemeMode,
   onContentChange,
   onTitleChange,
   onCreateNote,
@@ -917,6 +920,8 @@ export function NoteEditor({
               noteTitle={titleValue} 
               onCreateNote={onCreateNote} 
               theme={theme}
+              themeMode={themeMode}
+              setThemeMode={setThemeMode}
               toggleTheme={toggleTheme}
             />
             <AgentInput 

@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Enable class-based dark mode for Tailwind CSS v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ===== Local Inter Font (bundled for offline + Chrome Store compliance) ===== */
 @font-face {
   font-family: "Inter";
@@ -524,7 +527,7 @@ body {
 
 .ai-css-waveform .bar {
   width: 2px;
-  background-color: hsl(var(--foreground));
+  background-color: currentColor;
   opacity: 0.7;
   border-radius: 1px;
   animation: css-waveform-bounce 1s ease-in-out infinite;

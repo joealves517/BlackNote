@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import ShinyText from "./ShinyText";
 
 interface DynamicThinkingProps {
   messages: string[];
@@ -44,12 +45,18 @@ export function DynamicThinking({ messages, interval = 1200 }: DynamicThinkingPr
           transition={{ duration: 0.15 }}
           style={{ whiteSpace: "nowrap" }}
         >
-          {messages[index]}
+          <ShinyText 
+            text={messages[index]} 
+            speed={2} 
+            color="hsl(var(--muted-foreground) / 0.85)" 
+            shineColor="hsl(var(--foreground))"
+          />
         </motion.span>
       </AnimatePresence>
-      <span style={{ width: "12px", display: "inline-block", textAlign: "left" }}>
+      <span style={{ width: "12px", display: "inline-block", textAlign: "left", color: "hsl(var(--muted-foreground) / 0.85)" }}>
         {".".repeat(dotCount)}
       </span>
     </span>
   );
 }
+

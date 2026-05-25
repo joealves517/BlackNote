@@ -1,42 +1,36 @@
 import { ArrowUpIcon } from "@/components/icons/arrow-up";
-import { GripIcon } from "@/components/icons/grip";
-import { useCompletion } from "@ai-sdk/react";
-
-import { useEditor, addAIHighlight, removeAIHighlight } from "novel";
+import { useEditor, removeAIHighlight } from "novel";
 import { useState, useEffect, useRef, useCallback } from "react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { DOMSerializer } from "prosemirror-model";
 import TurndownService from "turndown";
 import { AISelectorCommands } from "./AISelectorCommands";
-import { AICompletionCommands } from "./AICompletionCommands";
-import { GeminiIcon } from "./GeminiIcon";
 import { getAuthToken } from "@/lib/auth-client";
 import { AI_API_BASE } from "@/lib/constants";
-import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
-import { SparklesIcon } from "@/components/icons/sparkles";
-import { AIProcessingView } from "@/components/ui/ai-processing-view";
-import { DynamicThinking } from "@/components/ui/dynamic-thinking";
+import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
+import { showAILoaderToast, updateAISuccessToast, updateAIErrorToast } from "@/lib/toast";
 
 interface AISelectorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-// Shared spring config for all layout transitions
-const smoothSpring = { type: "spring", damping: 28, stiffness: 300, mass: 0.8 } as const;
+const FEATURE_LABELS: Record<string, { title: string; loading: string; success: string }> = {
+  improve: { title: "Improve Writing", loading: "Improving writing flow and clarity...", success: "Improved writing applied directly." },
+  fix: { title: "Fix Grammar", loading: "Correcting spelling and grammar...", success: "Corrected text applied directly." },
+  shorter: { title: "Make Shorter", loading: "Condensing text...", success: "Condensed text applied directly." },
+  longer: { title: "Make Longer", loading: "Expanding text with details...", success: "Expanded text applied directly." },
+  translate: { title: "Translate Text", loading: "Translating text...", success: "Translation applied directly." },
+  todo: { title: "To-do List", loading: "Extracting to-dos and action items...", success: "To-do list inserted directly below." },
+  continue: { title: "Continue Writing", loading: "Continuing writing from cursor...", success: "Continuation text inserted directly below." },
+  zap: { title: "Ask AI", loading: "Processing prompt...", success: "Applied AI edits directly." },
+};
 
 export function AISelector({ onOpenChange }: AISelectorProps) {
   const { editor } = useEditor();
   const [inputValue, setInputValue] = useState("");
-  const [token, setToken] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    getAuthToken().then(setToken);
-  }, []);
 
   // Focus textarea without scrolling — prevents editor jump
   useEffect(() => {
@@ -44,36 +38,6 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
       textareaRef.current?.focus({ preventScroll: true });
     });
   }, []);
-
-  const { completion, complete, isLoading } = useCompletion({
-    api: "/api/ai", // Overridden by custom fetch below
-    fetch: async (url, options) => {
-      const currentToken = await getAuthToken();
-      const endpoint = currentToken ? `${AI_API_BASE}/api/ai` : `${AI_API_BASE}/api/ai/free`;
-      const headers = {
-        ...options?.headers,
-        ...(currentToken ? { Authorization: `Bearer ${currentToken}` } : {})
-      };
-      return fetch(endpoint, { ...options, headers });
-    },
-    streamProtocol: "text",
-    onError: (err: Error) => {
-      console.error("AI error:", err.message);
-      onOpenChange(false);
-      window.dispatchEvent(new CustomEvent("ai-error"));
-    },
-    onFinish: (_prompt, comp) => {
-      if (comp.includes("Your credit has been refunded")) {
-        onOpenChange(false);
-        window.dispatchEvent(new CustomEvent("ai-error-refunded"));
-      } else if (comp.includes("busy")) {
-        onOpenChange(false);
-        window.dispatchEvent(new CustomEvent("ai-error"));
-      }
-    },
-  });
-
-  const hasCompletion = completion.length > 0;
 
   const getSelectedText = (): string => {
     if (!editor) return "";
@@ -88,12 +52,10 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
     }
 
     try {
-      // Convert selection slice to DOM fragment then to Markdown
       const dom = DOMSerializer.fromSchema(editor.schema).serializeFragment(slice.content);
       const div = document.createElement("div");
       div.appendChild(dom);
 
-      // Fix orphan <li> tags (common when selecting partial lists in Tiptap)
       const children = Array.from(div.children);
       if (children.length > 0 && children.every(c => c.nodeName === "LI")) {
         const ul = document.createElement("ul");
@@ -104,24 +66,105 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
 
       return turndown.turndown(div.innerHTML);
     } catch {
-      // Fallback
       return slice.content.textBetween(0, slice.content.size, "\n\n");
     }
   };
 
-  const handleSubmit = () => {
-    if (!inputValue.trim() || isLoading) return;
-    if (completion) {
-      complete(completion, {
-        body: { option: "zap", command: inputValue },
-      }).then(() => setInputValue(""));
-      return;
+  const handleClose = () => {
+    if (editor) {
+      removeAIHighlight(editor);
+      editor.commands.focus();
     }
-    const text = getSelectedText();
-    complete(text, {
-      body: { option: "zap", command: inputValue },
-    }).then(() => setInputValue(""));
+    onOpenChange(false);
   };
+
+  const handleAIAction = useCallback(async (option: string, overrideText?: string) => {
+    if (!editor) return;
+
+    const toastId = `ai-selector-toast-${Date.now()}`;
+    const labels = FEATURE_LABELS[option] || FEATURE_LABELS.zap;
+
+    // Capture selection position before closing the sheet
+    const { from, to } = editor.state.selection;
+    const isSelectionEmpty = from === to;
+    const textToProcess = overrideText ?? getSelectedText();
+
+    handleClose(); // Close sheet immediately!
+
+    showAILoaderToast(toastId, labels.title, labels.loading);
+
+    try {
+      const token = await getAuthToken();
+      const endpoint = token ? `${AI_API_BASE}/api/ai` : `${AI_API_BASE}/api/ai/free`;
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          prompt: textToProcess,
+          option,
+          command: option === "zap" ? inputValue : undefined
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`AI error (${response.status}): ${errorText}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      let result = "";
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        result += decoder.decode(value, { stream: true });
+      }
+
+      if (result.includes("We are facing high traffic") || result.includes("You have reached your daily limit")) {
+        throw new Error(result.trim());
+      }
+
+      const cleanResult = result.trim();
+      if (!cleanResult) {
+        throw new Error("Received empty response from AI");
+      }
+
+      // Convert result to Prosemirror nodes
+      let parsedContent: any;
+      try {
+        const jsonStr = markdownToProsemirror(cleanResult);
+        const json = JSON.parse(jsonStr);
+        parsedContent = json.content || cleanResult;
+      } catch {
+        parsedContent = cleanResult;
+      }
+
+      // Apply changes directly to editor
+      if (option === "continue" || option === "todo" || isSelectionEmpty) {
+        // Insert below
+        editor.chain().focus().insertContentAt(to, parsedContent).run();
+      } else {
+        // Replace selection
+        editor.chain().focus().insertContentAt({ from, to }, parsedContent).run();
+      }
+
+      updateAISuccessToast(toastId, labels.title, labels.success);
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "AI request failed";
+      console.error("[AISelector] Error:", msg);
+      if (msg.includes("402") || msg.includes("insufficient") || msg.includes("401")) {
+        window.dispatchEvent(new CustomEvent("ai-error"));
+      }
+      updateAIErrorToast(toastId, labels.title, msg.includes("traffic") || msg.includes("limit") ? msg : "Please try again later.");
+    }
+  }, [editor, inputValue]);
 
   // Auto-resize textarea to fit content
   const autoResize = useCallback(() => {
@@ -135,30 +178,10 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
     autoResize();
   }, [inputValue, autoResize]);
 
-  const handleClose = () => {
-    if (editor) {
-      removeAIHighlight(editor);
-      editor.commands.focus();
-    }
-    onOpenChange(false);
-  };
-
-  // Determine current visual state
-  const visualState = isLoading && !hasCompletion
-    ? "thinking"
-    : hasCompletion
-      ? "result"
-      : "menu";
-
-  useEffect(() => {
-    // Left empty since we no longer dispatch ai-thinking events globally.
-  }, [visualState]);
-
   const portalTarget = document.getElementById("blacknote-root") || document.body;
 
   return createPortal(
     <>
-      {/* Backdrop with fade-in */}
       <motion.div
         className="history-sheet-backdrop"
         onClick={handleClose}
@@ -168,9 +191,8 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
         transition={{ duration: 0.2 }}
       />
 
-      {/* Sheet with slide-up — layout animation handles height changes */}
       <motion.div
-        className={`clipper-sheet ${visualState === "thinking" ? "account-sheet" : ""}`}
+        className="clipper-sheet"
         style={{ maxHeight: "calc(100% - 56px)" }}
         initial={{ bottom: "-100%" }}
         animate={{ bottom: 0 }}
@@ -183,113 +205,37 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
 
         <motion.div
           className="clipper-sheet-content"
-          style={{ 
-            display: "flex", 
-            flexDirection: "column", 
-            overflow: visualState === "thinking" ? "visible" : "hidden",
-            overflowY: visualState === "thinking" ? "visible" : "auto"
-          }}
+          style={{ display: "flex", flexDirection: "column" }}
         >
-          {/* ─── Thinking State ─── */}
-          <AnimatePresence mode="wait">
-            {visualState === "thinking" && (
-              <AIProcessingView
-                key="thinking"
-                title="Fixing text"
-                messages={["Understanding context", "Analyzing selection", "Formulating response"]}
-              />
-            )}
-          </AnimatePresence>
+          <div className="ai-input-row">
+            <textarea
+              ref={textareaRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              rows={1}
+              placeholder="Ask AI to edit, translate, summarize..."
+              className="ai-input"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && inputValue.trim()) {
+                  e.preventDefault();
+                  handleAIAction("zap");
+                }
+              }}
+            />
+            <button
+              className="ai-send-btn"
+              onClick={() => handleAIAction("zap")}
+              disabled={!inputValue.trim()}
+            >
+              <ArrowUpIcon className="h-3.5 w-3.5" />
+            </button>
+          </div>
 
-          {/* ─── Result State ─── */}
-          <AnimatePresence>
-            {visualState === "result" && (
-              <motion.div
-                key="result"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25, ease: "easeOut" }}
-                style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
-              >
-                <div className="ai-response-preview" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-                  <div className="ai-response-content">
-                    <Markdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        p: ({ ...props }) => <p style={{ margin: "4px 0", fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }} {...props} />,
-                        ul: ({ ...props }) => <ul style={{ listStyleType: "disc", paddingLeft: "1.5em", margin: "4px 0" }} {...props} />,
-                        ol: ({ ...props }) => <ol style={{ listStyleType: "decimal", paddingLeft: "1.5em", margin: "4px 0" }} {...props} />,
-                        li: ({ ...props }) => <li style={{ marginBottom: "2px" }} {...props} />,
-                        h1: ({ ...props }) => <h1 style={{ fontWeight: 600, fontSize: "1.2em", margin: "8px 0 4px 0" }} {...props} />,
-                        h2: ({ ...props }) => <h2 style={{ fontWeight: 600, fontSize: "1.1em", margin: "8px 0 4px 0" }} {...props} />,
-                        h3: ({ ...props }) => <h3 style={{ fontWeight: 600, fontSize: "1.05em", margin: "8px 0 4px 0" }} {...props} />,
-                        blockquote: ({ ...props }) => <blockquote style={{ borderLeft: "2px solid hsl(var(--muted-foreground)/0.4)", paddingLeft: 8, color: "hsl(var(--muted-foreground))", margin: "4px 0" }} {...props} />
-                      }}
-                    >
-                      {completion}
-                    </Markdown>
-                  </div>
-                </div>
-
-                {isLoading && (
-                  <div className="ai-loading ai-loading-inline">
-                    <GripIcon loop className="ai-loading-icon" />
-                    <DynamicThinking messages={["Writing", "Generating content", "Refining structure"]} interval={1500} />
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* ─── Input + Commands (visible when not thinking) ─── */}
-          {visualState !== "thinking" && (
-            <motion.div>
-              <div className="ai-input-row">
-                <textarea
-                  ref={textareaRef}
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  rows={1}
-                  placeholder={
-                    hasCompletion
-                      ? "Tell AI what to do next..."
-                      : "Ask AI to edit, translate, summarize..."
-                  }
-                  className="ai-input"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey && inputValue.trim()) {
-                      e.preventDefault();
-                      handleSubmit();
-                    }
-                  }}
-                />
-                <button
-                  className="ai-send-btn"
-                  onClick={handleSubmit}
-                  disabled={!inputValue.trim() || isLoading}
-                >
-                  <ArrowUpIcon className="h-3.5 w-3.5" />
-                </button>
-              </div>
-
-              {hasCompletion ? (
-                <AICompletionCommands
-                  onDiscard={handleClose}
-                  completion={completion}
-                />
-              ) : (
-                <AISelectorCommands
-                  onSelect={(option, overrideText) => {
-                    const textToSend = overrideText ?? getSelectedText();
-                    complete(textToSend, { 
-                      body: { option }
-                    });
-                  }}
-                />
-              )}
-            </motion.div>
-          )}
+          <AISelectorCommands
+            onSelect={(option, overrideText) => {
+              handleAIAction(option, overrideText);
+            }}
+          />
         </motion.div>
       </motion.div>
     </>,

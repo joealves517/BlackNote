@@ -215,7 +215,7 @@ export function AccountPopup({
         >
           {isLoggingIn ? (
             <motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="flex">
-              <LoaderIcon size={18} className="text-background" />
+              <LoaderIcon size={18} className="text-muted-foreground" />
             </motion.span>
           ) : (
             <GoogleLogo />

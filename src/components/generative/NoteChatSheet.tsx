@@ -27,6 +27,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useCredits } from "@/hooks/use-credits";
 import { getTranscriptsForNote } from "@/lib/media-ai-service";
 import { buildChatContext, buildQuickActionContext, buildUnanalyzedMediaContext } from "@/lib/context-builder";
+import BorderGlow from "@/components/ui/BorderGlow";
+
 
 interface ChatMessage {
   role: "user" | "ai";
@@ -663,16 +665,14 @@ export function NoteChatSheet({
           }}
         >
           <div style={{ pointerEvents: "auto", padding: "8px 12px 12px" }}>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                border: "1px solid hsl(var(--border))",
-                borderRadius: 24,
-                backgroundColor: "hsl(var(--card))",
-                transition: "border-color 200ms, box-shadow 200ms",
-                overflow: "hidden",
-              }}
+            <BorderGlow
+              className="w-full flex flex-col overflow-visible"
+              borderRadius={24}
+              backgroundColor="hsl(var(--card))"
+              glowColor="40 80 80"
+              glowRadius={40}
+              glowIntensity={1}
+              colors={['#c084fc', '#f472b6', '#38bdf8']}
             >
               {/* Textarea */}
               <textarea
@@ -728,7 +728,7 @@ export function NoteChatSheet({
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></svg>
                 </button>
               </div>
-            </div>
+            </BorderGlow>
 
             {/* Disclaimer */}
             <div style={{ display: "flex", justifyContent: "center", marginTop: 6, marginBottom: 2 }}>

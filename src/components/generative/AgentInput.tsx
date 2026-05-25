@@ -11,6 +11,8 @@ import TurndownService from "turndown";
 import { agentDecorationKey } from "@/extensions/AgentDecoration";
 import { fetchWithRetry, readStreamWithTimeout, validateAgentResponse } from "@/lib/agent-guard";
 import { ThreeDot } from "react-loading-indicators";
+import BorderGlow from "@/components/ui/BorderGlow";
+import ShinyText from "@/components/ui/ShinyText";
 
 // --- Types ---
 
@@ -588,7 +590,6 @@ export function AgentInput({
     setAgentMessage(null);
   }, [editor, noteId, onTitleChange]);
 
-  // Cleanup fake highlight on unmount
   useEffect(() => {
     return () => {
       if (editor && editor.view && !editor.isDestroyed) {
@@ -605,30 +606,25 @@ export function AgentInput({
       className="absolute inset-x-0 z-50 flex flex-col items-center justify-end pointer-events-none px-4 transition-all duration-300 gap-1.5"
       style={{ bottom: "5px" }}
     >
-
-      <div
-        className={`relative pointer-events-auto flex flex-col overflow-hidden transition-all duration-300 ease-out ${isExpanded ? "w-full max-w-[600px] rounded-[32px]" : "w-[76px] h-[18px] rounded-full cursor-pointer items-center justify-center hover:brightness-110"
-          }`}
-        style={{
-          backgroundColor: "hsl(var(--sidebar-bg))",
-          boxShadow: "0 8px 32px -8px rgba(0,0,0,0.25)",
-          border: isExpanded ? "0.5px solid hsl(var(--border))" : "none",
-        }}
-        onClick={() => { if (!isExpanded) setIsExpanded(true); }}
-        onMouseEnter={() => { if (!isExpanded) setIsExpanded(true); }}
-      >
-        <div className="relative z-10 flex flex-col items-center justify-center w-full h-full">
-          {!isExpanded ? (
-            <span style={{ fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", paddingTop: "1px", opacity: 0.4 }}>✦</span>
-          ) : (
+      {isExpanded ? (
+        <BorderGlow
+          className="pointer-events-auto w-full max-w-[600px] flex flex-col overflow-visible transition-all duration-300 ease-out"
+          borderRadius={agentMessage ? 18 : 32}
+          backgroundColor="hsl(var(--sidebar-bg))"
+          glowColor="40 80 80"
+          glowRadius={40}
+          glowIntensity={1}
+          colors={['#c084fc', '#f472b6', '#38bdf8']}
+        >
+          <div className="relative z-10 flex flex-col items-center justify-center w-full h-full">
             <div className="flex flex-col w-full h-full animate-in fade-in duration-300">
               {/* Agent Message Area */}
               {agentMessage && !isProcessing && !hasPendingModifications && (() => {
                 const isImageResponse = agentMessage.trim().startsWith("<image>");
                 const imageUrl = isImageResponse 
-                  ? agentMessage.replace("<image>", "").replace("</image>", "").trim() 
+                   ? agentMessage.replace("<image>", "").replace("</image>", "").trim() 
                   : "";
-
+ 
                 return isImageResponse ? (
                   <div className="flex flex-col items-center justify-center p-5 gap-4 w-full pointer-events-auto">
                     <div className="relative group max-w-full rounded-2xl overflow-hidden border border-border bg-muted/40 shadow-inner">
@@ -709,14 +705,21 @@ export function AgentInput({
                   </>
                 );
               })()}
-
+ 
               {/* Loading State */}
               {isProcessing ? (
                 <div className="px-5 py-3 flex items-center gap-3 text-muted-foreground">
                   <div className="flex items-center justify-center w-8 h-4">
                     <ThreeDot color={["#32cd32", "#327fcd", "#cd32cd", "#cd8032"]} size="small" style={{ fontSize: "5px" }} />
                   </div>
-                  <span className="text-[14px] font-medium text-foreground/70">Thinking{loadingDots}</span>
+                  <span className="text-[14px] font-medium text-foreground/70 flex items-center gap-1">
+                    <ShinyText 
+                      text={`Thinking${loadingDots}`} 
+                      speed={2} 
+                      color="hsl(var(--muted-foreground) / 0.85)" 
+                      shineColor="hsl(var(--foreground))" 
+                    />
+                  </span>
                 </div>
               ) : hasPendingModifications ? (
                 /* Review Mode */
@@ -748,7 +751,7 @@ export function AgentInput({
                 /* Normal Input Mode */
                 <form
                   onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
-                  className="p-1 flex items-end relative"
+                  className="relative w-full flex items-end bg-transparent p-0.5"
                 >
                   <textarea
                     ref={inputRef as any}
@@ -759,9 +762,9 @@ export function AgentInput({
                       e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
                     }}
                     placeholder="Make it professional..."
-                    className="flex-1 bg-transparent px-5 py-2 text-[15px] text-foreground outline-none resize-none overflow-y-auto"
+                    className="w-full bg-transparent pl-4 pr-12 py-2 text-[14px] text-foreground outline-none resize-none overflow-y-auto custom-scrollbar"
                     rows={1}
-                    style={{ minHeight: "36px", maxHeight: "120px" }}
+                    style={{ minHeight: "36px", maxHeight: "120px", lineHeight: "20px" }}
                     disabled={isProcessing}
                     onKeyDown={(e) => {
                       e.stopPropagation();
@@ -776,16 +779,29 @@ export function AgentInput({
                   <button
                     type="submit"
                     disabled={!localInput.trim() || isProcessing}
-                    className="mb-1 mr-1 shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-sm disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    className="absolute right-2 bottom-1.5 shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-sm disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95 transition-all duration-200"
                   >
                     <ArrowUpIcon className="w-4 h-4" />
                   </button>
                 </form>
               )}
             </div>
-          )}
+          </div>
+        </BorderGlow>
+      ) : (
+        <div
+          className="relative pointer-events-auto w-[76px] h-[18px] rounded-full cursor-pointer flex items-center justify-center hover:brightness-110 transition-all duration-300 ease-out"
+          style={{
+            backgroundColor: "hsl(var(--sidebar-bg))",
+            boxShadow: "0 8px 32px -8px rgba(0,0,0,0.25)",
+          }}
+          onClick={() => setIsExpanded(true)}
+          onMouseEnter={() => setIsExpanded(true)}
+        >
+          <span style={{ fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", paddingTop: "1px", opacity: 0.4 }}>✦</span>
         </div>
-      </div>
+      )}
     </div>
   );
 }
+

@@ -14,7 +14,6 @@ import { Mic, Monitor, PenLine, Wand2, BookOpen, Tag, Play, ChevronRight, Messag
 import { ArrowUpIcon } from "@/components/icons/arrow-up";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { CircleCheckIcon } from "@/components/icons/circle-check";
-import { AIProcessingView } from "@/components/ui/ai-processing-view";
 import { DeleteIcon } from "@/components/icons/delete";
 import { db } from "@/lib/local-db";
 import { useAuth } from "@/hooks/use-auth";
@@ -25,6 +24,7 @@ import {
   hasTranscript,
   type SummarizeStyle,
 } from "@/lib/media-ai-service";
+import { showAILoaderToast, updateAISuccessToast, updateAIErrorToast } from "@/lib/toast";
 
 interface MediaActionSheetProps {
   mediaId: string;
@@ -38,18 +38,7 @@ interface MediaActionSheetProps {
   missingBlob?: boolean;
 }
 
-type SheetPhase = "idle" | "processing" | "analyzed" | "generating_feature";
-
-const PROCESSING_MESSAGES = [
-  "Extracting audio track",
-  "Compressing audio",
-  "Sending to AI",
-  "Transcribing content",
-  "Processing segments",
-  "Analyzing speech patterns",
-  "Building transcript",
-  "Almost done",
-];
+type SheetPhase = "idle" | "analyzed";
 
 const AI_FEATURES = [
   { id: "meeting_minutes", label: "Meeting Minutes", desc: "Professional minutes with action items", icon: FileText, colorRgb: "99, 102, 241" },
@@ -71,8 +60,6 @@ export function MediaActionSheet({
 }: MediaActionSheetProps) {
   const { user } = useAuth();
   const [phase, setPhase] = useState<SheetPhase>("idle");
-  const [statusMsg, setStatusMsg] = useState(PROCESSING_MESSAGES[0]);
-  const [statusIdx, setStatusIdx] = useState(0);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [dotLottie, setDotLottie] = useState<DotLottie | null>(null);
   
@@ -96,16 +83,6 @@ export function MediaActionSheet({
     return () => window.removeEventListener("bg-transcribe-progress", handler);
   }, [mediaId]);
 
-  // Dev: force phase from console
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const p = (e as CustomEvent).detail as SheetPhase;
-      if (p) { setPhase(p); setStatusIdx(0); setStatusMsg(PROCESSING_MESSAGES[0]); }
-    };
-    window.addEventListener("__test-media-phase", handler);
-    return () => window.removeEventListener("__test-media-phase", handler);
-  }, []);
-
   // ─── Robot Lottie state machine ────────────────────────────────
 
   useEffect(() => {
@@ -119,29 +96,11 @@ export function MediaActionSheet({
       const t = setTimeout(() => { fire("jumpClick"); interval = setInterval(() => fire("alertClick"), 3000); }, 200);
       return () => { clearTimeout(t); clearInterval(interval); };
     }
-    if (phase === "processing") {
-      const t = setTimeout(() => { fire("thinkClick"); interval = setInterval(() => fire("thinkClick"), 1500); }, 500);
-      return () => { clearTimeout(t); clearInterval(interval); };
-    }
     if (phase === "analyzed") {
       const t = setTimeout(() => { fire("jumpClick"); interval = setInterval(() => fire("yesClick"), 3000); }, 200);
       return () => { clearTimeout(t); clearInterval(interval); };
     }
   }, [dotLottie, phase]);
-
-  // ─── Fake processing messages ──────────────────────────────────
-
-  useEffect(() => {
-    if (phase !== "processing") return;
-    const timer = setInterval(() => {
-      setStatusIdx((prev) => {
-        const next = Math.min(prev + 1, PROCESSING_MESSAGES.length - 1);
-        setStatusMsg(PROCESSING_MESSAGES[next]);
-        return next;
-      });
-    }, 2200);
-    return () => clearInterval(timer);
-  }, [phase]);
 
   // ─── Handlers ──────────────────────────────────────────────────
 
@@ -151,16 +110,18 @@ export function MediaActionSheet({
       window.dispatchEvent(new CustomEvent("ai-error"));
       return;
     }
-    setPhase("processing");
-    setStatusIdx(0);
-    setStatusMsg(PROCESSING_MESSAGES[0]);
+    
+    const toastId = `media-analyze-toast-${Date.now()}`;
+    onClose(); // Close sheet immediately!
+
+    showAILoaderToast(toastId, "Analyze Recording", "Transcribing and extracting insights...");
+
     try {
       await analyzeMedia(mediaId, noteId);
-      setPhase("analyzed");
-    } catch {
-      setPhase("idle");
-      onClose();
-      window.dispatchEvent(new CustomEvent("ai-error"));
+      updateAISuccessToast(toastId, "Analyze Recording", "Recording analyzed successfully! AI features are now unlocked.");
+    } catch (err) {
+      console.error("[MediaActionSheet] Analyze failed:", err);
+      updateAIErrorToast(toastId, "Analyze Recording", "Failed to analyze recording. Please try again.");
     }
   }, [mediaId, noteId, user, onClose]);
 
@@ -177,22 +138,24 @@ export function MediaActionSheet({
       return;
     }
 
-    setPhase("generating_feature");
-    try {
-      let resultText = "";
-      const d = await summarizeMedia(mediaId, noteId, id as SummarizeStyle, type);
-      resultText = d.text;
+    const featureLabel = AI_FEATURES.find(f => f.id === id)?.label || "Insights";
+    const toastId = `media-feature-toast-${Date.now()}`;
+    onClose(); // Close sheet immediately!
 
-      onClose();
-      // Dispatch direct insertion event instead of opening result sheet
+    showAILoaderToast(toastId, featureLabel, "Structuring insights and formatting results...");
+
+    try {
+      const data = await summarizeMedia(mediaId, noteId, id as SummarizeStyle, type);
+      // Dispatch direct insertion event
       window.dispatchEvent(new CustomEvent("insert-media-ai-result", {
-        detail: { text: resultText, mediaId },
+        detail: { text: data.text, mediaId },
       }));
-    } catch {
-      setPhase("analyzed");
-      window.dispatchEvent(new CustomEvent("ai-error"));
+      updateAISuccessToast(toastId, featureLabel, `${featureLabel} generated and inserted into your editor.`);
+    } catch (err) {
+      console.error("[MediaActionSheet] Feature generation failed:", err);
+      updateAIErrorToast(toastId, featureLabel, `Failed to generate ${featureLabel}. Please try again.`);
     }
-  }, [mediaId, type, onClose]);
+  }, [mediaId, type, onClose, noteId]);
 
   const handleDelete = async () => {
     if (deleteConfirm) {
@@ -313,14 +276,6 @@ export function MediaActionSheet({
             </div>
           )}
 
-          {/* ─── Phase: Processing (Transcribing) ─── */}
-          {phase === "processing" && (
-            <AIProcessingView
-              title="Analyzing"
-              messages={PROCESSING_MESSAGES}
-            />
-          )}
-
           {/* ─── Phase: Analyzed (Feature List + Prompt) ─── */}
           {phase === "analyzed" && (
             <motion.div>
@@ -376,14 +331,6 @@ export function MediaActionSheet({
               </div>
             </div>
             </motion.div>
-          )}
-
-          {/* ─── Phase: Generating Feature ─── */}
-          {phase === "generating_feature" && (
-            <AIProcessingView
-              title="Generating Insights"
-              messages={["Analyzing recording", "Structuring insights", "Formatting result"]}
-            />
           )}
 
           {/* ─── Delete Button (not during processing or generating) ─── */}
