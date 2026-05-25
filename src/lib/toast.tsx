@@ -5,7 +5,7 @@ import { RefreshCCWDotIcon } from "@/components/icons/refresh-ccw-dot";
 import { DeleteIcon } from "@/components/icons/delete";
 import { LogoutIcon } from "@/components/icons/logout";
 import { LoaderCircleIcon } from "@/components/icons/loader-circle";
-import { Play, Settings, Clock } from "lucide-react";
+import { Play, Settings, Clock, Mic, Video, FileText, PenLine, Wand2, BookOpen, MessageSquare, Trash2, CheckCircle2 } from "lucide-react";
 
 // Google Icon Component for Google Sign In Button
 function GoogleIcon() {
@@ -17,6 +17,20 @@ function GoogleIcon() {
       <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.16 7.07l3.68 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
     </svg>
   );
+}
+
+// Helper to smoothly dismiss a gooey-toast by collapsing it first
+export function dismissSmoothly(toastId: string | number) {
+  // Update the toast to remove description and action to trigger the morph-collapse animation
+  goeyToast.update(toastId, {
+    description: null,
+    action: null,
+  } as any);
+
+  // Actually dismiss after the gooey animation completes (~950ms)
+  setTimeout(() => {
+    goeyToast.dismiss(toastId);
+  }, 950);
 }
 
 // ─── AI ERROR TOAST ──────────────────────────────────────────────────
@@ -118,7 +132,7 @@ export function showAIErrorToast({
           )}
 
           <button
-            onClick={() => goeyToast.dismiss(toastId)}
+            onClick={() => dismissSmoothly(toastId)}
             className="flex items-center gap-2.5 w-full p-2 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-left transition-colors cursor-pointer border border-black/5 dark:border-white/5"
           >
             <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-black/10 dark:bg-white/10 text-zinc-700 dark:text-white shadow-sm flex-shrink-0">
@@ -286,7 +300,7 @@ export function showRecordingErrorToast({
           <button
             onClick={() => {
               onDismiss();
-              goeyToast.dismiss(toastId);
+              dismissSmoothly(toastId);
             }}
             className="flex items-center gap-2.5 w-full p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800/50 hover:bg-zinc-200/70 dark:hover:bg-zinc-800/80 text-left transition-colors cursor-pointer border border-zinc-200/60 dark:border-zinc-700/40"
           >
@@ -377,7 +391,7 @@ export function showRecordingLimitToast({
             <button
               onClick={() => {
                 onDismiss();
-                goeyToast.dismiss("recording-limit-toast");
+                dismissSmoothly("recording-limit-toast");
               }}
               className="flex items-center gap-2.5 w-full p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800/50 hover:bg-zinc-200/70 dark:hover:bg-zinc-800/80 text-left transition-colors cursor-pointer border border-zinc-200/60 dark:border-zinc-700/40"
             >
@@ -524,7 +538,7 @@ export function showSupportErrorToast(errorMessage?: string, onRetry?: () => voi
           )}
 
           <button
-            onClick={() => goeyToast.dismiss(toastId)}
+            onClick={() => dismissSmoothly(toastId)}
             className="flex items-center gap-2.5 w-full p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800/50 hover:bg-zinc-200/70 dark:hover:bg-zinc-800/80 text-left transition-colors cursor-pointer border border-zinc-200/60 dark:border-zinc-700/40"
           >
             <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-zinc-200/60 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 shadow-sm flex-shrink-0">
@@ -546,7 +560,7 @@ export function showSupportErrorToast(errorMessage?: string, onRetry?: () => voi
 
 export function showSignInSuccessToast(userName: string) {
   return goeyToast.success("Welcome back!", {
-    duration: 3000,
+    duration: 4000,
     showProgress: false,
     showTimestamp: false,
     classNames: {
@@ -564,7 +578,7 @@ export function showSignInSuccessToast(userName: string) {
 
 export function showSignOutSuccessToast() {
   return goeyToast.success("Signed Out", {
-    duration: 3000,
+    duration: 4000,
     showProgress: false,
     showTimestamp: false,
     classNames: {
@@ -586,7 +600,7 @@ export function showSyncingToast() {
     duration: 10000, // Will be updated or dismissed manually
     showProgress: false,
     showTimestamp: false,
-    icon: <LoaderCircleIcon className="h-4 w-4 animate-spin text-white/80" />,
+    icon: <LoaderCircleIcon className="h-4 w-4 animate-spin text-zinc-500 dark:text-white/80" />,
     classNames: {
       title: "text-sm font-bold leading-none tracking-tight",
     },
@@ -619,7 +633,7 @@ export function showSyncSuccessToast(count: number) {
 
   setTimeout(() => {
     goeyToast.dismiss("sync-toast");
-  }, 3000);
+  }, 4000);
 
   return "sync-toast";
 }
@@ -641,7 +655,7 @@ export function showSyncErrorToast() {
 
   setTimeout(() => {
     goeyToast.dismiss("sync-toast");
-  }, 4000);
+  }, 6000);
 
   return "sync-toast";
 }
@@ -683,7 +697,7 @@ export function showOnlineToast() {
 
   setTimeout(() => {
     goeyToast.dismiss("network-toast");
-  }, 3000);
+  }, 4000);
 
   return "network-toast";
 }
@@ -696,7 +710,7 @@ export function showAILoaderToast(id: string, title: string, descriptionText: st
     duration: 60000,
     showProgress: false,
     showTimestamp: false,
-    icon: <LoaderCircleIcon className="h-4 w-4 animate-spin text-white/80" />,
+    icon: <LoaderCircleIcon className="h-4 w-4 animate-spin text-zinc-500 dark:text-white/80" />,
     classNames: {
       title: "text-sm font-bold leading-none tracking-tight",
       description: "text-[11px] opacity-90 leading-normal",
@@ -787,7 +801,7 @@ export function showSignOutConfirmToast({ onConfirm }: ShowSignOutConfirmToastPr
           </button>
 
           <button
-            onClick={() => goeyToast.dismiss("signout-confirm-toast")}
+            onClick={() => dismissSmoothly("signout-confirm-toast")}
             className="flex items-center gap-2.5 w-full p-2 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-left transition-colors cursor-pointer border border-black/5 dark:border-white/5"
           >
             <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-black/10 dark:bg-white/10 text-zinc-700 dark:text-white shadow-sm flex-shrink-0">
@@ -804,6 +818,161 @@ export function showSignOutConfirmToast({ onConfirm }: ShowSignOutConfirmToastPr
   });
 
   return toastId;
+}
+
+// ─── MEDIA ACTION INTERACTIVE TOAST ──────────────────────────────────
+
+interface ShowMediaActionToastProps {
+  mediaId: string;
+  noteId: string;
+  fileName: string;
+  type: "audio" | "video";
+  duration: number;
+  isAnalyzed: boolean;
+  onAnalyze: () => void;
+  onFeature: (featureId: string) => void;
+  onDelete: () => void;
+}
+
+export function showMediaActionToast({
+  mediaId,
+  noteId,
+  fileName,
+  type,
+  duration,
+  isAnalyzed,
+  onAnalyze,
+  onFeature,
+  onDelete,
+}: ShowMediaActionToastProps) {
+  const toastId = "media-action-toast";
+  const title = isAnalyzed ? "AI Recording Insights" : "Analyze Recording";
+  
+  const m = Math.floor(duration / 60);
+  const s = Math.floor(duration % 60);
+  const durationStr = `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+
+  return goeyToast(title, {
+    id: toastId,
+    duration: 30000, // Long duration for user interaction
+    timing: {
+      displayDuration: 30000,
+    },
+    showProgress: false,
+    showTimestamp: false,
+    icon: type === "audio" ? <Mic className="h-4 w-4 text-emerald-500" /> : <Video className="h-4 w-4 text-blue-500" />,
+    classNames: {
+      title: "text-sm font-bold leading-none tracking-tight",
+    },
+    description: (
+      <div className="flex flex-col gap-2.5 mt-1 w-[260px]">
+        <div>
+          <p className="text-[11px] font-semibold text-zinc-800 dark:text-white truncate max-w-[240px]" title={fileName}>
+            {fileName || (type === "audio" ? "Audio Recording" : "Screen Recording")}
+          </p>
+          <p className="text-[9.5px] text-zinc-500 dark:text-white/60 mt-0.5">
+            {type === "audio" ? "Audio" : "Video"} • {durationStr}
+          </p>
+        </div>
+
+        {!isAnalyzed ? (
+          <div className="flex flex-col gap-1.5 w-full mt-1">
+            <button
+              onClick={() => {
+                onAnalyze();
+                goeyToast.dismiss(toastId);
+              }}
+              className="flex items-center gap-2.5 w-full p-2 rounded-xl bg-emerald-500/8 dark:bg-emerald-500/15 hover:bg-emerald-500/15 dark:hover:bg-emerald-500/25 text-left transition-colors cursor-pointer border border-emerald-500/15 dark:border-emerald-500/10"
+            >
+              <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 shadow-sm flex-shrink-0">
+                <Play className="h-3 w-3 fill-current" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-200 leading-none">Transcribe with AI</p>
+                <p className="text-[9.5px] text-emerald-600/90 dark:text-emerald-300/80 truncate mt-0.5">Generate transcripts & unlock features</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                onDelete();
+                goeyToast.dismiss(toastId);
+              }}
+              className="flex items-center gap-2.5 w-full p-2 rounded-xl bg-red-500/8 dark:bg-red-500/15 hover:bg-red-500/15 dark:hover:bg-red-500/25 text-left transition-colors cursor-pointer border border-red-500/15 dark:border-red-500/10"
+            >
+              <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-300 shadow-sm flex-shrink-0">
+                <Trash2 className="h-3.5 w-3.5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-semibold text-red-700 dark:text-red-200 leading-none">Delete Recording</p>
+                <p className="text-[9.5px] text-red-600/90 dark:text-red-300/80 truncate mt-0.5">Permanently remove this file</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => dismissSmoothly(toastId)}
+              className="flex items-center gap-2.5 w-full p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800/50 hover:bg-zinc-200/70 dark:hover:bg-zinc-800/80 text-left transition-colors cursor-pointer border border-zinc-200/60 dark:border-zinc-700/40"
+            >
+              <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-zinc-200/60 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 shadow-sm flex-shrink-0">
+                <DeleteIcon className="h-3.5 w-3.5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 leading-none">Cancel</p>
+                <p className="text-[9.5px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5">Close popup</p>
+              </div>
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1 w-full mt-1">
+            <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">AI INSIGHTS</p>
+            
+            <div className="grid grid-cols-2 gap-1 w-full">
+              {[
+                { id: "summary", label: "Summary", icon: PenLine, color: "text-amber-600 dark:text-amber-300 bg-amber-500/8 border-amber-500/10" },
+                { id: "meeting_minutes", label: "Minutes", icon: FileText, color: "text-indigo-600 dark:text-indigo-300 bg-indigo-500/8 border-indigo-500/10" },
+                { id: "keypoints", label: "Key Points", icon: Wand2, color: "text-purple-600 dark:text-purple-300 bg-purple-500/8 border-purple-500/10" },
+                { id: "action_items", label: "Tasks", icon: CheckCircle2, color: "text-emerald-600 dark:text-emerald-300 bg-emerald-500/8 border-emerald-500/10" },
+                { id: "chapters", label: "Chapters", icon: BookOpen, color: "text-blue-600 dark:text-blue-300 bg-blue-500/8 border-blue-500/10" },
+                { id: "chat", label: "Chat AI", icon: MessageSquare, color: "text-pink-600 dark:text-pink-300 bg-pink-500/8 border-pink-500/10" },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => {
+                    onFeature(f.id);
+                    goeyToast.dismiss(toastId);
+                  }}
+                  className={`flex items-center gap-1.5 p-1.5 rounded-lg text-left transition-colors cursor-pointer border ${f.color} hover:bg-black/5 dark:hover:bg-white/5`}
+                >
+                  <f.icon className="h-3 w-3 flex-shrink-0" />
+                  <span className="text-[10px] font-semibold truncate">{f.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-1.5 mt-2 w-full">
+              <button
+                onClick={() => {
+                  onDelete();
+                  goeyToast.dismiss(toastId);
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5 p-1.5 rounded-lg bg-red-500/8 hover:bg-red-500/15 text-red-600 dark:text-red-300 border border-red-500/10 transition-colors cursor-pointer"
+              >
+                <Trash2 className="h-3 w-3" />
+                <span className="text-[10px] font-semibold">Delete File</span>
+              </button>
+              <button
+                onClick={() => dismissSmoothly(toastId)}
+                className="flex-1 flex items-center justify-center gap-1.5 p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/50 hover:bg-zinc-200/70 dark:hover:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border border-zinc-200/60 dark:border-zinc-700/40 transition-colors cursor-pointer"
+              >
+                <DeleteIcon className="h-3 w-3" />
+                <span className="text-[10px] font-semibold">Cancel</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  });
 }
 
 

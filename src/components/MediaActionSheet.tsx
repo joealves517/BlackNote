@@ -1,16 +1,16 @@
 /**
- * MediaActionSheet — Clone AccountPopup design with 3 states:
- * 1. Not Analyzed: Robot jump+alert, Play button
- * 2. Processing: Robot thinking, Bouncing Fruits animation, fake status text
- * 3. Analyzed: Robot jump+yes, AI feature list
- *
- * Results displayed via event → AISelector-style result panel (not a separate sheet).
+ * MediaActionSheet — Redesigned to perfectly match AI Selector sheet:
+ * - Includes the top drag handle bar (gạch ngang ở trên cùng).
+ * - No cutout hole (flat design).
+ * - Starts directly with the AI input row.
+ * - Vertical list of AI features.
+ * - Underneath is ONLY the "Delete File" button (100% width, no Cancel button).
+ * - Closes automatically when user clicks outside (backdrop).
  */
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { DotLottieReact, type DotLottie } from "@lottiefiles/dotlottie-react";
-import { Mic, Monitor, PenLine, Wand2, BookOpen, Tag, Play, ChevronRight, MessageSquare, FileText } from "lucide-react";
+import { PenLine, Wand2, BookOpen, Play, MessageSquare, FileText } from "lucide-react";
 import { ArrowUpIcon } from "@/components/icons/arrow-up";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { CircleCheckIcon } from "@/components/icons/circle-check";
@@ -20,7 +20,6 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   analyzeMedia,
   summarizeMedia,
-  generateTitle,
   hasTranscript,
   type SummarizeStyle,
 } from "@/lib/media-ai-service";
@@ -41,19 +40,15 @@ interface MediaActionSheetProps {
 type SheetPhase = "idle" | "analyzed";
 
 const AI_FEATURES = [
-  { id: "meeting_minutes", label: "Meeting Minutes", desc: "Professional minutes with action items", icon: FileText, colorRgb: "99, 102, 241" },
   { id: "summary", label: "Summary", desc: "Concise overview of the recording", icon: PenLine, colorRgb: "245, 158, 11" },
+  { id: "meeting_minutes", label: "Minutes", desc: "Professional minutes with action items", icon: FileText, colorRgb: "99, 102, 241" },
   { id: "keypoints", label: "Key Points", desc: "Important insights as bullet points", icon: Wand2, colorRgb: "168, 85, 247" },
-  { id: "action_items", label: "Action Items", desc: "Extract tasks and to-dos", icon: CircleCheckIcon, colorRgb: "16, 185, 129" },
+  { id: "action_items", label: "Tasks", desc: "Extract tasks and to-dos", icon: CircleCheckIcon, colorRgb: "16, 185, 129" },
   { id: "chapters", label: "Chapters", desc: "Section breakdown with timestamps", icon: BookOpen, colorRgb: "59, 130, 246" },
-  { id: "chat", label: "Chat with Recording", desc: "Ask AI anything about this recording", icon: MessageSquare, colorRgb: "236, 72, 153" },
+  { id: "chat", label: "Chat AI", desc: "Ask AI anything about this recording", icon: MessageSquare, colorRgb: "236, 72, 153" },
 ];
 
 const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-
-
-
-// ─── Main Component ──────────────────────────────────────────────
 
 export function MediaActionSheet({
   mediaId, type, noteId, fileName, duration, onDeleteNode, onClose, onInsertToNote, missingBlob
@@ -61,7 +56,6 @@ export function MediaActionSheet({
   const { user } = useAuth();
   const [phase, setPhase] = useState<SheetPhase>("idle");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
-  const [dotLottie, setDotLottie] = useState<DotLottie | null>(null);
   
   const [inputValue, setInputValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -82,25 +76,6 @@ export function MediaActionSheet({
     window.addEventListener("bg-transcribe-progress", handler);
     return () => window.removeEventListener("bg-transcribe-progress", handler);
   }, [mediaId]);
-
-  // ─── Robot Lottie state machine ────────────────────────────────
-
-  useEffect(() => {
-    if (!dotLottie) return;
-    const fire = (evt: string) => {
-      try { dotLottie.stateMachineFireEvent?.(evt); } catch {}
-    };
-
-    let interval: NodeJS.Timeout;
-    if (phase === "idle") {
-      const t = setTimeout(() => { fire("jumpClick"); interval = setInterval(() => fire("alertClick"), 3000); }, 200);
-      return () => { clearTimeout(t); clearInterval(interval); };
-    }
-    if (phase === "analyzed") {
-      const t = setTimeout(() => { fire("jumpClick"); interval = setInterval(() => fire("yesClick"), 3000); }, 200);
-      return () => { clearTimeout(t); clearInterval(interval); };
-    }
-  }, [dotLottie, phase]);
 
   // ─── Handlers ──────────────────────────────────────────────────
 
@@ -146,11 +121,11 @@ export function MediaActionSheet({
 
     try {
       const data = await summarizeMedia(mediaId, noteId, id as SummarizeStyle, type);
-      // Dispatch direct insertion event
-      window.dispatchEvent(new CustomEvent("insert-media-ai-result", {
-        detail: { text: data.text, mediaId },
+      // Dispatch show result event instead of direct insertion
+      window.dispatchEvent(new CustomEvent("show-media-ai-result", {
+        detail: { text: data.text, mediaId, title: featureLabel },
       }));
-      updateAISuccessToast(toastId, featureLabel, `${featureLabel} generated and inserted into your editor.`);
+      updateAISuccessToast(toastId, featureLabel, `${featureLabel} generated successfully!`);
     } catch (err) {
       console.error("[MediaActionSheet] Feature generation failed:", err);
       updateAIErrorToast(toastId, featureLabel, `Failed to generate ${featureLabel}. Please try again.`);
@@ -215,46 +190,22 @@ export function MediaActionSheet({
       />
 
       <motion.div
-        className={`clipper-sheet mx-auto ${phase !== "analyzed" ? "account-sheet" : ""}`}
-        style={{ maxWidth: 400 }}
+        className="clipper-sheet mx-auto"
+        style={{ maxWidth: 400, borderRadius: "24px 24px 0 0" }}
         initial={{ bottom: "-100%" }}
         animate={{ bottom: 0 }}
         exit={{ bottom: "-100%" }}
         transition={{ type: "spring", damping: 30, stiffness: 350, mass: 0.8 }}
       >
+        {/* Drag Handle Bar (Gạch ngang mỏng ở trên cùng) */}
         <div className="history-sheet-handle" onClick={onClose}>
           <div className="history-sheet-handle-bar" />
         </div>
 
-        <div className={`px-4 pb-4 ${phase !== "analyzed" ? "pt-4" : "pt-1"}`}>
-          {/* ─── Header & Robot (Idle Only) ─── */}
-          {phase === "idle" && (
-            <>
-              <div className="floating-robot-wrapper">
-                <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
-                  <DotLottieReact
-                    src={chrome.runtime.getURL("ai-robo.lottie")}
-                    autoplay loop stateMachineId="StateMachine1"
-                    dotLottieRefCallback={setDotLottie}
-                    backgroundColor="transparent"
-                    style={{ width: "150%", height: "150%", transform: "scale(1.35) translateY(2%)", position: "absolute" }}
-                  />
-                </div>
-              </div>
-              <div className="text-center pt-4 pb-3">
-                <h3 className="text-lg font-bold text-foreground mb-1 tracking-tight">
-                  {fileName || (type === "audio" ? "Audio Recording" : "Screen Recording")}
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  {type === "audio" ? "Audio" : "Video"} • {formatTime(duration)}
-                </p>
-              </div>
-            </>
-          )}
-
+        <div className="px-4 pb-4 pt-1 flex flex-col gap-3">
           {/* ─── Phase: Idle (Not Analyzed) ─── */}
           {phase === "idle" && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingBottom: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "16px 0 8px" }}>
               <button
                 onClick={handleAnalyze}
                 style={{
@@ -276,10 +227,11 @@ export function MediaActionSheet({
             </div>
           )}
 
-          {/* ─── Phase: Analyzed (Feature List + Prompt) ─── */}
+          {/* ─── Phase: Analyzed (AI Select Text style - Input and List starts directly) ─── */}
           {phase === "analyzed" && (
-            <motion.div>
-              <div className="ai-input-row">
+            <motion.div className="flex flex-col gap-3">
+              {/* Input row directly at the top */}
+              <div className="ai-input-row" style={{ marginTop: 2 }}>
                 <textarea
                   ref={textareaRef}
                   value={inputValue}
@@ -303,67 +255,55 @@ export function MediaActionSheet({
                 </button>
               </div>
 
-              <div className="ai-cmd-groups" style={{ marginBottom: 14 }}>
+              {/* Vertical list of AI features */}
+              <div className="ai-cmd-groups">
                 <div className="ai-cmd-group">
-                {AI_FEATURES.map((option) => (
-                  <button
-                    key={option.id}
-                    className="novel-slash-item w-full text-left"
-                    onClick={() => handleFeature(option.id)}
-                  >
-                    <div className="novel-slash-icon" style={{
-                      background: `linear-gradient(135deg, rgba(${option.colorRgb}, var(--icon-bg-start)) 0%, rgba(${option.colorRgb}, var(--icon-bg-end)) 100%)`,
-                      border: `1px solid rgba(${option.colorRgb}, var(--icon-border))`,
-                      color: `rgba(${option.colorRgb}, 1)`,
-                    }}>
-                      <AnimatedIcon animation="hover">
-                        <option.icon className="h-4 w-4" />
-                      </AnimatedIcon>
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-medium">{option.label}</p>
-                      <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                        {option.desc}
-                      </p>
-                    </div>
-                  </button>
-                ))}
+                  {AI_FEATURES.map((option) => (
+                    <button
+                      key={option.id}
+                      className="novel-slash-item w-full text-left"
+                      onClick={() => handleFeature(option.id)}
+                    >
+                      <div className="novel-slash-icon" style={{
+                        background: `linear-gradient(135deg, rgba(${option.colorRgb}, var(--icon-bg-start)) 0%, rgba(${option.colorRgb}, var(--icon-bg-end)) 100%)`,
+                        border: `1px solid rgba(${option.colorRgb}, var(--icon-border))`,
+                        color: `rgba(${option.colorRgb}, 1)`,
+                      }}>
+                        <AnimatedIcon animation="hover">
+                          <option.icon className="h-4 w-4" />
+                        </AnimatedIcon>
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-medium">{option.label}</p>
+                        <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                          {option.desc}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
             </motion.div>
           )}
 
-          {/* ─── Delete Button (not during processing or generating) ─── */}
+          {/* ─── Compact Delete Action 100% width (Dạng thường) ─── */}
           {(phase === "idle" || phase === "analyzed") && (
-            <button
-              onClick={handleDelete}
-              className="w-full h-10 flex items-center justify-center gap-2 rounded-full text-[13px] font-semibold transition-all"
-              style={{
-                background: deleteConfirm ? "hsl(var(--destructive) / var(--icon-border))" : "transparent",
-                color: deleteConfirm ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))",
-                border: deleteConfirm ? "1px solid hsl(var(--destructive) / 0.2)" : "1px solid hsl(var(--border))",
-                boxShadow: deleteConfirm ? "none" : "0 1px 2px rgba(0, 0, 0, var(--icon-bg-end))",
-              }}
-              onMouseOver={(e) => {
-                if (!deleteConfirm) {
-                  e.currentTarget.style.background = "hsl(var(--destructive) / var(--icon-bg-end))";
-                  e.currentTarget.style.color = "hsl(var(--destructive))";
-                  e.currentTarget.style.borderColor = "hsl(var(--destructive) / 0.2)";
-                }
-              }}
-              onMouseOut={(e) => {
-                if (!deleteConfirm) {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "hsl(var(--muted-foreground))";
-                  e.currentTarget.style.borderColor = "hsl(var(--border))";
-                }
-              }}
-              onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
-              onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
-            >
-              <AnimatedIcon animation="none"><DeleteIcon className="w-4 h-4" /></AnimatedIcon>
-              {deleteConfirm ? "Confirm Delete" : "Delete Recording"}
-            </button>
+            <div className="w-full mt-1">
+              <button
+                onClick={handleDelete}
+                className="w-full h-10 flex items-center justify-center gap-2 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200/60 dark:border-zinc-700/40 transition-colors cursor-pointer text-xs font-semibold"
+                style={{
+                  background: deleteConfirm ? "hsl(var(--destructive) / 0.1)" : "",
+                  color: deleteConfirm ? "hsl(var(--destructive))" : "",
+                  borderColor: deleteConfirm ? "hsl(var(--destructive) / 0.2)" : "",
+                }}
+              >
+                <AnimatedIcon animation="none">
+                  <DeleteIcon className={`w-3.5 h-3.5 ${deleteConfirm ? "text-red-500" : "text-zinc-500"}`} />
+                </AnimatedIcon>
+                {deleteConfirm ? "Confirm Delete" : "Delete File"}
+              </button>
+            </div>
           )}
         </div>
       </motion.div>

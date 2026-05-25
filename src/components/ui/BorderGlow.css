@@ -13,9 +13,9 @@
   transform: translate3d(0, 0, 0.01px);
   display: grid;
   
-  /* Light Mode Default: Highly visible crisp gray border, pure white background, and elegant soft shadow */
+  /* Light Mode Default: Highly visible crisp gray border, dynamic background, and elegant soft shadow */
   border: 1.2px solid rgba(0, 0, 0, 0.08);
-  background: #ffffff !important; /* Force white background in light mode so it stands out on grey sidebars */
+  background: var(--card-bg, #ffffff) !important; /* Respect custom card background in light mode so it matches toolbar */
   overflow: visible;
   box-shadow: 
     0 1px 2px rgba(0, 0, 0, 0.02),
@@ -34,9 +34,9 @@
   z-index: -1;
   border: 1.2px solid transparent;
   
-  /* Crisp colored gradient border around the pure white input card in light mode */
+  /* Crisp colored gradient border around the input card in light mode */
   background:
-    linear-gradient(#ffffff 0 100%) padding-box,
+    linear-gradient(var(--card-bg, #ffffff) 0 100%) padding-box,
     linear-gradient(rgba(255, 255, 255, 0) 0 100%) border-box,
     var(--gradient-one, radial-gradient(at 80% 55%, #a855f7 0px, transparent 50%)) border-box,
     var(--gradient-two, radial-gradient(at 69% 34%, #3b82f6 0px, transparent 50%)) border-box,

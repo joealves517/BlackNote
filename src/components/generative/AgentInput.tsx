@@ -603,204 +603,223 @@ export function AgentInput({
   return (
     <div
       ref={containerRef}
-      className="absolute inset-x-0 z-50 flex flex-col items-center justify-end pointer-events-none px-4 transition-all duration-300 gap-1.5"
+      className="absolute inset-x-0 z-50 flex flex-col items-center justify-end pointer-events-none px-4 gap-1.5"
       style={{ bottom: "5px" }}
     >
-      {isExpanded ? (
-        <BorderGlow
-          className="pointer-events-auto w-full max-w-[600px] flex flex-col overflow-visible transition-all duration-300 ease-out"
-          borderRadius={agentMessage ? 18 : 32}
-          backgroundColor="hsl(var(--sidebar-bg))"
-          glowColor="40 80 80"
-          glowRadius={40}
-          glowIntensity={1}
-          colors={['#c084fc', '#f472b6', '#38bdf8']}
-        >
-          <div className="relative z-10 flex flex-col items-center justify-center w-full h-full">
-            <div className="flex flex-col w-full h-full animate-in fade-in duration-300">
-              {/* Agent Message Area */}
-              {agentMessage && !isProcessing && !hasPendingModifications && (() => {
-                const isImageResponse = agentMessage.trim().startsWith("<image>");
-                const imageUrl = isImageResponse 
-                   ? agentMessage.replace("<image>", "").replace("</image>", "").trim() 
-                  : "";
- 
-                return isImageResponse ? (
-                  <div className="flex flex-col items-center justify-center p-5 gap-4 w-full pointer-events-auto">
-                    <div className="relative group max-w-full rounded-2xl overflow-hidden border border-border bg-muted/40 shadow-inner">
-                      <img
-                        src={imageUrl}
-                        alt="AI Generated"
-                        className="max-h-[240px] w-auto object-contain rounded-2xl select-none"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const link = document.createElement("a");
-                            link.href = imageUrl;
-                            link.download = "ai-generated-image.png";
-                            link.target = "_blank";
-                            link.click();
-                          }}
-                          className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-full transition-colors cursor-pointer"
-                          title="Download Image"
+      <AnimatePresence>
+        {isExpanded ? (
+          <motion.div
+            key="expanded"
+            layoutId="agent-input-bar"
+            className="pointer-events-auto flex flex-col overflow-visible mx-auto"
+            style={{ maxWidth: "600px", width: "100%" }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 600, damping: 38 }}
+          >
+            <BorderGlow
+              className="w-full flex flex-col overflow-visible"
+              borderRadius={agentMessage ? 18 : 32}
+              backgroundColor="hsl(var(--sidebar-bg))"
+              glowColor="40 80 80"
+              glowRadius={40}
+              glowIntensity={1}
+              colors={['#c084fc', '#f472b6', '#38bdf8']}
+            >
+              <div className="relative z-10 flex flex-col items-center justify-center w-full h-full">
+                <div className="flex flex-col w-full h-full animate-in fade-in duration-300">
+                  {/* Agent Message Area */}
+                  {agentMessage && !isProcessing && !hasPendingModifications && (() => {
+                    const isImageResponse = agentMessage.trim().startsWith("<image>");
+                    const imageUrl = isImageResponse 
+                       ? agentMessage.replace("<image>", "").replace("</image>", "").trim() 
+                      : "";
+     
+                    return isImageResponse ? (
+                      <div className="flex flex-col items-center justify-center p-5 gap-4 w-full pointer-events-auto">
+                        <div className="relative group max-w-full rounded-2xl overflow-hidden border border-border bg-muted/40 shadow-inner">
+                          <img
+                            src={imageUrl}
+                            alt="AI Generated"
+                            className="max-h-[240px] w-auto object-contain rounded-2xl select-none"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const link = document.createElement("a");
+                                link.href = imageUrl;
+                                link.download = "ai-generated-image.png";
+                                link.target = "_blank";
+                                link.click();
+                              }}
+                              className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-full transition-colors cursor-pointer"
+                              title="Download Image"
+                            >
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 w-full max-w-[320px]">
+                          <div className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold py-2.5 px-4 bg-green-600/10 dark:bg-green-500/10 text-green-600 dark:text-green-400 rounded-xl border border-green-500/20 select-none">
+                            <svg className="w-4 h-4 animate-in zoom-in duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Inserted into Note
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setAgentMessage(null)}
+                            className="px-4 py-2.5 text-xs font-semibold bg-muted hover:bg-muted/80 text-muted-foreground rounded-xl transition-all cursor-pointer"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div
+                          className="px-5 py-4 text-[14px] text-foreground leading-relaxed max-h-[350px] overflow-y-auto custom-scrollbar whitespace-pre-wrap pointer-events-auto"
+                          onScroll={(e) => e.stopPropagation()}
                         >
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
+                          {agentMessage}
+                        </div>
+                        {clarifications.length > 0 && (
+                          <div className="px-4 pb-3 flex flex-wrap gap-1.5 pointer-events-auto">
+                            {clarifications.map((suggestion, idx) => (
+                              <motion.button
+                                key={idx}
+                                initial={{ opacity: 0, y: 4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: idx * 0.08 }}
+                                className="px-3 py-1.5 text-xs rounded-full bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer border border-primary/20"
+                                onClick={() => {
+                                  setLocalInput(suggestion);
+                                  setClarifications([]);
+                                  setAgentMessage(null);
+                                  // Auto-submit after a tick to let state update
+                                  setTimeout(() => {
+                                    inputRef.current?.form?.requestSubmit?.();
+                                  }, 50);
+                                }}
+                              >
+                                {suggestion}
+                              </motion.button>
+                            ))}
+                          </div>
+                        )}
+                        <div className="h-[1px] w-full bg-border" />
+                      </>
+                    );
+                  })()}
+     
+                  {/* Loading State */}
+                  {isProcessing ? (
+                    <div className="px-5 py-3 flex items-center gap-3 text-muted-foreground">
+                      <div className="flex items-center justify-center w-8 h-4">
+                        <ThreeDot color={["#32cd32", "#327fcd", "#cd32cd", "#cd8032"]} size="small" style={{ fontSize: "5px" }} />
+                      </div>
+                      <span className="text-[14px] font-medium text-foreground/70 flex items-center gap-1">
+                        <ShinyText 
+                          text={`Thinking${loadingDots}`} 
+                          speed={2} 
+                          color="hsl(var(--muted-foreground) / 0.85)" 
+                          shineColor="hsl(var(--foreground))" 
+                        />
+                      </span>
+                    </div>
+                  ) : hasPendingModifications ? (
+                    /* Review Mode */
+                    <div className="p-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 flex items-center gap-2 px-2 text-primary">
+                          <span className="text-[13px] font-medium leading-none select-none">✦</span>
+                          <span className="text-[13px] font-medium text-foreground whitespace-nowrap">
+                            {changeCount === 1 ? "1 change" : `${changeCount} changes`}
+                          </span>
+                        </div>
+                        <button
+                          onClick={acceptAll}
+                          className="flex items-center justify-center gap-1.5 text-xs font-medium text-green-600 dark:text-green-400 py-2 px-4 bg-green-500/10 hover:bg-green-500/20 rounded-xl transition-colors"
+                        >
+                          <CheckIcon className="w-4 h-4" />
+                          Accept
+                        </button>
+                        <button
+                          onClick={rejectAll}
+                          className="flex items-center justify-center gap-1.5 text-xs font-medium text-red-500 dark:text-red-400 py-2 px-4 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-colors"
+                        >
+                          <XIcon className="w-4 h-4" />
+                          Reject
                         </button>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center gap-2 w-full max-w-[320px]">
-                      <div className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold py-2.5 px-4 bg-green-600/10 dark:bg-green-500/10 text-green-600 dark:text-green-400 rounded-xl border border-green-500/20 select-none">
-                        <svg className="w-4 h-4 animate-in zoom-in duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Inserted into Note
-                      </div>
+                  ) : (
+                    /* Normal Input Mode */
+                    <form
+                      onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
+                      className="relative w-full flex items-end bg-transparent p-0.5"
+                    >
+                      <textarea
+                        ref={inputRef as any}
+                        value={localInput}
+                        onChange={(e) => {
+                          setLocalInput(e.target.value);
+                          e.target.style.height = "auto";
+                          e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+                        }}
+                        placeholder="Make it professional..."
+                        className="w-full bg-transparent pl-4 pr-12 py-2 text-[14px] text-foreground outline-none resize-none overflow-y-auto custom-scrollbar"
+                        rows={1}
+                        style={{ minHeight: "36px", maxHeight: "120px", lineHeight: "20px" }}
+                        disabled={isProcessing}
+                        onKeyDown={(e) => {
+                          e.stopPropagation();
+                          if (e.key === "Escape") setIsExpanded(false);
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSubmit();
+                          }
+                        }}
+                        onKeyUp={(e) => e.stopPropagation()}
+                      />
                       <button
-                        type="button"
-                        onClick={() => setAgentMessage(null)}
-                        className="px-4 py-2.5 text-xs font-semibold bg-muted hover:bg-muted/80 text-muted-foreground rounded-xl transition-all cursor-pointer"
+                        type="submit"
+                        disabled={!localInput.trim() || isProcessing}
+                        className="absolute right-2 bottom-1.5 shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-sm disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95 transition-all duration-200"
                       >
-                        Close
+                        <ArrowUpIcon className="w-4 h-4" />
                       </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div
-                      className="px-5 py-4 text-[14px] text-foreground leading-relaxed max-h-[350px] overflow-y-auto custom-scrollbar whitespace-pre-wrap pointer-events-auto"
-                      onScroll={(e) => e.stopPropagation()}
-                    >
-                      {agentMessage}
-                    </div>
-                    {clarifications.length > 0 && (
-                      <div className="px-4 pb-3 flex flex-wrap gap-1.5 pointer-events-auto">
-                        {clarifications.map((suggestion, idx) => (
-                          <motion.button
-                            key={idx}
-                            initial={{ opacity: 0, y: 4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: idx * 0.08 }}
-                            className="px-3 py-1.5 text-xs rounded-full bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer border border-primary/20"
-                            onClick={() => {
-                              setLocalInput(suggestion);
-                              setClarifications([]);
-                              setAgentMessage(null);
-                              // Auto-submit after a tick to let state update
-                              setTimeout(() => {
-                                inputRef.current?.form?.requestSubmit?.();
-                              }, 50);
-                            }}
-                          >
-                            {suggestion}
-                          </motion.button>
-                        ))}
-                      </div>
-                    )}
-                    <div className="h-[1px] w-full bg-border" />
-                  </>
-                );
-              })()}
- 
-              {/* Loading State */}
-              {isProcessing ? (
-                <div className="px-5 py-3 flex items-center gap-3 text-muted-foreground">
-                  <div className="flex items-center justify-center w-8 h-4">
-                    <ThreeDot color={["#32cd32", "#327fcd", "#cd32cd", "#cd8032"]} size="small" style={{ fontSize: "5px" }} />
-                  </div>
-                  <span className="text-[14px] font-medium text-foreground/70 flex items-center gap-1">
-                    <ShinyText 
-                      text={`Thinking${loadingDots}`} 
-                      speed={2} 
-                      color="hsl(var(--muted-foreground) / 0.85)" 
-                      shineColor="hsl(var(--foreground))" 
-                    />
-                  </span>
+                    </form>
+                  )}
                 </div>
-              ) : hasPendingModifications ? (
-                /* Review Mode */
-                <div className="p-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 flex items-center gap-2 px-2 text-primary">
-                      <span className="text-[13px] font-medium leading-none select-none">✦</span>
-                      <span className="text-[13px] font-medium text-foreground whitespace-nowrap">
-                        {changeCount === 1 ? "1 change" : `${changeCount} changes`}
-                      </span>
-                    </div>
-                    <button
-                      onClick={acceptAll}
-                      className="flex items-center justify-center gap-1.5 text-xs font-medium text-green-600 dark:text-green-400 py-2 px-4 bg-green-500/10 hover:bg-green-500/20 rounded-xl transition-colors"
-                    >
-                      <CheckIcon className="w-4 h-4" />
-                      Accept
-                    </button>
-                    <button
-                      onClick={rejectAll}
-                      className="flex items-center justify-center gap-1.5 text-xs font-medium text-red-500 dark:text-red-400 py-2 px-4 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-colors"
-                    >
-                      <XIcon className="w-4 h-4" />
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* Normal Input Mode */
-                <form
-                  onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
-                  className="relative w-full flex items-end bg-transparent p-0.5"
-                >
-                  <textarea
-                    ref={inputRef as any}
-                    value={localInput}
-                    onChange={(e) => {
-                      setLocalInput(e.target.value);
-                      e.target.style.height = "auto";
-                      e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
-                    }}
-                    placeholder="Make it professional..."
-                    className="w-full bg-transparent pl-4 pr-12 py-2 text-[14px] text-foreground outline-none resize-none overflow-y-auto custom-scrollbar"
-                    rows={1}
-                    style={{ minHeight: "36px", maxHeight: "120px", lineHeight: "20px" }}
-                    disabled={isProcessing}
-                    onKeyDown={(e) => {
-                      e.stopPropagation();
-                      if (e.key === "Escape") setIsExpanded(false);
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSubmit();
-                      }
-                    }}
-                    onKeyUp={(e) => e.stopPropagation()}
-                  />
-                  <button
-                    type="submit"
-                    disabled={!localInput.trim() || isProcessing}
-                    className="absolute right-2 bottom-1.5 shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-sm disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95 transition-all duration-200"
-                  >
-                    <ArrowUpIcon className="w-4 h-4" />
-                  </button>
-                </form>
-              )}
-            </div>
-          </div>
-        </BorderGlow>
-      ) : (
-        <div
-          className="relative pointer-events-auto w-[76px] h-[18px] rounded-full cursor-pointer flex items-center justify-center hover:brightness-110 transition-all duration-300 ease-out"
-          style={{
-            backgroundColor: "hsl(var(--sidebar-bg))",
-            boxShadow: "0 8px 32px -8px rgba(0,0,0,0.25)",
-          }}
-          onClick={() => setIsExpanded(true)}
-          onMouseEnter={() => setIsExpanded(true)}
-        >
-          <span style={{ fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", paddingTop: "1px", opacity: 0.4 }}>✦</span>
-        </div>
-      )}
+              </div>
+            </BorderGlow>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="collapsed"
+            layoutId="agent-input-bar"
+            className="relative pointer-events-auto w-[76px] h-[18px] rounded-full cursor-pointer flex items-center justify-center hover:brightness-110"
+            style={{
+              backgroundColor: "hsl(var(--sidebar-bg))",
+              boxShadow: "0 8px 32px -8px rgba(0,0,0,0.25)",
+            }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ type: "spring", stiffness: 600, damping: 38 }}
+            onClick={() => setIsExpanded(true)}
+            onMouseEnter={() => setIsExpanded(true)}
+          >
+            <span style={{ fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", paddingTop: "1px", opacity: 0.4 }}>✦</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -56,6 +56,9 @@
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
   --color-border: hsl(var(--border));
+  --color-sidebar-bg: hsl(var(--sidebar-bg));
+  --color-sidebar-hover: hsl(var(--sidebar-hover));
+  --color-sidebar-active: hsl(var(--sidebar-active));
 }
 
 /* ===== Light Theme (Default) ===== */

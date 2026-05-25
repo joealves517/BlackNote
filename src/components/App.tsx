@@ -14,9 +14,8 @@ import { MessageSquareMoreIcon } from "@/components/icons/message-square-more";
 import { SettingsIcon } from "@/components/ui/settings";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { motion, AnimatePresence } from "framer-motion";
-import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Mic, MicOff, Menu, Sparkles, AppWindow, PanelRight, MoreHorizontal } from "lucide-react";
+import { Mic, MicOff, Menu, AppWindow, PanelRight, MoreHorizontal, User as UserIcon } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
 import { RecordingHeader } from "@/components/RecordingHeader";
 import { GooeyToaster, goeyToast } from "goey-toast";
@@ -35,10 +34,20 @@ import {
   showOfflineToast,
   showOnlineToast,
   showSignOutConfirmToast,
+  showMediaActionToast,
 } from "@/lib/toast";
 import { HistorySheet } from "@/components/HistorySheet";
-import { MediaActionSheet } from "@/components/MediaActionSheet";
+import {
+  hasTranscript,
+  analyzeMedia,
+  summarizeMedia,
+  type SummarizeStyle,
+} from "@/lib/media-ai-service";
 import { AccountPopup } from "@/components/AccountPopup";
+import * as Popover from "@radix-ui/react-popover";
+import { UpgradeModal } from "@/components/UpgradeModal";
+import { MediaActionSheet } from "@/components/MediaActionSheet";
+import { AIMediaResultSheet } from "@/components/AIMediaResultSheet";
 import { SupportActionSheet } from "@/components/SupportActionSheet";
 import { WebClipper } from "@/components/WebClipper";
 import { ImageClipper } from "@/components/ImageClipper";
@@ -58,7 +67,6 @@ import { HeartHandshakeIcon } from "@/components/icons/heart-handshake";
 
 import { CHECKOUT_BASE } from "@/lib/constants";
 import { openSparkAIWithContext } from "@/lib/ecosystem";
-import { analyzeMedia } from "@/lib/media-ai-service";
 
 function GoogleIcon({ size = 20 }: { size?: number }) {
   return (
@@ -76,27 +84,9 @@ function getUserAvatar(user: any): string | null {
 }
 
 const GuestAvatarIcon = () => {
-  const [lottie, setLottie] = useState<any>(null);
   return (
-    <div
-      className="w-[26px] h-[26px] rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-      onMouseDown={() => {
-        if (lottie) {
-          lottie.setFrame(0);
-          lottie.play();
-        }
-      }}
-    >
-      <div style={{ width: "100%", height: "100%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", transform: "scale(2.2)" }}>
-        <DotLottieReact
-          src={chrome.runtime.getURL("guest-avatar.json")}
-          autoplay={false}
-          loop={false}
-          backgroundColor="transparent"
-          dotLottieRefCallback={setLottie}
-          style={{ width: "100%", height: "100%" }}
-        />
-      </div>
+    <div className="w-[30px] h-[30px] rounded-full bg-white text-zinc-600 flex items-center justify-center flex-shrink-0 border border-zinc-200 dark:border-zinc-300 shadow-sm hover:scale-105 transition-all duration-200">
+      <UserIcon className="w-4 h-4" />
     </div>
   );
 };
@@ -104,8 +94,39 @@ const GuestAvatarIcon = () => {
 export function App() {
   const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [mediaSheetConfig, setMediaSheetConfig] = useState<{
+    mediaId: string;
+    type: "audio" | "video";
+    noteId: string;
+    fileName: string;
+    duration: number;
+    onDeleteNode: () => void;
+  } | null>(null);
+
+  const [mediaResultConfig, setMediaResultConfig] = useState<{
+    title: string;
+    text: string;
+    mediaId: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const handleShowResult = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.text) {
+        setMediaResultConfig({
+          title: detail.title || "AI Insights",
+          text: detail.text,
+          mediaId: detail.mediaId,
+        });
+      }
+    };
+    window.addEventListener("show-media-ai-result", handleShowResult);
+    return () => {
+      window.removeEventListener("show-media-ai-result", handleShowResult);
+    };
+  }, []);
 
   useEffect(() => {
     // Expose goeyToast to window context for Chrome DevTools Console testing
@@ -138,16 +159,7 @@ export function App() {
     createNoteWithContent,
   } = useNotes(user?.id);
 
-  // Check for welcome note to show overlay
-  useEffect(() => {
-    const hasSeenWelcome = localStorage.getItem("blacknote_seen_welcome_overlay");
-    if (!hasSeenWelcome && notes.length > 0) {
-      const hasWelcomeNote = notes.some((n: any) => n.title.toLowerCase().includes("welcome"));
-      if (hasWelcomeNote) {
-        setShowWelcomeOverlay(true);
-      }
-    }
-  }, [notes]);
+
 
   const handleLogin = async () => {
     setIsLoggingIn(true);
@@ -344,7 +356,7 @@ export function App() {
     setShowHistory(false);
     setShowAccountMenu(false);
     setShowSupportSheet(false);
-    setMediaSheetConfig(null);
+
 
     // 2. Delay toast display by 300ms to allow bottom sheets to slide down completely
     setTimeout(() => {
@@ -451,7 +463,7 @@ export function App() {
       setShowHistory(false);
       setShowAccountMenu(false);
       setShowSupportSheet(false);
-      setMediaSheetConfig(null);
+
 
       // 2. Delay toast display by 300ms to allow bottom sheets to slide down completely
       const timer = setTimeout(() => {
@@ -586,14 +598,7 @@ export function App() {
     }
     return () => clearInterval(interval);
   }, [isMeetSyncActive, meetStatus]);
-  const [mediaSheetConfig, setMediaSheetConfig] = useState<{
-    mediaId: string;
-    type: "audio" | "video";
-    noteId: string;
-    fileName: string;
-    duration: number;
-    onDeleteNode: () => void;
-  } | null>(null);
+
 
   const [globalAiThinking, setGlobalAiThinking] = useState(false);
   const globalAiThinkingRef = useRef(false);
@@ -778,13 +783,120 @@ export function App() {
   // Removed Global AI Thinking listener as all thinking states are now localized in bottom sheets.
 
   useEffect(() => {
-    const handleOpenMediaSheet = (e: Event) => {
+    const handleOpenMediaSheet = async (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      setMediaSheetConfig(detail);
+      if (!detail) return;
+      
+      const { mediaId, noteId, fileName, type, duration, onDeleteNode } = detail;
+      
+      // 1. Check if recording is already transcribed
+      const isAnalyzed = await hasTranscript(mediaId, noteId);
+      
+      // 2. Define callback to transcribe media
+      const onAnalyze = async () => {
+        if (!user) {
+          window.dispatchEvent(new CustomEvent("ai-error"));
+          return;
+        }
+        const toastId = `media-analyze-toast-${Date.now()}`;
+        showAILoaderToast(toastId, "Analyze Recording", "Transcribing and extracting insights...");
+        try {
+          await analyzeMedia(mediaId, noteId);
+          updateAISuccessToast(toastId, "Analyze Recording", "Recording analyzed successfully! AI features are now unlocked.");
+          // Automatically open the action sheet with features unlocked
+          setMediaSheetConfig({
+            mediaId,
+            type,
+            noteId,
+            fileName,
+            duration,
+            onDeleteNode,
+          });
+        } catch (err) {
+          console.error("[MediaAnalyze] failed:", err);
+          updateAIErrorToast(toastId, "Analyze Recording", "Failed to analyze recording. Please try again.");
+        }
+      };
+
+      // 3. Define callback to trigger AI feature insights
+      const onFeature = async (featureId: string) => {
+        if (featureId === "chat") {
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent("open-note-chat"));
+          }, 150);
+          return;
+        }
+
+        const featureLabels: Record<string, string> = {
+          summary: "Summary",
+          meeting_minutes: "Meeting Minutes",
+          keypoints: "Key Points",
+          action_items: "Action Items",
+          chapters: "Chapters",
+        };
+        const label = featureLabels[featureId] || "AI Insights";
+        const toastId = `media-feature-toast-${Date.now()}`;
+        showAILoaderToast(toastId, label, "Structuring insights and formatting results...");
+        
+        try {
+          const data = await summarizeMedia(mediaId, noteId, featureId as SummarizeStyle, type);
+          window.dispatchEvent(new CustomEvent("insert-media-ai-result", {
+            detail: { text: data.text, mediaId },
+          }));
+          updateAISuccessToast(toastId, label, `${label} generated and inserted into your editor.`);
+        } catch (err) {
+          console.error("[MediaFeature] failed:", err);
+          updateAIErrorToast(toastId, label, `Failed to generate ${label}. Please try again.`);
+        }
+      };
+
+      // 4. Define callback to delete the recording
+      const onDelete = async () => {
+        onDeleteNode();
+        db.media_files.delete(mediaId).catch(() => {});
+        db.media_transcripts.delete(mediaId).catch(() => {});
+        try {
+          const note = await db.notes.get(noteId);
+          if (note && note.mediaTranscripts) {
+            const transcripts = JSON.parse(note.mediaTranscripts);
+            if (transcripts[mediaId]) {
+              delete transcripts[mediaId];
+              await db.notes.update(noteId, { mediaTranscripts: JSON.stringify(transcripts) });
+            }
+          }
+        } catch (err) {
+          console.error("Failed to delete transcript", err);
+        }
+      };
+
+      // 5. Open the action sheet if analyzed, otherwise show interactive toast
+      if (isAnalyzed) {
+        setMediaSheetConfig({
+          mediaId,
+          type,
+          noteId,
+          fileName,
+          duration,
+          onDeleteNode,
+        });
+      } else {
+        showMediaActionToast({
+          mediaId,
+          noteId,
+          fileName,
+          type,
+          duration,
+          isAnalyzed,
+          onAnalyze,
+          onFeature,
+          onDelete,
+        });
+      }
     };
+
     window.addEventListener("open-media-sheet", handleOpenMediaSheet);
     return () => window.removeEventListener("open-media-sheet", handleOpenMediaSheet);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const handleSTTState = (e: any) => setIsSTTActive(e.detail);
@@ -1050,26 +1162,8 @@ export function App() {
           .run();
       }
       recordingEditorRef.current = null;
-
-      // Auto-transcribe in background (so AI menu is ready when user clicks the node)
-      if (result && activeNoteId) {
-        analyzeMedia(result.mediaId, activeNoteId, (prog) => {
-          window.dispatchEvent(
-            new CustomEvent("bg-transcribe-progress", {
-              detail: { mediaId: result.mediaId, ...prog },
-            })
-          );
-        }).catch((err) => {
-          console.warn("[Auto-transcribe]", err?.message);
-          window.dispatchEvent(
-            new CustomEvent("bg-transcribe-progress", {
-              detail: { mediaId: result.mediaId, step: "error", message: err?.message || "Transcription failed", percent: 0 },
-            })
-          );
-        });
-      }
     }
-  }, [recorder, activeNoteId]);
+  }, [recorder]);
 
   const handleRecordingDiscard = useCallback(() => {
     const currentMode = recorder.mode;
@@ -1454,26 +1548,6 @@ export function App() {
         )}
       </AnimatePresence>
 
-      {/* ─── Welcome Overlay ─── */}
-      <AnimatePresence>
-        {showWelcomeOverlay && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.05 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-            className="fixed inset-0 z-[1000] flex items-center justify-center bg-background/80 backdrop-blur-md cursor-pointer px-6"
-            onClick={() => {
-              setShowWelcomeOverlay(false);
-              localStorage.setItem("blacknote_seen_welcome_overlay", "true");
-            }}
-          >
-            <div className="w-full max-w-[500px] aspect-square flex items-center justify-center pointer-events-none">
-              <DotLottieReact src={chrome.runtime.getURL("welcome.json")} autoplay loop backgroundColor="transparent" style={{ width: "100%", height: "100%" }} />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ─── Header Bar ─── */}
       {isRecording || isSTTActive || isMeetSyncActive ? (
@@ -1614,60 +1688,13 @@ export function App() {
         )}
       </AnimatePresence>
 
-      {/* ─── Account Bottom Sheet ─── */}
-      <AnimatePresence>
-        {showAccountMenu && (
-          <>
-            <motion.div
-              key="history-backdrop"
-              className="history-sheet-backdrop"
-              onClick={() => { setActivePanel(null); setShowAccountMenu(false); setAccountGuestText(null); }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            />
-            <motion.div
-              className="clipper-sheet account-sheet"
-              initial={{ bottom: "-100%" }}
-              animate={{ bottom: 0 }}
-              exit={{ bottom: "-100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 350, mass: 0.8 }}
-            >
-              <div className="history-sheet-handle" onClick={() => { setActivePanel(null); setShowAccountMenu(false); setAccountGuestText(null); }}>
-                <div className="history-sheet-handle-bar" />
-              </div>
-              <div style={{ padding: 0, overflow: "visible" }}>
-                <AccountPopup
-                  user={user}
-                  credits={credits}
-                  proIconIndex={proIconIndex}
-                  onSignOut={async () => {
-                    setActivePanel(null); setShowAccountMenu(false);
-                    showSignOutConfirmToast({
-                      onConfirm: async () => {
-                        setIsSigningOut(true);
-                        try {
-                          await signOut();
-                          showSignOutSuccessToast();
-                        } finally {
-                          setIsSigningOut(false);
-                        }
-                      }
-                    });
-                  }}
-                  onLogin={handleLogin}
-                  isLoggingIn={isLoggingIn}
-                  onClose={() => { setActivePanel(null); setShowAccountMenu(false); setAccountGuestText(null); }}
-                  onRefreshCredits={refreshCredits}
-                  guestTitle={accountGuestText?.title}
-                  guestSubtitle={accountGuestText?.subtitle}
-                />
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {/* ─── Premium Upgrade Modal ─── */}
+      <UpgradeModal
+        open={isUpgradeModalOpen}
+        onOpenChange={setIsUpgradeModalOpen}
+        userEmail={user?.email || ""}
+        userId={user?.id || ""}
+      />
 
       <AnimatePresence>
         {showSupportSheet && (
@@ -1688,8 +1715,6 @@ export function App() {
         gap={8} 
       />
 
-
-
       <AnimatePresence>
         {mediaSheetConfig && (
           <MediaActionSheet
@@ -1697,12 +1722,36 @@ export function App() {
             onClose={() => setMediaSheetConfig(null)}
             onInsertToNote={(text) => {
               window.dispatchEvent(
-                new CustomEvent("insert-ai-content", { detail: { text } })
+                new CustomEvent("insert-media-ai-result", { detail: { text, mediaId: mediaSheetConfig.mediaId } })
               );
             }}
           />
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {mediaResultConfig && (
+          <AIMediaResultSheet
+            title={mediaResultConfig.title}
+            result={{ text: mediaResultConfig.text }}
+            loading={false}
+            error={null}
+            onClose={() => setMediaResultConfig(null)}
+            onInsertToNote={(text) => {
+              window.dispatchEvent(
+                new CustomEvent("insert-media-ai-result", {
+                  detail: { text, mediaId: mediaResultConfig.mediaId },
+                })
+              );
+              setMediaResultConfig(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+
+
+
 
       
       </motion.div>
@@ -1722,7 +1771,7 @@ export function App() {
           >
             <div className={`flex flex-col items-center gap-3 w-full opacity-100 ${isWide ? "px-0.5" : "min-w-[40px]"}`}>
               <button
-                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-background cursor-pointer"
+                className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-sidebar-hover cursor-pointer"
                 onClick={() => setShowRightToolbar(false)}
                 data-tooltip="Close menu"
                 data-placement="left"
@@ -1733,25 +1782,29 @@ export function App() {
               <button
                 className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={handleCreateNote}
-                data-tooltip="New note"
+                data-tooltip={isWide ? undefined : "New note"}
                 data-placement="left"
               >
-                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground">
                   <PlusIcon className="w-5 h-5" />
                 </div>
-                {isWide && <span className="text-[10px] font-medium leading-normal mt-0 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">New</span>}
+                {isWide && (
+                  <span className="text-[10px] font-medium leading-normal mt-0 text-center truncate w-full text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:text-foreground">
+                    New
+                  </span>
+                )}
               </button>
               
               <button
                 className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={() => handleTogglePanel("note-chat")}
-                data-tooltip="Ask AI"
+                data-tooltip={isWide ? undefined : "Ask AI"}
                 data-placement="left"
               >
                 <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
                   activePanel === "note-chat"
-                    ? "bg-background text-foreground opacity-100"
-                    : "opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground"
+                    ? "bg-sidebar-active text-foreground opacity-100 font-semibold"
+                    : "opacity-90 text-zinc-500 dark:text-zinc-400 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
                 }`}>
                   <MessageSquareMoreIcon className="w-5 h-5" size={20} />
                 </div>
@@ -1759,7 +1812,7 @@ export function App() {
                   <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
                     activePanel === "note-chat"
                       ? "text-foreground opacity-100 font-semibold"
-                      : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
+                      : "text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:text-foreground"
                   }`}>
                     Ask AI
                   </span>
@@ -1769,13 +1822,13 @@ export function App() {
               <button
                 className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={() => handleTogglePanel("history")}
-                data-tooltip="My Notes"
+                data-tooltip={isWide ? undefined : "My Notes"}
                 data-placement="left"
               >
                 <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
                   activePanel === "history"
-                    ? "bg-background text-foreground opacity-100"
-                    : "opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground"
+                    ? "bg-sidebar-active text-foreground opacity-100 font-semibold"
+                    : "opacity-90 text-zinc-500 dark:text-zinc-400 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
                 }`}>
                   <LayoutListIcon size={20} />
                 </div>
@@ -1783,7 +1836,7 @@ export function App() {
                   <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
                     activePanel === "history"
                       ? "text-foreground opacity-100 font-semibold"
-                      : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
+                      : "text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:text-foreground"
                   }`}>
                     Notes
                   </span>
@@ -1793,13 +1846,13 @@ export function App() {
               <button
                 className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={() => handleTogglePanel("clipper")}
-                data-tooltip="Clip page"
+                data-tooltip={isWide ? undefined : "Clip page"}
                 data-placement="left"
               >
                 <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
                   activePanel === "clipper"
-                    ? "bg-background text-foreground opacity-100"
-                    : "opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground"
+                    ? "bg-sidebar-active text-foreground opacity-100 font-semibold"
+                    : "opacity-90 text-zinc-500 dark:text-zinc-400 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
                 }`}>
                   <ScanLineIcon size={20} />
                 </div>
@@ -1807,7 +1860,7 @@ export function App() {
                   <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
                     activePanel === "clipper"
                       ? "text-foreground opacity-100 font-semibold"
-                      : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
+                      : "text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:text-foreground"
                   }`}>
                     Clip
                   </span>
@@ -1822,7 +1875,7 @@ export function App() {
                     data-tooltip="Speech to Text"
                     data-placement="left"
                   >
-                    <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
+                    <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground">
                       <MicIcon className="w-5 h-5" />
                     </div>
                   </button>
@@ -1832,7 +1885,7 @@ export function App() {
                     data-tooltip="Record Audio"
                     data-placement="left"
                   >
-                    <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
+                    <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground">
                       <AudioLinesIcon className="w-5 h-5" />
                     </div>
                   </button>
@@ -1842,7 +1895,7 @@ export function App() {
                     data-tooltip="Record Screen"
                     data-placement="left"
                   >
-                    <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
+                    <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground">
                       <VideoIcon className="w-5 h-5" />
                     </div>
                   </button>
@@ -1852,7 +1905,7 @@ export function App() {
                     data-tooltip="Meet Live Sync"
                     data-placement="left"
                   >
-                    <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
+                    <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground">
                       <MeetIcon className="w-5 h-5" />
                     </div>
                   </button>
@@ -1863,20 +1916,20 @@ export function App() {
                   className="flex flex-col gap-0.5 w-full min-h-[48px] py-1 justify-center items-center group cursor-pointer text-muted-foreground"
                   onMouseEnter={handleMouseEnterMore}
                   onMouseLeave={handleMouseLeaveMore}
-                  data-tooltip={showMorePopover ? undefined : "More options"}
+                  data-tooltip={showMorePopover || isWide ? undefined : "More options"}
                   data-placement="left"
                 >
                   <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
                     showMorePopover
-                      ? "bg-background text-foreground opacity-100 shadow-sm"
-                      : "opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground"
+                      ? "bg-sidebar-active text-foreground opacity-100 shadow-sm"
+                      : "opacity-90 text-zinc-500 dark:text-zinc-400 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
                   }`}>
                     <MoreHorizontal className="w-5 h-5" />
                   </div>
                   <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
                     showMorePopover
                       ? "text-foreground opacity-100 font-semibold"
-                      : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
+                      : "text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:text-foreground"
                   }`}>
                     More
                   </span>
@@ -1885,17 +1938,7 @@ export function App() {
             </div>
 
             <div className={`mt-auto flex flex-col items-center gap-3 w-full ${isWide ? "px-0.5" : "min-w-[40px]"}`}>
-              <button
-                className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
-                onClick={() => window.dispatchEvent(new CustomEvent("open-support-sheet"))}
-                data-tooltip="Help"
-                data-placement="left"
-              >
-                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
-                  <CircleHelpIcon className="w-5 h-5" />
-                </div>
-                {isWide && <span className="text-[10px] font-medium leading-normal mt-0 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">Help</span>}
-              </button>
+
 
 
 
@@ -1904,7 +1947,9 @@ export function App() {
                 className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={handleTogglePiP}
                 data-tooltip={
-                  isPopoutInstance.current
+                  isWide
+                    ? undefined
+                    : isPopoutInstance.current
                     ? "Back to side panel"
                     : isPinnedToTop
                     ? "Close pop-out"
@@ -1912,26 +1957,30 @@ export function App() {
                 }
                 data-placement="left"
               >
-                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground">
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground">
                   {isPinnedToTop || isPopoutInstance.current ? (
                     <PanelRight className="w-5 h-5" />
                   ) : (
                     <AppWindow className="w-5 h-5" />
                   )}
                 </div>
-                {isWide && <span className="text-[10px] font-medium leading-normal mt-0 text-center truncate w-full opacity-75 group-hover:opacity-100 group-hover:text-foreground">Popout</span>}
+                {isWide && (
+                  <span className="text-[10px] font-medium leading-normal mt-0 text-center truncate w-full text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:text-foreground">
+                    Popout
+                  </span>
+                )}
               </button>
 
               <button
                 className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={() => handleTogglePanel("settings")}
-                data-tooltip="Settings"
+                data-tooltip={isWide ? undefined : "Settings"}
                 data-placement="left"
               >
                 <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
                   activePanel === "settings"
-                    ? "bg-background text-foreground opacity-100"
-                    : "opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground"
+                    ? "bg-sidebar-active text-foreground opacity-100 font-semibold"
+                    : "opacity-90 text-zinc-500 dark:text-zinc-400 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
                 }`}>
                   <SettingsIcon size={20} />
                 </div>
@@ -1939,46 +1988,101 @@ export function App() {
                   <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
                     activePanel === "settings"
                       ? "text-foreground opacity-100 font-semibold"
-                      : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
+                      : "text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:text-foreground"
                   }`}>
                     Settings
                   </span>
                 )}
               </button>
 
-              <button
-                className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[52px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
-                onClick={() => handleTogglePanel("account")}
-                data-tooltip={!user ? "Sign in / Account" : "Account"}
-                data-placement="left"
-              >
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                  activePanel === "account"
-                    ? "bg-background text-foreground opacity-100"
-                    : !user
-                      ? "opacity-75 group-hover:opacity-100 group-hover:bg-background group-hover:text-foreground"
-                      : "opacity-100 group-hover:bg-background group-hover:text-foreground"
-                }`}>
-                  {!user ? (
-                    <div className="scale-[0.85]"><GuestAvatarIcon /></div>
-                  ) : getUserAvatar(user) ? (
-                    <img src={getUserAvatar(user)!} alt="" className="w-[30px] h-[30px] rounded-full object-cover border border-border/20 shadow-sm" />
-                  ) : (
-                    <div className="w-[30px] h-[30px] rounded-full bg-muted flex items-center justify-center text-[12px] font-bold border border-border/20 shadow-sm">
-                      {(user.displayName || user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
+              <Popover.Root open={showAccountMenu} onOpenChange={(open) => {
+                setShowAccountMenu(open);
+                if (!open && activePanel === "account") {
+                  setActivePanel(null);
+                }
+              }}>
+                <Popover.Trigger asChild>
+                  <button
+                    className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[52px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
+                    onClick={() => handleTogglePanel("account")}
+                    data-tooltip={isWide ? undefined : (!user ? "Sign in / Account" : "Account")}
+                    data-placement="left"
+                  >
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                      activePanel === "account"
+                        ? "bg-sidebar-active text-foreground opacity-100"
+                        : !user
+                          ? "opacity-90 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
+                          : "opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
+                    }`}>
+                      {!user ? (
+                        <GuestAvatarIcon />
+                      ) : getUserAvatar(user) ? (
+                        <img src={getUserAvatar(user)!} alt="" className="w-[30px] h-[30px] rounded-full object-cover border border-border/20 shadow-sm" />
+                      ) : (
+                        <div className="w-[30px] h-[30px] rounded-full bg-muted flex items-center justify-center text-[12px] font-bold border border-border/20 shadow-sm">
+                          {(user.displayName || user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                {isWide && (
-                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
-                    activePanel === "account"
-                      ? "text-foreground opacity-100 font-semibold"
-                      : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
-                  }`}>
-                    Account
-                  </span>
-                )}
-              </button>
+                    {isWide && (
+                      <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
+                        activePanel === "account"
+                          ? "text-foreground opacity-100 font-semibold"
+                          : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
+                      }`}>
+                        Account
+                      </span>
+                    )}
+                  </button>
+                </Popover.Trigger>
+                <Popover.Portal>
+                  <Popover.Content
+                    align="end"
+                    side="top"
+                    sideOffset={12}
+                    alignOffset={-4}
+                    collisionPadding={12}
+                    className="z-[999] bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-md border-none shadow-[0_10px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.5)] rounded-2xl overflow-hidden focus:outline-none"
+                  >
+                    <AccountPopup
+                      user={user}
+                      credits={credits}
+                      onUpgradeClick={() => {
+                        setShowAccountMenu(false);
+                        setActivePanel(null);
+                        setIsUpgradeModalOpen(true);
+                      }}
+                      onSupportClick={() => {
+                        setShowAccountMenu(false);
+                        setActivePanel(null);
+                        setShowSupportSheet(true);
+                      }}
+                      onSignOut={async () => {
+                        setShowAccountMenu(false);
+                        setActivePanel(null);
+                        showSignOutConfirmToast({
+                          onConfirm: async () => {
+                            setIsSigningOut(true);
+                            try {
+                              await signOut();
+                              showSignOutSuccessToast();
+                            } finally {
+                              setIsSigningOut(false);
+                            }
+                          }
+                        });
+                      }}
+                      onLogin={handleLogin}
+                      isLoggingIn={isLoggingIn}
+                      onClose={() => {
+                        setShowAccountMenu(false);
+                        setActivePanel(null);
+                      }}
+                    />
+                  </Popover.Content>
+                </Popover.Portal>
+              </Popover.Root>
             </div>
           </motion.div>
         )}
@@ -1994,10 +2098,11 @@ export function App() {
             transition={{ duration: 0.15, ease: "easeOut" }}
             onMouseEnter={handleMouseEnterPopover}
             onMouseLeave={handleMouseLeavePopover}
-            className="fixed z-[100] w-[210px] bg-background rounded-xl shadow-2xl p-2 flex flex-col gap-2"
+            className="fixed z-[100] w-[210px] rounded-2xl p-2.5 flex flex-col gap-2 shadow-none border-none"
             style={{
               top: popoverCoords.top,
               right: 64, // Cách toolbar mở rộng 56px + margin 8px
+              backgroundColor: "hsl(var(--sidebar-bg))",
             }}
           >
             <div className="grid grid-cols-2 gap-2">

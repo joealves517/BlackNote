@@ -284,9 +284,6 @@ async function handleStartAudio(streamId?: string) {
 
     recorder.start(10000); // 10s slices
     
-    // Start background chunking for AI
-    startChunkRecorder(finalStream);
-    
     startTimer();
     updateStorage("recording");
     return true;
@@ -423,12 +420,6 @@ async function handleStartScreen(streamId: string, cropRect?: { x: number, y: nu
       };
     });
     recorder.start(10000); // 10s slices
-    
-    // Start background chunking for AI (audio only stream)
-    const audioStream = new MediaStream(finalStream.getAudioTracks());
-    if (audioStream.getTracks().length > 0) {
-      startChunkRecorder(audioStream);
-    }
     
     startTimer();
     updateStorage("recording");

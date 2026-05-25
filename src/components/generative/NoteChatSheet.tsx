@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { DotLottieReact, type DotLottie } from "@lottiefiles/dotlottie-react";
+
 import { motion, AnimatePresence } from "framer-motion";
 import { useCompletion } from "@ai-sdk/react";
 import { useEditor } from "novel";
@@ -783,16 +783,7 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
         }}
       >
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 16 }}>
-          {/* Lottie Animation */}
-          <div className="flex items-center justify-center relative" style={{ width: 160, height: 160, marginBottom: -28 }}>
-            <DotLottieReact
-              src={chrome.runtime.getURL("message-icon.json")}
-              autoplay
-              loop
-              backgroundColor="transparent"
-              style={{ width: "100%", height: "100%" }}
-            />
-          </div>
+          <MessageSquareMoreIcon size={64} animateOnMount={true} className="text-muted-foreground mb-2 flex-shrink-0" />
 
           <div style={{ textAlign: "center", fontSize: 22, fontWeight: 600, color: "hsl(var(--foreground))" }}>
             Hi {userName} 👋<br />Where should we start?
@@ -814,16 +805,7 @@ function EmptyState({ noteTitle, wordCount, noteTextPreview, noteContent, onQuic
         gap: 16,
       }}
     >
-      {/* Lottie Animation instead of Icon */}
-      <div className="flex items-center justify-center relative" style={{ width: 160, height: 160, marginBottom: -28 }}>
-        <DotLottieReact
-          src={chrome.runtime.getURL("message-icon.json")}
-          autoplay
-          loop
-          backgroundColor="transparent"
-          style={{ width: "100%", height: "100%" }}
-        />
-      </div>
+      <MessageSquareMoreIcon size={64} animateOnMount={true} className="text-muted-foreground mb-2 flex-shrink-0" />
 
       {/* Title */}
       <div style={{ textAlign: "center", fontSize: 18, fontWeight: 600, color: "hsl(var(--foreground))" }}>

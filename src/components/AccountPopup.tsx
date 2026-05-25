@@ -1,140 +1,30 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { DotLottieReact, type DotLottie } from "@lottiefiles/dotlottie-react";
-import { SparklesIcon } from "@/components/icons/sparkles";
-import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
-import { LogoutIcon } from "@/components/icons/logout";
-import { CircleCheckIcon } from "@/components/icons/circle-check";
+import { Sparkles, HelpCircle, LogOut, FileText, ChevronRight, User as UserIcon, Bell, Check } from "lucide-react";
 import { LoaderIcon } from "@/components/ui/loader";
-
-import { MessageSquare, PenLine, Mic, Wand2, Zap, Minus, Video, HelpCircle, Check } from "lucide-react";
-import { CHECKOUT_BASE } from "@/lib/constants";
+import { PRIVACY_POLICY_URL } from "@/lib/constants";
 import type { AppUser } from "@/lib/auth-client";
+import { goeyToast } from "goey-toast";
+import { dismissSmoothly } from "@/lib/toast";
 
 interface AccountPopupProps {
   user: AppUser | null;
   credits: { credits: number; tier: string } | null;
-  proIconIndex?: number;
   onSignOut: () => void;
   onLogin?: () => void;
   isLoggingIn?: boolean;
-  onClose: () => void;
-  onRefreshCredits?: () => void;
-  guestTitle?: string;
-  guestSubtitle?: string;
+  onUpgradeClick: () => void;
+  onSupportClick: () => void;
+  onClose?: () => void;
 }
 
-const GoogleLogo = () => (
-  <svg width="18" height="18" viewBox="0 0 48 48">
+const GoogleLogo = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" className="shrink-0">
     <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
     <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
     <path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.0 24.0 0 0 0 0 21.56l7.98-6.19z" />
     <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
   </svg>
-);
-
-function getUserAvatar(user: AppUser): string | null {
-  return user.picture || null;
-}
-
-function getUserDisplayName(user: AppUser): string {
-  return user.displayName || user.email || "User";
-}
-
-const AIFeatureItem = ({ icon, title, description, available, colorRgb = "59, 130, 246", isGuest = false }: any) => {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <div
-      role="button"
-      className="novel-slash-item w-full text-left"
-      style={{
-        gap: "8px",
-        padding: "6px 8px",
-        borderRadius: "6px",
-        background: hovered
-          ? `linear-gradient(90deg, rgba(${colorRgb}, 0) 0%, rgba(${colorRgb}, 0.08) 30%, rgba(${colorRgb}, 0.08) 70%, rgba(${colorRgb}, 0) 100%)`
-          : `linear-gradient(90deg, rgba(${colorRgb}, 0) 0%, rgba(${colorRgb}, 0.04) 30%, rgba(${colorRgb}, 0.04) 70%, rgba(${colorRgb}, 0) 100%)`,
-        transition: "all 0.2s ease",
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <div className="novel-slash-icon" style={{
-        background: `linear-gradient(135deg, rgba(${colorRgb}, var(--icon-bg-start)) 0%, rgba(${colorRgb}, var(--icon-bg-end)) 100%)`,
-        border: `1px solid rgba(${colorRgb}, var(--icon-border))`,
-        color: `rgba(${colorRgb}, 1)`,
-        flexShrink: 0,
-      }}>
-        {icon}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="text-[13px] font-medium text-foreground leading-snug">{title}</div>
-        <div className="text-[11px] text-muted-foreground leading-snug mt-[1px]">{description}</div>
-      </div>
-      {available && (
-        <div style={{
-          width: "20px",
-          height: "20px",
-          borderRadius: "50%",
-          background: isGuest ? "rgba(255, 255, 255, 0.15)" : "rgba(16, 185, 129, 0.12)",
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          border: isGuest ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(16, 185, 129, 0.18)",
-          flexShrink: 0,
-        }}>
-          <AnimatedIcon animation="none">
-            {isGuest ? (
-              <Minus size={12} color="#888" strokeWidth={2.5} style={{ display: "flex", alignItems: "center", justifyContent: "center" }} />
-            ) : (
-              <Check size={11} className="text-emerald-500" strokeWidth={3.5} style={{ display: "flex", alignItems: "center", justifyContent: "center" }} />
-            )}
-          </AnimatedIcon>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const FeatureList = ({ isPro, quotaExhausted, isGuest = false }: { isPro: boolean, quotaExhausted: boolean, isGuest?: boolean }) => (
-  <div className="ai-cmd-groups mb-3.5">
-    <div className="ai-cmd-group">
-      <AIFeatureItem
-        icon={<MessageSquare className="w-4 h-4" strokeWidth={1.5} />}
-        title="Chat with Note"
-        description={isPro && !quotaExhausted ? "Powered by Gemini Nano" : "Limited usage"}
-        available={true}
-        colorRgb="59, 130, 246"
-        isGuest={isGuest}
-      />
-      <AIFeatureItem
-        icon={<Video className="w-4 h-4" strokeWidth={1.5} />}
-        title="Chat with Video/Audio"
-        description={isPro && !quotaExhausted ? "Deep media insights" : "Limited usage"}
-        available={true}
-        colorRgb="168, 85, 247"
-        isGuest={isGuest}
-      />
-      <AIFeatureItem
-        icon={<Wand2 className="w-4 h-4" strokeWidth={1.5} />}
-        title="AI Summarization"
-        description={isPro && !quotaExhausted ? "Extract key insights" : "Limited usage"}
-        available={true}
-        colorRgb="245, 158, 11"
-        isGuest={isGuest}
-      />
-      <AIFeatureItem
-        icon={<CircleCheckIcon className="w-4 h-4" strokeWidth={1.5} />}
-        title="Fix Spelling & Grammar"
-        description={isPro && !quotaExhausted ? "Professional polish" : "Limited usage"}
-        available={true}
-        colorRgb="16, 185, 129"
-        isGuest={isGuest}
-      />
-    </div>
-  </div>
 );
 
 export function AccountPopup({
@@ -143,170 +33,233 @@ export function AccountPopup({
   onSignOut,
   onLogin,
   isLoggingIn,
-  guestTitle,
-  guestSubtitle,
+  onUpgradeClick,
+  onSupportClick,
   onClose,
 }: AccountPopupProps) {
   const isPremium = credits?.tier === "premium";
-  const isQuotaExhausted = isPremium && credits?.credits !== undefined && credits.credits <= 0;
-  const [logoutHovered, setLogoutHovered] = useState(false);
-  const [dotLottie, setDotLottie] = useState<DotLottie | null>(null);
 
-  useEffect(() => {
-    if (!dotLottie || user) return;
+  const handleWhatsNewClick = () => {
+    const version = chrome.runtime.getManifest()?.version || "0.3.0";
+    onClose?.(); // Close popover immediately when toast opens
 
-    const fireJump = () => {
-      try {
-        if (typeof dotLottie.stateMachineFireEvent === "function") {
-          dotLottie.stateMachineFireEvent("jumpClick");
-        }
-      } catch (err) { }
-    };
+    const toastId = goeyToast.success(`BlackNote is up to date (v${version}) 🎉`, {
+      duration: 30000,
+      timing: {
+        displayDuration: 30000,
+      },
+      showProgress: false,
+      showTimestamp: false,
+      classNames: {
+        title: "text-[14px] font-bold leading-none tracking-tight",
+      },
+      description: (
+        <div className="flex flex-col gap-2.5 mt-1 w-[260px]">
+          <p className="text-[12px] font-bold text-zinc-800 dark:text-white/90">What's new in this release:</p>
+          <ul className="list-disc pl-4 text-[11px] text-zinc-600 dark:text-white/70 space-y-1 leading-normal">
+            <li>High-opacity Monochrome Toolbar & dynamic Agent Input</li>
+            <li>Ultra-fast Offline Privacy Policy page integration</li>
+            <li>Smooth morph-collapse (Gooey) Toast dismissals</li>
+            <li>Light mode Toast icon visibility & UI optimization</li>
+            <li>Lighter build (-40% size) & redesigned Media Sheet</li>
+          </ul>
 
-    const fireYesClick = () => {
-      try {
-        if (typeof dotLottie.stateMachineFireEvent === "function") {
-          dotLottie.stateMachineFireEvent("yesClick");
-        }
-      } catch (err) { }
-    };
-
-    let interval: NodeJS.Timeout;
-    const initialTimeout = setTimeout(() => {
-      fireJump();
-      interval = setInterval(fireYesClick, 3000);
-    }, 200);
-
-    return () => {
-      clearTimeout(initialTimeout);
-      if (interval) clearInterval(interval);
-    };
-  }, [dotLottie, user]);
-
-  // GUEST VIEW
-  if (!user) {
-    return (
-      <div className="pt-4 px-4 pb-4">
-        <div className="floating-robot-wrapper">
-          <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
-            <DotLottieReact
-              src={chrome.runtime.getURL("ai-robo.lottie")}
-              autoplay
-              loop
-              stateMachineId="StateMachine1"
-              dotLottieRefCallback={setDotLottie}
-              backgroundColor="transparent"
-              style={{ width: "150%", height: "150%", transform: "scale(1.35) translateY(2%)", position: "absolute" }}
-            />
+          <div className="flex flex-col gap-1.5 mt-1.5 w-full">
+            <button
+              onClick={() => dismissSmoothly(toastId)}
+              className="flex items-center gap-2.5 w-full p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800/50 hover:bg-zinc-200/70 dark:hover:bg-zinc-800/80 text-left transition-colors cursor-pointer border border-zinc-200/60 dark:border-zinc-700/40"
+            >
+              <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-zinc-200/60 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 shadow-sm flex-shrink-0">
+                <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-semibold text-zinc-800 dark:text-white/90 leading-none">I got it!</p>
+                <p className="text-[10px] text-zinc-500 dark:text-white/60 truncate mt-0.5">Dismiss notification</p>
+              </div>
+            </button>
           </div>
         </div>
+      )
+    });
+  };
 
-        <div className="text-center pt-4 pb-3">
-          <h3 className="text-lg font-bold text-foreground mb-1 tracking-tight">{guestTitle || "Unlock AI Features"}</h3>
-          <p className="text-xs text-muted-foreground">{guestSubtitle || "Sign in to enhance your note-taking experience."}</p>
+  // ─── GUEST VIEW (Not Logged In) ───
+  if (!user) {
+    return (
+      <div className="w-[275px] p-3 flex flex-col gap-3 bg-background text-foreground select-none">
+        {/* Top login card - Blue accent, Google logo inside a larger blue circular background */}
+        <div className="flex items-center gap-3 p-3 rounded-2xl bg-zinc-100/80 dark:bg-zinc-800/60 w-full">
+          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center border border-zinc-200 dark:border-zinc-300/50 shrink-0 shadow-sm">
+            <GoogleLogo size={20} />
+          </div>
+          
+          <div className="flex flex-col flex-1 min-w-0 text-left">
+            <span className="text-[12px] font-bold text-foreground leading-tight">
+              Log in to start
+            </span>
+            <span className="text-[10px] text-muted-foreground mt-0.5 leading-normal">
+              using BlackNote.
+            </span>
+          </div>
+
+          <button
+            onClick={onLogin}
+            disabled={isLoggingIn}
+            className="h-8 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shrink-0 shadow-sm active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none"
+          >
+            {isLoggingIn ? (
+              <motion.span
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="flex shrink-0"
+              >
+                <LoaderIcon size={12} className="text-white" />
+              </motion.span>
+            ) : null}
+            {isLoggingIn ? "..." : "Log in"}
+          </button>
         </div>
 
-        <FeatureList isPro={false} quotaExhausted={false} isGuest={true} />
+        {/* Menu list styled exactly like the screenshot */}
+        <div className="flex flex-col gap-0.5">
+          <button
+            onClick={handleWhatsNewClick}
+            className="flex items-center justify-between w-full px-2.5 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted/40 rounded-xl transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-3">
+              <Bell className="w-4 h-4 shrink-0 text-muted-foreground/80 group-hover:text-foreground transition-colors" />
+              <span>What's new</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0 group-hover:text-foreground/50 transition-colors" />
+          </button>
 
-        <button
-          onClick={onLogin}
-          disabled={isLoggingIn}
-          className="relative z-10 w-full h-[40px] rounded-[20px] text-[13.5px] font-medium flex items-center justify-center gap-2 border border-border/80 text-muted-foreground bg-transparent hover:bg-muted/30 hover:text-foreground transition-all active:scale-[0.98] disabled:opacity-70 mt-1"
-        >
-          {isLoggingIn ? (
-            <motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="flex">
-              <LoaderIcon size={18} className="text-muted-foreground" />
-            </motion.span>
-          ) : (
-            <GoogleLogo />
-          )}
-          {isLoggingIn ? "Signing in..." : "Sign in with Google"}
-        </button>
+          <button
+            onClick={onSupportClick}
+            className="flex items-center justify-between w-full px-2.5 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted/40 rounded-xl transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-3">
+              <HelpCircle className="w-4 h-4 shrink-0 text-muted-foreground/80 group-hover:text-foreground transition-colors" />
+              <span>Help & Support</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0 group-hover:text-foreground/50 transition-colors" />
+          </button>
+
+          <button
+            onClick={() => {
+              onClose?.();
+              chrome.tabs.create({ url: chrome.runtime.getURL("privacy-policy.html") });
+            }}
+            className="flex items-center justify-between w-full px-2.5 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted/40 rounded-xl transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-3">
+              <FileText className="w-4 h-4 shrink-0 text-muted-foreground/80 group-hover:text-foreground transition-colors" />
+              <span>Privacy Policy</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0 group-hover:text-foreground/50 transition-colors" />
+          </button>
+        </div>
       </div>
     );
   }
 
-  // LOGGED IN VIEW
-  const firstName = getUserDisplayName(user).split(" ")[0];
-
-  const getGreetingMessage = () => {
-    if (isPremium && isQuotaExhausted) return "AI quota exceeded, renews next month";
-    if (isPremium) return "Thank you for supporting us! 💜";
-    return "Upgrade to unlock unlimited AI features";
-  };
+  // ─── LOGGED IN VIEW ───
+  const userAvatar = user.picture || null;
+  const displayName = user.displayName || user.email || "Creator";
+  const userEmail = user.email || "";
+  const firstName = displayName.split(" ")[0];
+  const tierName = credits?.tier || "Free";
 
   return (
-    <div className="pt-4 px-4 pb-4">
-      <div className="floating-robot-wrapper">
-        <div className="w-[84px] h-[84px] flex items-center justify-center relative" style={{ clipPath: "inset(-100% -100% 0 -100%)" }}>
-          {getUserAvatar(user) ? (
-            <img 
-              src={getUserAvatar(user)!} 
-              alt={firstName} 
-              className="w-[76px] h-[76px] object-cover rounded-full bg-transparent" 
-              style={{ transform: "translateY(4px)" }}
+    <div className="w-[275px] p-3 flex flex-col gap-3 bg-background text-foreground select-none">
+      {/* Premium user card header */}
+      <div className="flex items-center gap-3 p-3 rounded-2xl bg-zinc-100/80 dark:bg-zinc-800/60 w-full">
+        <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-border/50 bg-muted flex items-center justify-center">
+          {userAvatar ? (
+            <img src={userAvatar} alt={displayName} className="w-full h-full object-cover" />
+          ) : (
+            <UserIcon className="w-5 h-5 text-muted-foreground" />
+          )}
+        </div>
+        
+        <div className="flex flex-col flex-1 min-w-0 text-left">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[12px] font-bold text-foreground leading-tight capitalize truncate max-w-[110px]">
+              {firstName}
+            </span>
+            <span className="text-[8px] bg-muted/80 text-muted-foreground px-1.5 py-0.5 rounded border border-border/50 leading-none font-bold uppercase tracking-wider shrink-0 origin-left">
+              {tierName}
+            </span>
+          </div>
+          <span className="text-[10px] text-muted-foreground mt-0.5 leading-normal truncate w-full">
+            {userEmail}
+          </span>
+        </div>
+      </div>
+
+      {/* Upgrade Banner (Visible for Free Tier Users) */}
+      {!isPremium && (
+        <div className="px-1 flex justify-center">
+          <button
+            className="w-[92%] relative h-[56px] rounded-xl overflow-hidden group cursor-pointer border-none p-0 outline-none hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-md"
+            onClick={onUpgradeClick}
+          >
+            <img
+              src="/pro-banner.webp"
+              alt="Upgrade to Pro"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
             />
-          ) : (
-            <div 
-              className="w-[76px] h-[76px] bg-muted/80 backdrop-blur-md rounded-full flex items-center justify-center" 
-              style={{ transform: "translateY(4px)" }}
-            >
-              <span className="text-3xl font-bold text-muted-foreground">{firstName.charAt(0).toUpperCase()}</span>
-            </div>
-          )}
+          </button>
         </div>
+      )}
+
+      {/* Menu Actions */}
+      <div className="flex flex-col gap-0.5">
+        <button
+          onClick={handleWhatsNewClick}
+          className="flex items-center justify-between w-full px-2.5 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted/40 rounded-xl transition-all cursor-pointer group"
+        >
+          <div className="flex items-center gap-3">
+            <Bell className="w-4 h-4 shrink-0 text-muted-foreground/80 group-hover:text-foreground transition-colors" />
+            <span>What's new</span>
+          </div>
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0 group-hover:text-foreground/50 transition-colors" />
+        </button>
+
+        <button
+          onClick={onSupportClick}
+          className="flex items-center justify-between w-full px-2.5 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted/40 rounded-xl transition-all cursor-pointer group"
+        >
+          <div className="flex items-center gap-3">
+            <HelpCircle className="w-4 h-4 shrink-0 text-muted-foreground/80 group-hover:text-foreground transition-colors" />
+            <span>Help & Support</span>
+          </div>
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0 group-hover:text-foreground/50 transition-colors" />
+        </button>
+
+        <button
+          onClick={() => {
+            onClose?.();
+            chrome.tabs.create({ url: chrome.runtime.getURL("privacy-policy.html") });
+          }}
+          className="flex items-center justify-between w-full px-2.5 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted/40 rounded-xl transition-all cursor-pointer group"
+        >
+          <div className="flex items-center gap-3">
+            <FileText className="w-4 h-4 shrink-0 text-muted-foreground/80 group-hover:text-foreground transition-colors" />
+            <span>Privacy Policy</span>
+          </div>
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0 group-hover:text-foreground/50 transition-colors" />
+        </button>
       </div>
 
-      <div className="flex items-start justify-between pt-2 pb-3.5 px-2 relative z-10">
-        <div className="flex-1 min-w-0">
-          <div className="text-[18px] font-bold text-foreground tracking-tight leading-snug">
-            Hello, {firstName} 👋
-          </div>
-          <div className="text-[12.5px] text-muted-foreground mt-1 leading-snug">
-            {getGreetingMessage()}
-          </div>
-        </div>
-
-        <div className="shrink-0 ml-3 mt-0.5">
-          {isPremium ? (
-            <div className="flex items-center justify-center" style={{ width: "64px", height: "64px", marginTop: "-16px", marginRight: "-8px" }}>
-              <DotLottieReact src={chrome.runtime.getURL("crown.json")} autoplay loop backgroundColor="transparent" style={{ width: "100%", height: "100%" }} />
-            </div>
-          ) : (
-            <button
-              onClick={() => {
-                const url = `${CHECKOUT_BASE}?checkout[email]=${encodeURIComponent(user.email || "")}&checkout[custom][user_id]=${user.id}`;
-                chrome.tabs.create({ url });
-              }}
-              className="p-0 border-none bg-transparent hover:scale-105 transition-all active:scale-95"
-              style={{ width: "100px", height: "32px", marginTop: "-4px" }}
-            >
-              <DotLottieReact src={chrome.runtime.getURL("go-premium.json")} autoplay loop backgroundColor="transparent" style={{ width: "100%", height: "100%", pointerEvents: "none" }} />
-            </button>
-          )}
-        </div>
+      <div className="flex flex-col gap-2">
+        <button
+          onClick={onSignOut}
+          className="w-full h-9 flex items-center justify-center gap-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border border-border/60 bg-transparent text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 active:scale-[0.98]"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          Sign out
+        </button>
       </div>
-
-      <FeatureList isPro={isPremium} quotaExhausted={isQuotaExhausted} />
-
-      <button
-        onClick={onSignOut}
-        className="relative z-10 w-full h-10 flex items-center justify-center gap-2 rounded-full text-[13px] font-semibold transition-all"
-        style={{
-          background: logoutHovered ? "hsl(var(--destructive) / var(--icon-border))" : "transparent",
-          color: logoutHovered ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))",
-          border: logoutHovered ? "1px solid hsl(var(--destructive) / 0.2)" : "1px solid hsl(var(--border))",
-        }}
-        onMouseOver={() => setLogoutHovered(true)}
-        onMouseOut={() => setLogoutHovered(false)}
-        onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.98)"}
-        onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
-      >
-        <AnimatedIcon animation="none">
-          <LogoutIcon className="w-4 h-4" />
-        </AnimatedIcon>
-        Sign out
-      </button>
     </div>
   );
 }

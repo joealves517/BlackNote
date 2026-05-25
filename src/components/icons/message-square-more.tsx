@@ -14,6 +14,8 @@ export interface MessageSquareMoreIconHandle {
 
 interface MessageSquareMoreIconProps extends HTMLAttributes<HTMLDivElement> {
   size?: number;
+  loop?: boolean;
+  animateOnMount?: boolean;
 }
 
 const DOT_VARIANTS: Variants = {
@@ -38,12 +40,32 @@ const DOT_VARIANTS: Variants = {
       },
     },
   }),
+  animateLoop: (custom: number) => ({
+    opacity: [1, 0, 0, 1, 1, 0, 0, 1],
+    transition: {
+      opacity: {
+        times: [
+          0,
+          0.1,
+          0.1 + custom * 0.1,
+          0.1 + custom * 0.1 + 0.1,
+          0.5,
+          0.6,
+          0.6 + custom * 0.1,
+          0.6 + custom * 0.1 + 0.1,
+        ],
+        duration: 1.5,
+        repeat: Infinity,
+        repeatDelay: 0.5,
+      },
+    },
+  }),
 };
 
 const MessageSquareMoreIcon = forwardRef<
   MessageSquareMoreIconHandle,
   MessageSquareMoreIconProps
->(({ onMouseEnter, onMouseLeave, className, size = 28, ...props }, ref) => {
+>(({ onMouseEnter, onMouseLeave, className, size = 28, loop = false, animateOnMount = false, ...props }, ref) => {
   const controls = useAnimation();
   const isControlledRef = useRef(false);
 
@@ -51,36 +73,47 @@ const MessageSquareMoreIcon = forwardRef<
     isControlledRef.current = true;
 
     return {
-      startAnimation: () => controls.start("animate"),
+      startAnimation: () => controls.start(loop ? "animateLoop" : "animate"),
       stopAnimation: () => controls.start("normal"),
     };
   });
 
   const handleMouseEnter = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      if (loop || animateOnMount) return;
       if (isControlledRef.current) {
         onMouseEnter?.(e);
       } else {
         controls.start("animate");
       }
     },
-    [controls, onMouseEnter]
+    [controls, onMouseEnter, loop, animateOnMount]
   );
 
   const handleMouseLeave = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      if (loop || animateOnMount) return;
       if (isControlledRef.current) {
         onMouseLeave?.(e);
       } else {
         controls.start("normal");
       }
     },
-    [controls, onMouseLeave]
+    [controls, onMouseLeave, loop, animateOnMount]
   );
+
+  React.useEffect(() => {
+    if (loop) {
+      controls.start("animateLoop");
+    } else if (animateOnMount) {
+      controls.start("animate");
+    }
+  }, [loop, animateOnMount, controls]);
 
   // Auto-animate on hover for any parent with a button class
   const wrapperRef = useRef<HTMLDivElement>(null);
   React.useEffect(() => {
+    if (loop || animateOnMount) return;
     const el = wrapperRef.current;
     if (!el || isControlledRef.current) return;
 
@@ -95,7 +128,7 @@ const MessageSquareMoreIcon = forwardRef<
       target.removeEventListener("pointerenter", onEnter);
       target.removeEventListener("pointerleave", onLeave);
     };
-  }, [controls]);
+  }, [controls, loop]);
 
   return (
     <div
