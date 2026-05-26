@@ -5,12 +5,13 @@ import { ClipboardCheckIcon } from "@/components/icons/clipboard-check";
 import { FileTextIcon } from "@/components/icons/file-text";
 import { SparklesIcon } from "@/components/icons/sparkles";
 import { BrainIcon } from "@/components/icons/brain";
-import { CropIcon } from "lucide-react";
+import { CropIcon, Download } from "lucide-react";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { openSparkAIWithPageContent, openUrlViaBackground, ECOSYSTEM } from "@/lib/ecosystem";
 import sparkAIIcon from "@/assets/spark-ai-icon.png";
 import { useState, useEffect } from "react";
 import { useWebClipper } from "@/hooks/use-web-clipper";
+import { useHTMLClipper } from "@/hooks/use-html-clipper";
 import { prepareForAI } from "@/lib/page-reader";
 import { getAuthToken } from "@/lib/auth-client";
 import { AI_API_BASE } from "@/lib/constants";
@@ -18,6 +19,7 @@ import { showAILoaderToast, updateAISuccessToast, updateAIErrorToast } from "@/l
 
 interface WebClipperProps {
   onSaveAsNote: (title: string, markdown: string) => void;
+  onSaveWebClip?: (title: string, url: string, clipId: string, noteId: string) => void;
   onClose: () => void;
 }
 
@@ -77,8 +79,28 @@ async function streamAI(
   }
 }
 
-export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
+export function WebClipper({ onSaveAsNote, onSaveWebClip, onClose }: WebClipperProps) {
   const { clip, status, content, error, reset } = useWebClipper();
+  const { clipHTML, status: htmlStatus } = useHTMLClipper();
+
+  const handleSaveHTMLOffline = async () => {
+    if (!content || !onSaveWebClip) return;
+
+    const toastId = `html-clip-toast-${Date.now()}`;
+    handleClose(); // Close clipper immediately
+
+    showAILoaderToast(toastId, "HTML Web Clip", "Saving full page offline...");
+
+    const noteId = crypto.randomUUID();
+    const clipId = await clipHTML(noteId);
+
+    if (clipId) {
+      onSaveWebClip(content.title, content.url, clipId, noteId);
+      updateAISuccessToast(toastId, "HTML Web Clip", "Page saved offline successfully!");
+    } else {
+      updateAIErrorToast(toastId, "HTML Web Clip", "Failed to save page offline.");
+    }
+  };
 
   // Auto-clip on mount
   if (status === "idle") {
@@ -214,6 +236,32 @@ export function WebClipper({ onSaveAsNote, onClose }: WebClipperProps) {
 
           <div className="ai-cmd-groups">
             <div className="ai-cmd-group">
+              {onSaveWebClip && (
+                <button
+                  className="novel-slash-item w-full text-left"
+                  onClick={handleSaveHTMLOffline}
+                  disabled={htmlStatus === "clipping"}
+                >
+                  <div className="novel-slash-icon" style={{
+                    background: "linear-gradient(135deg, rgba(16, 185, 129, var(--icon-bg-start)) 0%, rgba(16, 185, 129, var(--icon-bg-end)) 100%)",
+                    border: "1px solid rgba(16, 185, 129, var(--icon-border))",
+                    color: "rgba(16, 185, 129, 1)",
+                  }}>
+                    <AnimatedIcon animation="hover">
+                      <Download className="w-4 h-4" />
+                    </AnimatedIcon>
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-medium">
+                      {htmlStatus === "clipping" ? "Saving Offline..." : "Save HTML Offline"}
+                    </p>
+                    <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                      Preserve full page layout and images offline
+                    </p>
+                  </div>
+                </button>
+              )}
+
               <button
                 className="novel-slash-item w-full text-left"
                 onClick={() => handleAction("clean_page")}

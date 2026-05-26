@@ -5,7 +5,7 @@
  * Strategy: last-write-wins by updatedAt timestamp.
  */
 
-import { db, type LocalNote } from "@/lib/local-db";
+import { db, type LocalNote, type WebClip } from "@/lib/local-db";
 import { getAuthToken, getCurrentUser } from "@/lib/auth-client";
 import { AI_API_BASE } from "@/lib/constants";
 
@@ -101,6 +101,9 @@ export async function fullSync(
     });
 
   try {
+    report({ message: "Uploading pending web clips..." });
+    await uploadPendingWebClips(userId);
+
     report({ message: "Fetching cloud data..." });
 
     // Step 1: Fetch remote notes via Backend
@@ -254,6 +257,9 @@ export async function fullSync(
       }
     }
 
+    report({ message: "Downloading missing web clips..." });
+    await downloadMissingWebClips();
+
     onProgress?.({
       status: "done",
       current: totalOps,
@@ -310,5 +316,161 @@ export async function deleteRemoteNote(noteId: string): Promise<void> {
     if (!res.ok) console.error("Delete remote note error:", res.status);
   } catch (err) {
     console.error("Delete remote note failed:", err);
+  }
+}
+
+/**
+ * Upload pending local Web Clips to AWS S3 and update note content with s3Urls.
+ */
+export async function uploadPendingWebClips(userEmail: string): Promise<void> {
+  try {
+    // Find all web clips that don't have an s3Url yet
+    const pendingClips = await db.web_clips.filter(clip => !clip.s3Url).toArray();
+    if (pendingClips.length === 0) return;
+
+    console.log(`[Sync] Found ${pendingClips.length} pending web clips to upload.`);
+
+    for (const clip of pendingClips) {
+      try {
+        console.log(`[Sync] Requesting presigned URL for webclip: ${clip.id}`);
+        const headers = await authHeaders();
+        const presignRes = await fetch(`${AI_API_BASE}/api/upload/presign`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            fileName: `webclip-${clip.id}.html`,
+            contentType: "text/html",
+          }),
+        });
+
+        if (!presignRes.ok) {
+          throw new Error(`Presign failed: ${presignRes.status}`);
+        }
+
+        const { uploadUrl, publicUrl } = await presignRes.json() as { uploadUrl: string; publicUrl: string };
+
+        console.log(`[Sync] Uploading webclip ${clip.id} to S3...`);
+        const uploadRes = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "text/html",
+          },
+          body: clip.htmlBlob,
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error(`S3 upload failed: ${uploadRes.status}`);
+        }
+
+        console.log(`[Sync] Upload successful. Public URL: ${publicUrl}`);
+
+        // Update local web clip record
+        await db.web_clips.update(clip.id, {
+          s3Url: publicUrl,
+          syncedAt: Date.now(),
+        });
+
+        // Find and update the corresponding note
+        const note = await db.notes.get(clip.noteId);
+        if (note && note.content) {
+          const doc = JSON.parse(note.content);
+          
+          // Recursively search and inject s3Url in doc
+          let updated = false;
+          const traverse = (node: any) => {
+            if (node.type === "webClipNode" && node.attrs && node.attrs.clipId === clip.id) {
+              node.attrs.s3Url = publicUrl;
+              updated = true;
+            }
+            if (node.content && Array.isArray(node.content)) {
+              for (const child of node.content) {
+                traverse(child);
+              }
+            }
+          };
+          traverse(doc);
+
+          if (updated) {
+            console.log(`[Sync] Updated note ${note.id} content with s3Url for webclip.`);
+            await db.notes.update(note.id, {
+              content: JSON.stringify(doc),
+              updatedAt: Date.now(), // Force note update
+              syncedAt: null, // Force push in next cycle
+            });
+          }
+        }
+      } catch (err) {
+        console.error(`[Sync] Failed to sync webclip ${clip.id}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error("[Sync] Error in uploadPendingWebClips:", err);
+  }
+}
+
+/**
+ * Scan local notes for webClipNodes with s3Urls and download missing HTML snapshots.
+ */
+export async function downloadMissingWebClips(): Promise<void> {
+  try {
+    const localNotes = await db.notes.toArray();
+    for (const note of localNotes) {
+      if (!note.content) continue;
+      try {
+        const doc = JSON.parse(note.content);
+        
+        // Find all webClipNodes with s3Url in the doc
+        const clipsInNote: Array<{ clipId: string; title: string; url: string; s3Url: string; createdAt: number }> = [];
+        const traverse = (node: any) => {
+          if (node.type === "webClipNode" && node.attrs && node.attrs.clipId && node.attrs.s3Url) {
+            clipsInNote.push({
+              clipId: node.attrs.clipId,
+              title: node.attrs.title || "",
+              url: node.attrs.url || "",
+              s3Url: node.attrs.s3Url,
+              createdAt: node.attrs.createdAt || Date.now(),
+            });
+          }
+          if (node.content && Array.isArray(node.content)) {
+            for (const child of node.content) {
+              traverse(child);
+            }
+          }
+        };
+        traverse(doc);
+
+        for (const c of clipsInNote) {
+          const existing = await db.web_clips.get(c.clipId);
+          if (!existing) {
+            try {
+              console.log(`[Sync] Downloading missing webclip ${c.clipId} from S3...`);
+              const res = await fetch(c.s3Url);
+              if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+
+              const htmlText = await res.text();
+              const htmlBlob = new Blob([htmlText], { type: "text/html" });
+
+              await db.web_clips.add({
+                id: c.clipId,
+                noteId: note.id,
+                title: c.title,
+                url: c.url,
+                htmlBlob,
+                createdAt: c.createdAt,
+                s3Url: c.s3Url,
+                syncedAt: Date.now(),
+              });
+              console.log(`[Sync] Downloaded and saved webclip ${c.clipId} to IndexedDB.`);
+            } catch (downloadErr) {
+              console.error(`[Sync] Failed to download webclip ${c.clipId}:`, downloadErr);
+            }
+          }
+        }
+      } catch (err) {
+        // Ignore JSON parsing errors for simple notes
+      }
+    }
+  } catch (err) {
+    console.error("[Sync] Error in downloadMissingWebClips:", err);
   }
 }

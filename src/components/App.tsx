@@ -47,6 +47,7 @@ import { AccountPopup } from "@/components/AccountPopup";
 import * as Popover from "@radix-ui/react-popover";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import { MediaActionSheet } from "@/components/MediaActionSheet";
+import { WebClipActionSheet } from "@/components/WebClipActionSheet";
 import { AIMediaResultSheet } from "@/components/AIMediaResultSheet";
 import { SupportActionSheet } from "@/components/SupportActionSheet";
 import { WebClipper } from "@/components/WebClipper";
@@ -111,6 +112,8 @@ export function App() {
     mediaId: string;
   } | null>(null);
 
+  const [activeWebClipId, setActiveWebClipId] = useState<string | null>(null);
+
   useEffect(() => {
     const handleShowResult = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -138,6 +141,113 @@ export function App() {
       if (msg.type === "REGION_CAPTURED" && msg.dataUrl) {
         setCapturedImage(msg.dataUrl);
       }
+      if (msg.type === "SINGLEFILE_DOWNLOADED_PAGE" && msg.payload) {
+        const { filename, blobURL } = msg.payload;
+        (async () => {
+          try {
+            const res = await fetch(blobURL);
+            const htmlBlob = await res.blob();
+            
+            const clipId = crypto.randomUUID();
+            const noteId = crypto.randomUUID();
+            
+            const win = await browser.windows.getLastFocused({ windowTypes: ["normal"] });
+            const [tab] = win?.id ? await browser.tabs.query({ active: true, windowId: win.id }) : [];
+            const url = tab?.url || "https://github.com/gildas-lormeau/SingleFile";
+            const title = filename ? filename.replace(/\.html$/, "") : (tab?.title || "Web Clip");
+            
+            await db.web_clips.add({
+              id: clipId,
+              noteId,
+              title,
+              url,
+              htmlBlob,
+              createdAt: Date.now()
+            });
+            
+            const now = Date.now();
+            const doc = {
+              type: "doc",
+              content: [
+                {
+                  type: "webClipNode",
+                  attrs: {
+                    clipId,
+                    title,
+                    url,
+                    createdAt: now,
+                  },
+                },
+                {
+                  type: "paragraph",
+                  content: [
+                    { type: "text", text: "Source: " },
+                    {
+                      type: "text",
+                      marks: [{ type: "link", attrs: { href: url, target: "_blank" } }],
+                      text: url,
+                    },
+                  ],
+                },
+              ],
+            };
+            createNoteWithCustomDoc(title, doc);
+            goeyToast.success("HTML Web Clip saved successfully!");
+          } catch (err) {
+            console.error("Failed to save SingleFile background capture:", err);
+          }
+        })();
+      }
+      if (msg.type === "SINGLEFILE_CAPTURED_CONTENT" && msg.payload) {
+        const { title, url, content } = msg.payload;
+        (async () => {
+          try {
+            const htmlBlob = new Blob([content], { type: "text/html" });
+            const clipId = crypto.randomUUID();
+            const noteId = crypto.randomUUID();
+            
+            await db.web_clips.add({
+              id: clipId,
+              noteId,
+              title,
+              url,
+              htmlBlob,
+              createdAt: Date.now()
+            });
+            
+            const now = Date.now();
+            const doc = {
+              type: "doc",
+              content: [
+                {
+                  type: "webClipNode",
+                  attrs: {
+                    clipId,
+                    title,
+                    url,
+                    createdAt: now,
+                  },
+                },
+                {
+                  type: "paragraph",
+                  content: [
+                    { type: "text", text: "Source: " },
+                    {
+                      type: "text",
+                      marks: [{ type: "link", attrs: { href: url, target: "_blank" } }],
+                      text: url,
+                    },
+                  ],
+                },
+              ],
+            };
+            createNoteWithCustomDoc(title, doc);
+            goeyToast.success("HTML Web Clip saved successfully!");
+          } catch (err) {
+            console.error("Failed to save SingleFile captured content:", err);
+          }
+        })();
+      }
     };
     browser.runtime.onMessage.addListener(handleMessage);
     return () => {
@@ -157,6 +267,7 @@ export function App() {
     updateNote,
     deleteNote,
     createNoteWithContent,
+    createNoteWithCustomDoc,
   } = useNotes(user?.id);
 
 
@@ -899,6 +1010,17 @@ export function App() {
   }, [user]);
 
   useEffect(() => {
+    const handleOpenWebClipSheet = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.clipId) {
+        setActiveWebClipId(detail.clipId);
+      }
+    };
+    window.addEventListener("open-web-clip-sheet", handleOpenWebClipSheet);
+    return () => window.removeEventListener("open-web-clip-sheet", handleOpenWebClipSheet);
+  }, []);
+
+  useEffect(() => {
     const handleSTTState = (e: any) => setIsSTTActive(e.detail);
     window.addEventListener("stt-state-changed", handleSTTState);
     return () => window.removeEventListener("stt-state-changed", handleSTTState);
@@ -1397,6 +1519,80 @@ export function App() {
     return () => chrome.storage.local.onChanged.removeListener(handleStorageChange);
   }, [createNoteWithContent]);
 
+  // Listen for SingleFile web clip captures from background script
+  useEffect(() => {
+    const processPendingClip = async (data: { title: string; url: string; content: string }) => {
+      try {
+        const htmlBlob = new Blob([data.content], { type: "text/html" });
+        const clipId = crypto.randomUUID();
+
+        await db.web_clips.add({
+          id: clipId,
+          noteId: clipId,
+          title: data.title,
+          url: data.url,
+          htmlBlob,
+          createdAt: Date.now(),
+        });
+
+        const now = Date.now();
+        const doc = {
+          type: "doc",
+          content: [
+            {
+              type: "webClipNode",
+              attrs: { clipId, title: data.title, url: data.url, createdAt: now },
+            },
+            {
+              type: "paragraph",
+              content: [
+                { type: "text", text: "Source: " },
+                {
+                  type: "text",
+                  marks: [{ type: "link", attrs: { href: data.url, target: "_blank" } }],
+                  text: data.url,
+                },
+              ],
+            },
+          ],
+        };
+        const actualNoteId = await createNoteWithCustomDoc(data.title, doc);
+        await db.web_clips.update(clipId, { noteId: actualNoteId });
+        goeyToast.success("Web page clipped successfully!");
+        chrome.storage.local.remove("singlefile_pending_clip");
+      } catch (err) {
+        console.error("Failed to save SingleFile clip:", err);
+      }
+    };
+
+    const handleClipChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      // Handle single clip
+      if (changes.singlefile_pending_clip?.newValue) {
+        processPendingClip(changes.singlefile_pending_clip.newValue);
+      }
+      // Handle batch clips (from "Save all tabs")
+      for (const key of Object.keys(changes)) {
+        if (key.startsWith('singlefile_pending_clip_') && changes[key].newValue) {
+          processPendingClip(changes[key].newValue);
+          chrome.storage.local.remove(key);
+        }
+      }
+    };
+    chrome.storage.local.onChanged.addListener(handleClipChange);
+
+    // Check on mount for any pending clips
+    chrome.storage.local.get(null).then((result) => {
+      for (const key of Object.keys(result)) {
+        if (key === 'singlefile_pending_clip' || key.startsWith('singlefile_pending_clip_')) {
+          processPendingClip(result[key]);
+          chrome.storage.local.remove(key);
+        }
+      }
+    });
+
+    return () => chrome.storage.local.onChanged.removeListener(handleClipChange);
+  }, [createNoteWithCustomDoc]);
+
   // Clean up empty notes when switching away
   const cleanupEmptyNotes = useCallback(() => {
     notes.forEach((note) => {
@@ -1478,6 +1674,40 @@ export function App() {
       setActivePanel(null); setShowClipper(false);
     },
     [createNoteWithContent]
+  );
+
+  const handleSaveWebClip = useCallback(
+    (title: string, url: string, clipId: string, noteId: string) => {
+      const now = Date.now();
+      const doc = {
+        type: "doc",
+        content: [
+          {
+            type: "webClipNode",
+            attrs: {
+              clipId,
+              title,
+              url,
+              createdAt: now,
+            },
+          },
+          {
+            type: "paragraph",
+            content: [
+              { type: "text", text: "Source: " },
+              {
+                type: "text",
+                marks: [{ type: "link", attrs: { href: url, target: "_blank" } }],
+                text: url,
+              },
+            ],
+          },
+        ],
+      };
+      createNoteWithCustomDoc(title, doc);
+      setActivePanel(null); setShowClipper(false);
+    },
+    [createNoteWithCustomDoc]
   );
 
   const handleSelectNote = (id: string) => {
@@ -1626,6 +1856,7 @@ export function App() {
               <div className="clipper-sheet-content">
                 <WebClipper
                   onSaveAsNote={handleClipSaveAsNote}
+                  onSaveWebClip={handleSaveWebClip}
                   onClose={() => { setActivePanel(null); setShowClipper(false); }}
                 />
               </div>
@@ -1745,6 +1976,15 @@ export function App() {
               );
               setMediaResultConfig(null);
             }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {activeWebClipId && (
+          <WebClipActionSheet
+            clipId={activeWebClipId}
+            onClose={() => setActiveWebClipId(null)}
           />
         )}
       </AnimatePresence>

@@ -39,7 +39,7 @@ function localToNote(row: LocalNote): Note {
 
 
 export function useNotes() {
-  const [notes, setNotes] = useState<LocalNote[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -389,6 +389,32 @@ export function useNotes() {
     [userId]
   );
 
+  const createNoteWithCustomDoc = useCallback(
+    async (title: string, doc: object) => {
+      const now = Date.now();
+      const newNote: LocalNote = {
+        id: crypto.randomUUID(),
+        title,
+        content: JSON.stringify(doc),
+        createdAt: now,
+        updatedAt: now,
+        syncedAt: null,
+      };
+
+      await db.notes.add(newNote);
+      const mapped = localToNote(newNote);
+      setNotes((prev) => [mapped, ...prev].sort(sortNotes));
+      setActiveNoteId(mapped.id);
+
+      if (userId) {
+        pushNote(newNote, userId);
+      }
+
+      return mapped.id;
+    },
+    [userId]
+  );
+
   const updateNote = useCallback(
     (id: string, updates: Partial<Pick<Note, "title" | "content" | "chatHistory" | "mediaTranscripts" | "isPinned" | "color" | "tags">>) => {
       const now = Date.now();
@@ -539,6 +565,7 @@ export function useNotes() {
     setSearchQuery,
     createNote,
     createNoteWithContent,
+    createNoteWithCustomDoc,
     updateNote,
     deleteNote,
   };

@@ -1,5 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
+import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewProps } from "@tiptap/react";
 import { useEffect, useRef, useState } from "react";
 import { db } from "@/lib/local-db";
 import { hasTranscript as hasTranscriptCheck } from "@/lib/media-ai-service";
@@ -8,21 +8,13 @@ import fixWebmDurationMod from "webm-duration-fix";
 
 // ─── React Component ──────────────────────────────────────────────
 
-interface VideoNodeViewProps {
-  node: {
-    attrs: {
-      mediaId: string;
-      status: "recording" | "saved";
-      duration: number;
-      fileName: string;
-    };
+function VideoNodeView({ node, deleteNode }: NodeViewProps) {
+  const { mediaId, status, duration, fileName } = node.attrs as {
+    mediaId: string;
+    status: "recording" | "saved";
+    duration: number;
+    fileName: string;
   };
-  updateAttributes: (attrs: Record<string, unknown>) => void;
-  deleteNode: () => void;
-}
-
-function VideoNodeView({ node, deleteNode }: VideoNodeViewProps) {
-  const { mediaId, status, duration, fileName } = node.attrs;
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [hasTranscript, setHasTranscript] = useState(false);

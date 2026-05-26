@@ -50,12 +50,24 @@ export interface MediaTempChunk {
   blob: Blob;
 }
 
+export interface WebClip {
+  id: string;
+  noteId: string;
+  title: string;
+  url: string;
+  htmlBlob: Blob;
+  createdAt: number; // timestamp ms
+  s3Url?: string;
+  syncedAt?: number;
+}
+
 const db = new Dexie("blacknote") as Dexie & {
   notes: EntityTable<LocalNote, "id">;
   media_files: EntityTable<MediaFile, "id">;
   media_transcripts: EntityTable<MediaTranscript, "mediaId">;
   media_chunks: EntityTable<MediaChunk, "id">;
   media_temp_chunks: EntityTable<MediaTempChunk, "id">;
+  web_clips: EntityTable<WebClip, "id">;
 };
 
 db.version(1).stores({
@@ -86,6 +98,24 @@ db.version(5).stores({
   media_transcripts: "mediaId",
   media_chunks: "id, mediaId, chunkIndex, status",
   media_temp_chunks: "id, mediaId, chunkIndex",
+});
+
+db.version(6).stores({
+  notes: "id, updatedAt",
+  media_files: "id, noteId, type, createdAt",
+  media_transcripts: "mediaId",
+  media_chunks: "id, mediaId, chunkIndex, status",
+  media_temp_chunks: "id, mediaId, chunkIndex",
+  web_clips: "id, noteId, createdAt",
+});
+
+db.version(7).stores({
+  notes: "id, updatedAt",
+  media_files: "id, noteId, type, createdAt",
+  media_transcripts: "mediaId",
+  media_chunks: "id, mediaId, chunkIndex, status",
+  media_temp_chunks: "id, mediaId, chunkIndex",
+  web_clips: "id, noteId, createdAt, s3Url",
 });
 
 export { db };

@@ -7,6 +7,7 @@ import { MessageSquareIcon } from "@/components/icons/message-square";
 import { FrameIcon } from "@/components/icons/frame";
 import { AudioNode } from "@/extensions/AudioNode";
 import { VideoNode } from "@/extensions/VideoNode";
+import { WebClipNode } from "@/extensions/WebClipNode";
 import { AudioLinesIcon } from "@/components/icons/audio-lines";
 import { MicIcon } from "@/components/icons/mic";
 import { VideoIcon } from "@/components/icons/video";
@@ -583,6 +584,7 @@ const extensions = [
   }),
   AudioNode,
   VideoNode,
+  WebClipNode,
   HashtagExtension,
 ];
 

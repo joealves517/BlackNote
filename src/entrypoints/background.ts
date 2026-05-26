@@ -1,47 +1,294 @@
+
+
+export default defineBackground({
+  main: () => {
+    // ── Context Menus (only create once on install/update) ──
+    chrome.runtime.onInstalled.addListener(() => {
+      chrome.contextMenus.removeAll(() => {
+        chrome.contextMenus.create({
+          id: 'blacknote-clip-web',
+          title: 'BlackNote - Clip Web',
+          contexts: ['page', 'selection'],
+        });
+
+        chrome.contextMenus.create({
+          id: 'blacknote-save-full-page',
+          parentId: 'blacknote-clip-web',
+          title: 'Save full page',
+          contexts: ['page', 'selection'],
+        });
+
+        chrome.contextMenus.create({
+          id: 'blacknote-save-selection',
+          parentId: 'blacknote-clip-web',
+          title: 'Save selection',
+          contexts: ['selection'],
+        });
+
+        chrome.contextMenus.create({
+          id: 'blacknote-save-all-tabs',
+          parentId: 'blacknote-clip-web',
+          title: 'Save all tabs',
+          contexts: ['page', 'selection'],
+        });
+      });
+    });
+
+    // ── Helpers ──
+    async function capturePage(tabId: number): Promise<{ content: string; title: string }> {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ['lib/single-file.js'],
+      });
+
+      const results = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: async () => {
+          const sf = (globalThis as any).singlefile;
+          if (!sf) throw new Error('SingleFile library not loaded');
+          const pageData = await sf.getPageData({
+            removeHiddenElements: true,
+            removeUnusedStyles: true,
+            removeUnusedFonts: true,
+            removeFrames: false,
+            compressHTML: true,
+            blockScripts: true,
+            blockVideos: false,
+            blockAudios: false,
+            removeAlternativeFonts: true,
+            removeAlternativeMedias: true,
+            removeAlternativeImages: true,
+            groupDuplicateImages: true,
+          });
+          return { content: pageData.content, title: pageData.title };
+        },
+      });
+
+      const data = results?.[0]?.result;
+      if (!data?.content) throw new Error('No content captured');
+      return data;
+    }
+
+    function saveCapturedClip(title: string, url: string, content: string) {
+      chrome.storage.local.set({
+        singlefile_pending_clip: { title, url, content, timestamp: Date.now() },
+      });
+    }
+
+    /** Inject a goey-toast-style notification into the webpage via Shadow DOM */
+    function showPageToast(tabId: number, message: string, isError = false) {
+      chrome.scripting.executeScript({
+        target: { tabId },
+        func: (msg: string, err: boolean) => {
+          // Remove existing toast
+          const existing = document.getElementById('__blacknote_toast_host__');
+          if (existing) existing.remove();
+
+          // Create host + shadow DOM to isolate styles
+          const host = document.createElement('div');
+          host.id = '__blacknote_toast_host__';
+          Object.assign(host.style, {
+            position: 'fixed', bottom: '20px', right: '20px',
+            zIndex: '2147483647', pointerEvents: 'none',
+          });
+
+          const shadow = host.attachShadow({ mode: 'closed' });
+
+          const icon = err
+            ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#ef4444" stroke-width="1.5"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/></svg>`
+            : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#22c55e" stroke-width="1.5"/><path d="M5 8.5l2 2 4-4.5" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+          shadow.innerHTML = `
+            <style>
+              @keyframes slideIn {
+                from { opacity: 0; transform: translateY(12px) scale(0.96); }
+                to { opacity: 1; transform: translateY(0) scale(1); }
+              }
+              @keyframes slideOut {
+                from { opacity: 1; transform: translateY(0) scale(1); }
+                to { opacity: 0; transform: translateY(-8px) scale(0.96); }
+              }
+              .toast {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 10px 16px;
+                border-radius: 12px;
+                background: #1c1c1e;
+                color: #f5f5f7;
+                font: 500 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                box-shadow:
+                  0 4px 12px rgba(0,0,0,0.15),
+                  0 1px 4px rgba(0,0,0,0.08),
+                  inset 0 0.5px 0 rgba(255,255,255,0.06);
+                animation: slideIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                pointer-events: auto;
+                white-space: nowrap;
+              }
+              .toast.out {
+                animation: slideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+              }
+              .icon { display: flex; align-items: center; flex-shrink: 0; }
+              .label { font-weight: 600; color: ${err ? '#ef4444' : '#22c55e'}; }
+              .msg { color: #e5e5ea; }
+            </style>
+            <div class="toast">
+              <span class="icon">${icon}</span>
+              <span class="label">${err ? 'Error' : 'BlackNote'}</span>
+              <span class="msg">${msg}</span>
+            </div>
+          `;
+
+          document.body.appendChild(host);
+
+          setTimeout(() => {
+            const toastEl = shadow.querySelector('.toast');
+            if (toastEl) toastEl.classList.add('out');
+            setTimeout(() => host.remove(), 300);
+          }, 3500);
+        },
+        args: [message, isError],
+      }).catch(() => {});
+    }
+
+    // ── Menu Click Handler ──
+    chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+      if (!tab?.id) return;
+
+      // ── Save full page ──
+      if (info.menuItemId === 'blacknote-save-full-page') {
+        showPageToast(tab.id, 'Capturing page...');
+        try {
+          const pageData = await capturePage(tab.id);
+          saveCapturedClip(pageData.title || tab.title || 'Web Clip', tab.url || '', pageData.content);
+          showPageToast(tab.id, `Saved to BlackNote: ${pageData.title || tab.title}`);
+        } catch (err) {
+          console.error('[BlackNote] Full page capture failed:', err);
+          showPageToast(tab.id, 'Failed to capture page', true);
+        }
+        return;
+      }
+
+      // ── Save selection ──
+      if (info.menuItemId === 'blacknote-save-selection') {
+        try {
+          const results = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => {
+              const selection = window.getSelection();
+              if (!selection || selection.rangeCount === 0) return null;
+
+              const range = selection.getRangeAt(0);
+              const fragment = range.cloneContents();
+              const wrapper = document.createElement('div');
+              wrapper.appendChild(fragment);
+
+              const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+                .map(el => el.outerHTML).join('\n');
+
+              const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${document.title} (selection)</title>
+${styles}</head><body>${wrapper.innerHTML}</body></html>`;
+
+              return { html, title: document.title };
+            },
+          });
+
+          const selData = results?.[0]?.result;
+          if (!selData?.html) throw new Error('No selection captured');
+
+          saveCapturedClip(`${selData.title || tab.title || 'Selection'} (selection)`, tab.url || '', selData.html);
+          showPageToast(tab.id, 'Selection saved to BlackNote');
+        } catch (err) {
+          console.error('[BlackNote] Selection capture failed:', err);
+          showPageToast(tab.id, 'Failed to capture selection', true);
+        }
+        return;
+      }
+
+      // ── Save all tabs ──
+      if (info.menuItemId === 'blacknote-save-all-tabs') {
+        showPageToast(tab.id, 'Saving all tabs...');
+        try {
+          const currentWindow = await chrome.windows.getCurrent();
+          const tabs = await chrome.tabs.query({
+            windowId: currentWindow.id,
+            url: ['http://*/*', 'https://*/*'],
+          });
+
+          const validTabs = tabs.filter(t => t.id && t.url);
+          let savedCount = 0;
+
+          for (const t of validTabs) {
+            try {
+              const pageData = await capturePage(t.id!);
+              chrome.storage.local.set({
+                [`singlefile_pending_clip_${t.id}`]: {
+                  title: pageData.title || t.title || 'Web Clip',
+                  url: t.url || '',
+                  content: pageData.content,
+                  timestamp: Date.now(),
+                },
+              });
+              savedCount++;
+            } catch {
+              // Skip tabs that can't be captured
+            }
+          }
+
+          showPageToast(tab.id, `Saved ${savedCount}/${validTabs.length} tabs to BlackNote`);
+        } catch (err) {
+          console.error('[BlackNote] Save all tabs failed:', err);
+          showPageToast(tab.id, 'Failed to save tabs', true);
+        }
+        return;
+      }
+    });
+
 let offscreenReadyResolver: (() => void) | null = null;
 let offscreenReadyPromise: Promise<void> | null = null;
 
 let popoutWindowId: number | null = null;
 
 // Track when the pop-out window is closed natively (e.g. by clicking X)
-browser.windows.onRemoved.addListener((windowId) => {
+chrome.windows.onRemoved.addListener((windowId) => {
   if (windowId === popoutWindowId) {
     popoutWindowId = null;
     
     // Clear the active flag
-    browser.storage.local.set({ blacknote_popout_active: false });
+    chrome.storage.local.set({ blacknote_popout_active: false });
 
     // Re-enable side panel opening on extension icon click
-    browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
+    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
   }
 });
 
-export default defineBackground(() => {
+
   // Open side panel when extension icon is clicked (default behavior)
-  browser.sidePanel
+  chrome.sidePanel
     .setPanelBehavior({ openPanelOnActionClick: true })
     .catch((error: Error) => console.error("Side panel setup error:", error));
 
   // Handle extension icon click manually when the side panel default behavior is disabled
-  browser.action.onClicked.addListener((tab) => {
+  chrome.action.onClicked.addListener((tab) => {
     if (popoutWindowId) {
       // Focus the existing pop-out window instead of opening the side panel
-      browser.windows.update(popoutWindowId, { focused: true }).catch(console.error);
+      chrome.windows.update(popoutWindowId, { focused: true }).catch(console.error);
     }
   });
 
   // Route clip requests from sidepanel → content script in the active tab
-  browser.runtime.onMessage.addListener(
-    (message: { type: string; targetExtensionId?: string; payload?: any; url?: string }, _sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener(
+    (message: { type: string; [key: string]: any }, _sender, sendResponse) => {
       if (message.type === "REQUEST_CLIP") {
-        browser.windows.getLastFocused({ windowTypes: ['normal'] })
+        chrome.windows.getLastFocused({ windowTypes: ['normal'] })
           .then((win) => {
             if (!win?.id) throw new Error("No normal window found");
-            return browser.tabs.query({ active: true, windowId: win.id });
+            return chrome.tabs.query({ active: true, windowId: win.id });
           })
           .then(([tab]) => {
             if (!tab?.id) throw new Error("No active tab found");
-            return browser.tabs.sendMessage(tab.id, { type: "CLIP_PAGE" });
+            return chrome.tabs.sendMessage(tab.id, { type: "CLIP_PAGE" });
           })
           .then((response) => sendResponse(response))
           .catch((err) =>
@@ -91,7 +338,7 @@ export default defineBackground(() => {
           if (win?.id) {
             popoutWindowId = win.id;
             // Disable default side panel behavior so we can intercept the action click to focus the popout
-            browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(console.error);
+            chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(console.error);
           }
           sendResponse({ windowId: win?.id ?? null });
         });
@@ -136,7 +383,7 @@ export default defineBackground(() => {
 
       // ── Region Capture ──
       if (message.type === "PROCESS_REGION_CAPTURE" && message.rect) {
-        browser.tabs.captureVisibleTab(null as any, { format: "png" }).then(async (dataUrl) => {
+        chrome.tabs.captureVisibleTab(null as any, { format: "png" }).then(async (dataUrl) => {
           try {
             const rect = message.rect;
             const res = await fetch(dataUrl);
@@ -365,13 +612,13 @@ export default defineBackground(() => {
           const targetWindowId = _sender.tab?.windowId || message.windowId || message.payload?.windowId;
           
           if (targetWindowId) {
-            browser.sidePanel.open({ windowId: targetWindowId }).catch((err) => {
+            chrome.sidePanel.open({ windowId: targetWindowId }).catch((err: any) => {
               console.warn("Failed to open sidepanel from external message:", err);
             });
           } else {
             chrome.windows.getCurrent((win) => {
               if (win && win.id) {
-                browser.sidePanel.open({ windowId: win.id }).catch((err) => {
+                chrome.sidePanel.open({ windowId: win.id }).catch((err: any) => {
                   console.warn("Failed to open sidepanel using current window:", err);
                 });
               }
@@ -387,4 +634,5 @@ export default defineBackground(() => {
     }
   );
 
+  }
 });
