@@ -250,7 +250,6 @@ function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
   return createPortal(
     <AnimatePresence>
       <AssistantChat
-        key={note.id}
         noteId={note.id}
         noteTitle={noteTitle || "Untitled"}
         noteContent={markdownContent}

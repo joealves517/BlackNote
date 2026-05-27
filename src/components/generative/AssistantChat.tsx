@@ -1,11 +1,11 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import { useAISDKRuntime } from "@assistant-ui/react-ai-sdk";
+import { useChatRuntime, AssistantChatTransport } from "@assistant-ui/react-ai-sdk";
 import { Thread } from "@/components/assistant-ui/thread";
 import { AI_API_BASE } from "@/lib/constants";
 import { getAuthToken } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import { useMemo, useState, useRef, createContext, useEffect, useCallback, useContext } from "react";
-import { useChat } from "@ai-sdk/react";
+import { useThread, type ThreadHistoryAdapter } from "@assistant-ui/react";
 
 export interface AttachedPageContext {
   title: string;
@@ -29,6 +29,24 @@ interface AssistantChatProps {
   onClose: () => void;
 }
 
+function PageContextCleanup() {
+  const isRunning = useThread((t) => t.isRunning);
+  const chatCtx = useContext(PageContext);
+  const wasRunningRef = useRef(false);
+
+  useEffect(() => {
+    if (wasRunningRef.current && !isRunning) {
+      // Stream just finished, automatically detach the page context to prevent redundant token usage
+      if (chatCtx && chatCtx.pageContext) {
+        chatCtx.setPageContext(null);
+      }
+    }
+    wasRunningRef.current = isRunning;
+  }, [isRunning, chatCtx]);
+
+  return null;
+}
+
 export function AssistantChat({
   noteId,
   noteTitle,
@@ -39,105 +57,98 @@ export function AssistantChat({
 }: AssistantChatProps) {
   const [pageContext, setPageContextState] = useState<AttachedPageContext | null>(null);
   const pageContextRef = useRef<AttachedPageContext | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const chatHistoryRowsRef = useRef<any[]>([]);
 
-  // Fetch token once on mount
+  // Synchronize ref on note changes
   useEffect(() => {
-    getAuthToken().then((t) => setToken(t));
-  }, []);
+    chatHistoryRowsRef.current = initialChatHistory || [];
+  }, [noteId, initialChatHistory]);
 
   const setPageContext = (ctx: AttachedPageContext | null) => {
     pageContextRef.current = ctx;
     setPageContextState(ctx);
   };
 
-  // Convert initial history robustly supporting both raw { role, content }
-  // and previously formatted thread format { id, format, content }
-  const initialMessages = useMemo(() => {
-    return initialChatHistory.map((msg: any, index: number) => {
-      if (msg && typeof msg === "object") {
-        let textContent = "";
-        let role = msg.role || "user";
+  const transport = useMemo(
+    () =>
+      new AssistantChatTransport({
+        api: `${AI_API_BASE}/api/chat`,
+        headers: async (): Promise<Record<string, string>> => {
+          const token = await getAuthToken();
+          return token ? { Authorization: `Bearer ${token}` } : ({} as Record<string, string>);
+        },
+        body: {
+          noteContext: { noteId, noteTitle, noteContent },
+          get pageContext() {
+            return pageContextRef.current;
+          },
+        },
+      }),
+    [noteId, noteTitle, noteContent]
+  );
 
-        // Parse content
-        if (typeof msg.content === "string") {
-          textContent = msg.content;
-        } else if (msg.content && typeof msg.content === "object") {
-          // If it was stored under assistant-ui encoding row { id, parent_id, format, content }
-          if ("messages" in msg.content && Array.isArray(msg.content.messages)) {
-            const innerMsg = msg.content.messages[0];
-            role = innerMsg?.role || role;
-            textContent = innerMsg?.content?.[0]?.text || "";
-          }
-        }
-        return {
-          id: msg.id || `${noteId}-msg-${index}`,
-          role: (role === "assistant" ? "assistant" : "user") as "user" | "assistant",
-          content: textContent,
-        };
-      }
-      return {
-        id: `${noteId}-msg-${index}`,
-        role: "user" as const,
-        content: "",
-      };
-    }).filter(msg => msg.content.trim() !== "");
-  }, [noteId, initialChatHistory]);
-
-  const chat = useChat({
-    id: noteId,
-    api: `${AI_API_BASE}/api/chat`,
-    initialMessages,
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: {
-      noteContext: { noteId, noteTitle, noteContent },
-      get pageContext() {
-        return pageContextRef.current;
+  const historyAdapter = useMemo<ThreadHistoryAdapter>(() => {
+    return {
+      async load() {
+        return { headId: null, messages: [] };
       },
+      async append() {},
+      withFormat: (fmt) => ({
+        async load() {
+          const rows = chatHistoryRowsRef.current;
+          return {
+            messages: rows.map((row: any, index: number) => {
+              // Backward compatibility for old simple format { role, content }
+              if (row && typeof row === "object" && "role" in row && "content" in row && typeof row.content === "string") {
+                return {
+                  id: row.id || `${noteId}-old-${index}`,
+                  role: row.role as "user" | "assistant",
+                  content: row.content,
+                };
+              }
+              // Standard assistant-ui format
+              return fmt.decode({
+                id: row.id,
+                parent_id: row.parent_id || null,
+                format: row.format,
+                content: row.content,
+              });
+            }),
+          };
+        },
+        async append(item) {
+          const id = fmt.getId(item.message);
+          const newRow = {
+            id,
+            parent_id: item.parentId,
+            format: fmt.format,
+            content: fmt.encode(item),
+          };
+
+          const existingIndex = chatHistoryRowsRef.current.findIndex((r) => r.id === id);
+          const updatedRows = [...chatHistoryRowsRef.current];
+
+          if (existingIndex >= 0) {
+            updatedRows[existingIndex] = newRow;
+          } else {
+            updatedRows.push(newRow);
+          }
+
+          chatHistoryRowsRef.current = updatedRows;
+          if (onUpdateChatHistory) {
+            onUpdateChatHistory(updatedRows);
+          }
+        },
+      }),
+    };
+  }, [noteId, onUpdateChatHistory]);
+
+  const runtime = useChatRuntime({
+    transport,
+    adapters: {
+      history: historyAdapter,
     },
   });
-
-  const runtime = useAISDKRuntime(chat);
-
-  const messages = chat.messages;
-  const isRunning = chat.isLoading;
-  const wasRunningRef = useRef(false);
-
-  // Auto-sync active chat messages to note DB
-  useEffect(() => {
-    if (onUpdateChatHistory && messages.length > 0) {
-      const history = messages
-        .map((m) => {
-          let textContent = "";
-          if (Array.isArray(m.content)) {
-            textContent = m.content
-              .filter((part: any) => part.type === "text")
-              .map((part: any) => part.text)
-              .join("");
-          } else if (typeof m.content === "string") {
-            textContent = m.content;
-          }
-          return {
-            id: m.id,
-            role: m.role,
-            content: textContent,
-          };
-        })
-        .filter((msg) => msg.content.trim() !== "");
-
-      onUpdateChatHistory(history);
-    }
-  }, [messages, onUpdateChatHistory]);
-
-  // Clean up Page Context when generation ends
-  useEffect(() => {
-    if (wasRunningRef.current && !isRunning) {
-      if (pageContextRef.current) {
-        setPageContext(null);
-      }
-    }
-    wasRunningRef.current = isRunning;
-  }, [isRunning]);
 
   return (
     <PageContext.Provider value={{ noteTitle, pageContext, setPageContext }}>
@@ -150,6 +161,7 @@ export function AssistantChat({
       >
         <div className="flex-1 overflow-hidden flex flex-col">
           <AssistantRuntimeProvider runtime={runtime}>
+            <PageContextCleanup />
             <Thread />
           </AssistantRuntimeProvider>
         </div>
