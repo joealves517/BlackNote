@@ -87,17 +87,21 @@ export function WebClipper({ onSaveAsNote, onSaveWebClip, onClose }: WebClipperP
     if (!content || !onSaveWebClip) return;
 
     const toastId = `html-clip-toast-${Date.now()}`;
-    handleClose(); // Close clipper immediately
-
     showAILoaderToast(toastId, "HTML Web Clip", "Saving full page offline...");
 
-    const noteId = crypto.randomUUID();
-    const clipId = await clipHTML(noteId);
+    try {
+      const noteId = crypto.randomUUID();
+      const clipId = await clipHTML(noteId);
 
-    if (clipId) {
-      onSaveWebClip(content.title, content.url, clipId, noteId);
-      updateAISuccessToast(toastId, "HTML Web Clip", "Page saved offline successfully!");
-    } else {
+      if (clipId) {
+        onSaveWebClip(content.title, content.url, clipId, noteId);
+        updateAISuccessToast(toastId, "HTML Web Clip", "Page saved offline successfully!");
+        handleClose(); // Close clipper only after success
+      } else {
+        updateAIErrorToast(toastId, "HTML Web Clip", "Failed to save page offline.");
+      }
+    } catch (err) {
+      console.error("[WebClipper] Save HTML offline error:", err);
       updateAIErrorToast(toastId, "HTML Web Clip", "Failed to save page offline.");
     }
   };
