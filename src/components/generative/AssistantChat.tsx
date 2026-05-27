@@ -6,6 +6,7 @@ import { getAuthToken } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import { useMemo, useState, useRef, createContext, useEffect, useCallback, useContext } from "react";
 import { useThread } from "@assistant-ui/react";
+import { db } from "@/lib/local-db";
 
 export interface AttachedPageContext {
   title: string;
@@ -31,8 +32,10 @@ interface AssistantChatProps {
 }
 
 function ChatHistorySync({
+  noteId,
   onUpdateChatHistory,
 }: {
+  noteId: string;
   onUpdateChatHistory?: (history: any[]) => void;
 }) {
   const messages = useThread((t) => t.messages);
@@ -48,7 +51,7 @@ function ChatHistorySync({
   const lastSyncedCountRef = useRef(0);
 
   useEffect(() => {
-    if (callbackRef.current && messages.length > 0 && messages.length !== lastSyncedCountRef.current) {
+    if (messages.length > 0 && messages.length !== lastSyncedCountRef.current) {
       lastSyncedCountRef.current = messages.length;
       
       // Parse thread messages directly and robustly to avoid external store bugs
@@ -71,9 +74,17 @@ function ChatHistorySync({
         })
         .filter((msg) => msg.content.trim() !== "");
 
-      callbackRef.current(history);
+      // Perform IMMEDIATE direct write to IndexedDB to bypass 400ms react state debounce
+      db.notes.update(noteId, {
+        chatHistory: JSON.stringify(history),
+        updatedAt: Date.now()
+      }).catch(err => console.error("[IndexedDB Direct Sync Error]:", err));
+
+      if (callbackRef.current) {
+        callbackRef.current(history);
+      }
     }
-  }, [messages]);
+  }, [messages, noteId]);
 
   useEffect(() => {
     if (wasRunningRef.current && !isRunning) {
@@ -123,7 +134,8 @@ export function AssistantChat({
     [noteId, noteTitle, noteContent]
   );
 
-  // Stable memoization of initial messages supporting multiple history shapes
+  // Stable initial messages - strictly bound to noteId on mount.
+  // Must NOT re-trigger when initialChatHistory updates to prevent infinite feedback loops.
   const initialMessages = useMemo(() => {
     return initialChatHistory.map((msg: any, index: number) => {
       if (msg && typeof msg === "object") {
@@ -151,20 +163,22 @@ export function AssistantChat({
         content: "",
       };
     }).filter(msg => msg.content.trim() !== "");
-  }, [noteId, initialChatHistory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noteId]);
 
   const runtime = useChatRuntime({ 
     transport,
     initialMessages,
   });
 
-  // Force the thread runtime to reset and populate with the correct initial messages
-  // whenever the note changes or when the component is mounted!
+  // Decoupled reset mechanism: Only runs ONCE on note switch (when noteId or runtime changes).
+  // Decoupled from initialMessages to avoid infinite resetting during an active chat stream.
   useEffect(() => {
     if (runtime && initialMessages) {
       runtime.thread.reset(initialMessages);
     }
-  }, [noteId, initialMessages, runtime]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noteId, runtime]);
 
   return (
     <PageContext.Provider value={{ noteTitle, pageContext, setPageContext }}>
@@ -177,7 +191,7 @@ export function AssistantChat({
       >
         <div className="flex-1 overflow-hidden flex flex-col">
           <AssistantRuntimeProvider runtime={runtime}>
-            <ChatHistorySync onUpdateChatHistory={onUpdateChatHistory} />
+            <ChatHistorySync noteId={noteId} onUpdateChatHistory={onUpdateChatHistory} />
             <Thread />
           </AssistantRuntimeProvider>
         </div>
