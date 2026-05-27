@@ -69,6 +69,8 @@ ${contextMarkdown}
   const results: AgentToolResult[] = [];
 
   for (const call of toolCalls) {
+    if (!call.args) continue;
+    
     if (call.toolName === "insertContent") {
       results.push({ type: "insert", text: call.args.text });
     } else if (call.toolName === "replaceBlock") {
