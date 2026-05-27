@@ -13,6 +13,7 @@ import { fetchWithRetry, readStreamWithTimeout, validateAgentResponse } from "@/
 import { ThreeDot } from "react-loading-indicators";
 import BorderGlow from "@/components/ui/BorderGlow";
 import ShinyText from "@/components/ui/ShinyText";
+import { runFrontendAgentWithTools } from "@/lib/agent-tool-calling";
 
 // --- Types ---
 
@@ -311,6 +312,7 @@ export function AgentInput({
   const [loadingDots, setLoadingDots] = useState("");
   const [isHidden, setIsHidden] = useState(() => localStorage.getItem("blacknote_hide_agent") === "true");
   const [clarifications, setClarifications] = useState<string[]>([]);
+  const [useFrontendExperimental, setUseFrontendExperimental] = useState(true);
 
   const snapshotRef = useRef<any>(null);
   const snapshotTitleRef = useRef<string | null>(null);
@@ -456,6 +458,40 @@ export function AgentInput({
     setLocalInput("");
     setIsProcessing(true);
     setAgentMessage(null);
+
+    if (useFrontendExperimental) {
+      try {
+        const { text, tools } = await runFrontendAgentWithTools(instruction, markdown);
+        
+        const changes: AgentChange[] = [];
+        
+        for (const tool of tools) {
+          if (tool.type === "title") {
+             changes.push({ blockId: "title", content: tool.newTitle });
+          } else if (tool.type === "delete") {
+             changes.push({ blockId: tool.blockId, content: "[DELETE]" });
+          } else if (tool.type === "replace") {
+             changes.push({ blockId: tool.blockId, content: tool.newText });
+          } else if (tool.type === "insert") {
+             changes.push({ blockId: "new", content: tool.text });
+          }
+        }
+        
+        if (changes.length > 0) {
+          applyChanges(ed, blockMap, changes, noteId, onTitleChange);
+          setHasPendingModifications(true);
+          setChangeCount(changes.length);
+        } else {
+          setAgentMessage(text || "Task completed.");
+          snapshotRef.current = null;
+        }
+      } catch (err) {
+        console.error("[Frontend Agent] Error:", err);
+        setAgentMessage("Experimental tool calling failed.");
+      }
+      setIsProcessing(false);
+      return;
+    }
 
     try {
       const response = await fetchWithRetry(
