@@ -82,15 +82,11 @@ export function useHTMLClipper(): UseHTMLClipperReturn {
 
       const tabId = tab.id;
 
-      // 2. Inject SingleFile core scripts into the active tab via background script
-      const injectRes = await browser.runtime.sendMessage({
-        type: "SINGLEFILE_INJECT_CORE",
-        payload: { tabId, removeFrames: false }
+      // 2. Inject SingleFile core scripts into the active tab directly from Side Panel
+      await browser.scripting.executeScript({
+        target: { tabId },
+        files: ["lib/single-file.js"]
       });
-
-      if (injectRes?.error) {
-        throw new Error(`Failed to inject SingleFile: ${injectRes.error}`);
-      }
 
       // 3. Trigger capture in the tab's context using browser.scripting.executeScript
       const [scriptResult] = await browser.scripting.executeScript({

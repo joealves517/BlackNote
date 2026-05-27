@@ -597,7 +597,7 @@ export function showSignOutSuccessToast() {
 export function showSyncingToast() {
   return goeyToast("Syncing Notes", {
     id: "sync-toast",
-    duration: 10000, // Will be updated or dismissed manually
+    duration: 86400000, // Persistent until updated or dismissed manually
     showProgress: false,
     showTimestamp: false,
     icon: <LoaderCircleIcon className="h-4 w-4 animate-spin text-zinc-500 dark:text-white/80" />,
@@ -707,7 +707,7 @@ export function showOnlineToast() {
 export function showAILoaderToast(id: string, title: string, descriptionText: string) {
   return goeyToast(title, {
     id,
-    duration: 60000,
+    duration: 86400000, // Persistent until updated/dismissed manually
     showProgress: false,
     showTimestamp: false,
     icon: <LoaderCircleIcon className="h-4 w-4 animate-spin text-zinc-500 dark:text-white/80" />,
