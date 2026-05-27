@@ -319,17 +319,19 @@ export function App() {
   const [activePanel, setActivePanel] = useState<"history" | "clipper" | "account" | "note-chat" | "settings" | "support" | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showRightToolbar, setShowRightToolbar] = useState(true);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [isWide, setIsWide] = useState(false);
   const [isMenuHovered, setIsMenuHovered] = useState(false);
   const menuHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleMouseEnterMenu = useCallback(() => {
+    if (showAccountMenu) return;
     if (menuHoverTimeoutRef.current) {
       clearTimeout(menuHoverTimeoutRef.current);
       menuHoverTimeoutRef.current = null;
     }
     setIsMenuHovered(true);
-  }, []);
+  }, [showAccountMenu]);
 
   const handleMouseLeaveMenu = useCallback(() => {
     if (menuHoverTimeoutRef.current) {
@@ -355,6 +357,12 @@ export function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (showAccountMenu) {
+      setIsMenuHovered(false);
+    }
+  }, [showAccountMenu]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -453,7 +461,6 @@ export function App() {
   // Save right toolbar visibility state directly in user toggle handlers below to bypass React Strict Mode double-mount reset bugs
 
   const [showClipper, setShowClipper] = useState(false);
-  const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showSupportSheet, setShowSupportSheet] = useState(false);
   const [accountGuestText, setAccountGuestText] = useState<{ title?: string; subtitle?: string } | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
