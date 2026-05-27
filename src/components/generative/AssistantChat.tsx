@@ -4,7 +4,7 @@ import { Thread } from "@/components/assistant-ui/thread";
 import { AI_API_BASE } from "@/lib/constants";
 import { getAuthToken } from "@/lib/auth-client";
 import { motion } from "framer-motion";
-import { useMemo, useState, useRef, createContext, useEffect, useCallback, useContext } from "react";
+import { useMemo, useState, useRef, createContext, useEffect, useCallback } from "react";
 import { db } from "@/lib/local-db";
 
 export interface AttachedPageContext {
@@ -24,17 +24,43 @@ interface AssistantChatProps {
   noteId: string;
   noteTitle: string;
   noteContent: string;
-  initialChatHistory?: any[];
   onUpdateChatHistory?: (history: any[]) => void;
   onClose: () => void;
   show: boolean;
+}
+
+// Parse raw DB messages into the format useChat expects
+function parseStoredMessages(raw: any[]): { id: string; role: "user" | "assistant"; content: string }[] {
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((msg: any, index: number) => {
+      if (!msg || typeof msg !== "object") return null;
+
+      let textContent = "";
+      let role = msg.role || "user";
+
+      if (typeof msg.content === "string") {
+        textContent = msg.content;
+      } else if (msg.content && typeof msg.content === "object" && "messages" in msg.content) {
+        const innerMsg = msg.content.messages[0];
+        role = innerMsg?.role || role;
+        textContent = innerMsg?.content?.[0]?.text || "";
+      }
+
+      return {
+        id: msg.id || `msg-${index}`,
+        role: (role === "assistant" ? "assistant" : "user") as "user" | "assistant",
+        content: textContent,
+      };
+    })
+    .filter((msg): msg is NonNullable<typeof msg> => msg !== null && msg.content.trim() !== "");
 }
 
 export function AssistantChat({
   noteId,
   noteTitle,
   noteContent,
-  initialChatHistory = [],
   onUpdateChatHistory,
   onClose,
   show,
@@ -42,10 +68,40 @@ export function AssistantChat({
   const [pageContext, setPageContextState] = useState<AttachedPageContext | null>(null);
   const pageContextRef = useRef<AttachedPageContext | null>(null);
 
+  // Fresh messages loaded directly from IndexedDB — the single source of truth
+  const [dbMessages, setDbMessages] = useState<{ id: string; role: "user" | "assistant"; content: string }[] | null>(null);
+
   const setPageContext = (ctx: AttachedPageContext | null) => {
     pageContextRef.current = ctx;
     setPageContextState(ctx);
   };
+
+  // Load chat history directly from IndexedDB when noteId changes
+  // This is the KEY fix — bypasses stale React state entirely
+  useEffect(() => {
+    let cancelled = false;
+
+    setDbMessages(null); // Reset to trigger loading state
+
+    db.notes.get(noteId).then((row) => {
+      if (cancelled) return;
+
+      if (row?.chatHistory) {
+        try {
+          const parsed = JSON.parse(row.chatHistory);
+          setDbMessages(parseStoredMessages(parsed));
+        } catch {
+          setDbMessages([]);
+        }
+      } else {
+        setDbMessages([]);
+      }
+    }).catch(() => {
+      if (!cancelled) setDbMessages([]);
+    });
+
+    return () => { cancelled = true; };
+  }, [noteId]);
 
   const transport = useMemo(
     () =>
@@ -65,68 +121,24 @@ export function AssistantChat({
     [noteId, noteTitle, noteContent]
   );
 
-  // Stable initial messages - strictly bound to noteId on mount.
-  // Must NOT re-trigger when initialChatHistory updates to prevent infinite feedback loops.
-  const initialMessages = useMemo(() => {
-    return initialChatHistory.map((msg: any, index: number) => {
-      if (msg && typeof msg === "object") {
-        let textContent = "";
-        let role = msg.role || "user";
-
-        // Parse content robustly
-        if (typeof msg.content === "string") {
-          textContent = msg.content;
-        } else if (msg.content && typeof msg.content === "object" && "messages" in msg.content) {
-          const innerMsg = msg.content.messages[0];
-          role = innerMsg?.role || role;
-          textContent = innerMsg?.content?.[0]?.text || "";
-        }
-
-        return {
-          id: msg.id || `${noteId}-msg-${index}`,
-          role: (role === "assistant" ? "assistant" : "user") as "user" | "assistant",
-          content: textContent,
-        };
-      }
-      return {
-        id: `${noteId}-msg-${index}`,
-        role: "user" as const,
-        content: "",
-      };
-    }).filter(msg => msg.content.trim() !== "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noteId]);
-
-  const runtime = useChatRuntime({ 
+  const runtime = useChatRuntime({
     transport,
-    initialMessages,
+    initialMessages: dbMessages ?? [],
   });
 
-  // 1. Force the thread runtime to reset and populate with the correct initial messages
-  // ONLY once when the note changes or when the component is mounted!
-  useEffect(() => {
-    if (runtime && initialMessages) {
-      runtime.thread.reset(initialMessages);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noteId, runtime]);
-
-  // 2. Perform robust, direct, reactive synchronization to IndexedDB & React State
-  // by subscribing to the assistant-ui thread state directly.
-  // This bypasses React render lags, unmount race conditions, and debounce delays.
+  // Sync messages to IndexedDB and React state on every thread change
   useEffect(() => {
     if (!runtime) return;
 
-    let lastSavedCount = 0;
+    let lastSavedJson = "";
 
     const unsubscribe = runtime.thread.subscribe(() => {
       const state = runtime.thread.getState();
       const messages = state.messages;
 
-      if (messages.length === 0 || messages.length === lastSavedCount) return;
-      lastSavedCount = messages.length;
+      if (messages.length === 0) return;
 
-      // Filter and map messages to simple persistable history format
+      // Build persistable history
       const history = messages
         .map((m) => {
           let textContent = "";
@@ -138,32 +150,33 @@ export function AssistantChat({
           } else if (typeof m.content === "string") {
             textContent = m.content;
           }
-          return {
-            id: m.id,
-            role: m.role,
-            content: textContent,
-          };
+          return { id: m.id, role: m.role, content: textContent };
         })
         .filter((msg) => msg.content.trim() !== "");
 
-      if (history.length > 0) {
-        // Direct, instant, non-debounced IndexedDB write
-        db.notes.update(noteId, {
-          chatHistory: JSON.stringify(history),
-          updatedAt: Date.now()
-        }).catch(err => console.error("[IndexedDB Direct Sync Error]:", err));
+      if (history.length === 0) return;
 
-        // Call the app state synchronizer
-        if (onUpdateChatHistory) {
-          onUpdateChatHistory(history);
-        }
+      // Deduplicate writes — only persist when data actually changes
+      const historyJson = JSON.stringify(history);
+      if (historyJson === lastSavedJson) return;
+      lastSavedJson = historyJson;
+
+      // Write directly to IndexedDB — instant, no debounce
+      db.notes.update(noteId, {
+        chatHistory: historyJson,
+        updatedAt: Date.now(),
+      }).catch((err) => console.error("[Chat History Save Error]:", err));
+
+      // Update React state in parent so the note list shows correct data
+      if (onUpdateChatHistory) {
+        onUpdateChatHistory(history);
       }
     });
 
     return unsubscribe;
   }, [runtime, noteId, onUpdateChatHistory]);
 
-  // 3. PageContext auto-cleanup when AI finishes generation
+  // PageContext auto-cleanup when AI finishes generation
   useEffect(() => {
     if (!runtime) return;
     let wasRunning = false;
@@ -180,6 +193,11 @@ export function AssistantChat({
 
     return unsubscribe;
   }, [runtime]);
+
+  // Don't render until DB messages are loaded to avoid flash of empty state
+  if (dbMessages === null) {
+    return null;
+  }
 
   return (
     <PageContext.Provider value={{ noteTitle, pageContext, setPageContext }}>

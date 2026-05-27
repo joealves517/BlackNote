@@ -255,7 +255,6 @@ function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
         noteId={note.id}
         noteTitle={noteTitle || "Untitled"}
         noteContent={markdownContent}
-        initialChatHistory={note.chatHistory || []}
         onUpdateChatHistory={handleUpdateChatHistory}
         onClose={handleClose}
       />
