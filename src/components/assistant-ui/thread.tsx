@@ -106,28 +106,43 @@ const Composer: FC<{ placeholder: string }> = ({ placeholder }) => {
       </AuiIf>
       <AttachmentChips />
 
-      <ComposerPrimitive.Input
-        id="blacknote-composer-input"
-        placeholder={placeholder}
-        rows={1}
-        className="min-h-9 w-full resize-none bg-transparent px-3 pt-2 text-base text-[#0d0d0d] outline-none placeholder:text-[#8e8e8e] dark:text-[#ececec] dark:placeholder:text-[#8e8e8e]"
-      />
+      {/* Input Area */}
+      <div className="flex items-center gap-2 px-2 min-h-[44px]">
+        {/* Left: Plus Button (Add attachment) */}
+        <ComposerPrimitive.AddAttachment asChild>
+          <button
+            type="button"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-[#5d5d5d] transition-all hover:bg-[#0d0d0d]/5 hover:text-[#0d0d0d] active:scale-90 dark:text-[#cdcdcd] dark:hover:bg-white/10 dark:hover:text-white cursor-pointer"
+            aria-label="Add attachment"
+          >
+            <PlusIcon size={18} />
+          </button>
+        </ComposerPrimitive.AddAttachment>
 
-      <div className="flex items-center justify-between gap-2 px-1 pt-1">
-        <div className="flex items-center gap-1">
-          <ComposerPrimitive.AddAttachment asChild>
-            <button
-              type="button"
-              className="flex size-9 items-center justify-center rounded-full text-[#5d5d5d] transition-colors hover:bg-[#0d0d0d]/5 hover:text-[#0d0d0d] dark:text-[#cdcdcd] dark:hover:bg-white/10 dark:hover:text-white"
-              aria-label="Add attachment"
-            >
-              <PlusIcon size={18} />
-            </button>
-          </ComposerPrimitive.AddAttachment>
-        </div>
+        {/* Middle: Custom text field */}
+        <ComposerPrimitive.Input
+          id="blacknote-composer-input"
+          placeholder={placeholder}
+          rows={1}
+          className="flex-1 resize-none bg-transparent py-1.5 text-[14px] text-[#0d0d0d] outline-none placeholder:text-[#8e8e8e] dark:text-[#ececec] dark:placeholder:text-[#8e8e8e] leading-relaxed"
+          style={{ minHeight: "24px", maxHeight: "120px", lineHeight: "20px" }}
+        />
 
-        <div className="flex items-center gap-1">
+        {/* Right: Actions and Send button */}
+        <div className="flex items-center gap-1.5 shrink-0 select-none pl-1">
+          {/* Tools drop down */}
           <ChatGPTToolsMenu />
+
+          {/* Voice Input icon */}
+          <button
+            type="button"
+            className="flex size-8 items-center justify-center rounded-full text-[#5d5d5d] transition-all hover:bg-[#0d0d0d]/5 hover:text-[#0d0d0d] active:scale-90 dark:text-[#cdcdcd] dark:hover:bg-white/10 dark:hover:text-white cursor-pointer"
+            title="Voice input (Muted)"
+          >
+            <Mic size={18} />
+          </button>
+
+          {/* Primary Action Button (Send / Stop / Cancel) */}
           <ComposerPrimaryAction />
         </div>
       </div>
@@ -204,10 +219,8 @@ const ChatGPTToolsMenu: FC = () => {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex h-9 items-center gap-1.5 rounded-full px-3 text-sm text-[#5d5d5d] transition-colors hover:bg-[#0d0d0d]/5 hover:text-[#0d0d0d] dark:text-[#cdcdcd] dark:hover:bg-white/10 dark:hover:text-white">
-        <SlidersHorizontal className="size-4" />
-        <span>Tools</span>
-        <ChevronDownIcon className="size-3.5 opacity-70" />
+      <DropdownMenuTrigger className="flex size-8 items-center justify-center rounded-full text-[#5d5d5d] transition-all hover:bg-[#0d0d0d]/5 hover:text-[#0d0d0d] active:scale-90 dark:text-[#cdcdcd] dark:hover:bg-white/10 dark:hover:text-white cursor-pointer">
+        <SlidersHorizontal className="size-4.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-56 bg-white dark:bg-[#212121] border-[#e5e5e5] dark:border-white/10 shadow-lg rounded-2xl p-2">
         {tabInfo && (
@@ -271,8 +284,8 @@ const ComposerPrimaryAction: FC = () => {
           s.composer.dictation == null
         }
       >
-        <ComposerPrimitive.Send className="flex size-9 items-center justify-center rounded-full bg-[#0d0d0d] text-white transition-opacity disabled:opacity-30 dark:bg-white dark:text-black">
-          <ArrowUpIcon className="size-5" />
+        <ComposerPrimitive.Send className="flex size-8 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-25 dark:bg-white dark:text-black transition-all hover:brightness-110 active:scale-95 cursor-pointer">
+          <ArrowUpIcon className="size-4" />
         </ComposerPrimitive.Send>
       </AuiIf>
     </div>
