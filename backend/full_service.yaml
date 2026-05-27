@@ -43,13 +43,13 @@ spec:
         - name: GCP_PROJECT_ID
           value: ask-this-page
         - name: GEMINI_API_KEY
-          value: AIzaSyAZ9S2RALDcaaedW3wGLuK8gKEztgy4zq8
+          value: ""
         - name: GROQ_API_KEY
-          value: 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
+          value: ""
         - name: AWS_ACCESS_KEY_ID
-          value: AKIAWCIQYZKYHXZBJRO3
+          value: ""
         - name: AWS_SECRET_ACCESS_KEY
-          value: 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
+          value: ""
         - name: AWS_REGION
           value: us-east-1
         - name: S3_BUCKET
