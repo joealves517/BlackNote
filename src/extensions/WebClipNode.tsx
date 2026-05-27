@@ -89,8 +89,6 @@ function WebClipNodeView({ node, deleteNode }: NodeViewProps) {
             </h4>
             <p className="text-[11px] text-muted-foreground mt-0.5 truncate flex items-center gap-1.5">
               <span>{hostname}</span>
-              <span>·</span>
-              <span className="text-[10px] bg-primary/10 text-primary font-medium px-1.5 py-0.5 rounded-[6px]">Offline HTML</span>
             </p>
           </div>
         </div>
@@ -153,6 +151,7 @@ export const WebClipNode = Node.create({
       title: { default: "Untitled Web Clip" },
       url: { default: "" },
       createdAt: { default: 0 },
+      s3Url: { default: null },
     };
   },
 
