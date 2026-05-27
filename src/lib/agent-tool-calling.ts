@@ -2,8 +2,8 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText, tool } from "ai";
 import { z } from "zod";
 
-// The sandbox key provided by the user (read from local storage for safety)
-const TEST_API_KEY = typeof window !== "undefined" ? localStorage.getItem("test_api_key") || "" : "";
+// The sandbox key provided by the user (read from env for safety)
+const TEST_API_KEY = import.meta.env.VITE_GEMINI_TEST_API_KEY || (typeof window !== "undefined" ? localStorage.getItem("test_api_key") : "") || "";
 
 export type AgentToolResult = 
   | { type: "insert"; text: string }
