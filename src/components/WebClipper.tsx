@@ -314,26 +314,7 @@ export function WebClipper({ onSaveAsNote, onSaveWebClip, onClose }: WebClipperP
                 </div>
               </button>
 
-              <button
-                className="novel-slash-item w-full text-left"
-                onClick={() => handleAction("mindmap")}
-              >
-                <div className="novel-slash-icon" style={{
-                  background: "linear-gradient(135deg, rgba(236, 72, 153, var(--icon-bg-start)) 0%, rgba(236, 72, 153, var(--icon-bg-end)) 100%)",
-                  border: "1px solid rgba(236, 72, 153, var(--icon-border))",
-                  color: "rgba(236, 72, 153, 1)",
-                }}>
-                  <AnimatedIcon animation="hover">
-                    <BrainIcon className="w-4 h-4" />
-                  </AnimatedIcon>
-                </div>
-                <div>
-                  <p className="text-[13px] font-medium">Mindmap</p>
-                  <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                    Visualize page structure
-                  </p>
-                </div>
-              </button>
+
 
               <button
                 className="novel-slash-item w-full text-left"

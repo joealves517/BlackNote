@@ -57,7 +57,7 @@ function createTurndownService(): TurndownService {
     hr: "---",
   });
 
-  // Images — strip badges, keep meaningful images with short alt text only
+  // Images — strip badges, keep meaningful images
   td.addRule("cleanImages", {
     filter: "img",
     replacement: (_content, node) => {
@@ -68,14 +68,11 @@ function createTurndownService(): TurndownService {
       // Strip badge/icon images entirely
       if (isBadgeImage(src)) return "";
 
-      // Strip images with no alt text (decorative)
-      if (!alt || alt.length < 3) return "";
-
-      // Strip very long base64 data URIs
+      // Strip very long base64 data URIs to keep document size reasonable
       if (src.startsWith("data:")) return "";
 
-      // For meaningful images, keep just the alt text description
-      return alt ? `\n_[Image: ${alt}]_\n` : "";
+      // Keep the actual markdown image tag!
+      return src ? `\n![${alt}](${src})\n` : "";
     },
   });
 
@@ -159,12 +156,6 @@ function postProcess(md: string, title: string): string {
     .replace(/^\s+$/gm, "")
     // Remove empty markdown links [text]()
     .replace(/\[([^\]]*)\]\(\)/g, "$1")
-    // Remove raw image markdown that slipped through: ![...](very-long-url)
-    .replace(/!\[([^\]]*)\]\([^)]{100,}\)/g, (_, alt) =>
-      alt ? `_[Image: ${alt}]_` : ""
-    )
-    // Remove raw image markdown for short URLs too (badges etc.)
-    .replace(/!\[\]\([^)]*\)/g, "")
     // Remove standalone URLs on their own line (tracking/reference noise)
     .replace(/^\s*https?:\/\/\S{80,}\s*$/gm, "")
     // Remove lines that are just repeated dashes or equals (visual separators)
