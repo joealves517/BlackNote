@@ -3,7 +3,7 @@ import { generateText, tool } from "ai";
 import { z } from "zod";
 
 // The sandbox key provided by the user
-const TEST_API_KEY = "AIzaSyA18wKyb84ZYMGpHS7YXaBuQWr6huhudIo";
+const TEST_API_KEY = "AIzaSyA8s2azEy0pEhzm9qc14EmUOB3F27Uq0tw";
 
 export type AgentToolResult = 
   | { type: "insert"; text: string }
@@ -21,7 +21,7 @@ export async function runFrontendAgentWithTools(
   });
 
   const { text, toolCalls } = await generateText({
-    model: google("gemini-2.0-flash"),
+    model: google("gemini-2.0-flash-lite-preview-02-05"),
     system: `You are an AI assistant acting directly on a document.
 You have been provided with the current document content. The document is divided into blocks, each marked with an ID like «b0», «b1», etc.
 Your task is to fulfill the user's request by calling the appropriate tools to modify the document.
