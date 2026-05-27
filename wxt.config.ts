@@ -15,6 +15,7 @@ export default defineConfig({
       'sidePanel',
       'identity',
       'activeTab',
+      'tabs',
       'storage',
       'tabCapture',
       'offscreen',

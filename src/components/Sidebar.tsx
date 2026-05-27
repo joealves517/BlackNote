@@ -75,10 +75,10 @@ function getUserDisplayName(user: AppUser): string {
 function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 48 48">
-      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
     </svg>
   );
 }
@@ -158,9 +158,9 @@ export function Sidebar({
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-3">
         <div className="flex items-center gap-2">
-          <img 
-            src={chrome.runtime.getURL("/icon/32.png")} 
-            alt="BlackNote" 
+          <img
+            src={chrome.runtime.getURL("/icon/32.png")}
+            alt="BlackNote"
             className="w-5 h-5 rounded-sm object-contain"
           />
           <span
@@ -275,7 +275,7 @@ export function Sidebar({
             >
               {notes.map((note) => {
                 const isActive = note.id === activeNoteId;
-                
+
                 // Derive card color from the note's first hashtag, fallback to deterministic random
                 const defaultColors = [
                   "59, 130, 246", // Blue
@@ -294,14 +294,14 @@ export function Sidebar({
                     onClick={() => onSelectNote(note.id)}
                     className="sidebar-note-item group relative transition-all duration-300"
                     style={{
-                      background: isActive 
+                      background: isActive
                         ? `linear-gradient(135deg, rgba(${cardColor}, var(--icon-bg-start)) 0%, rgba(${cardColor}, var(--icon-bg-end)) 100%)`
                         : `linear-gradient(135deg, rgba(${cardColor}, calc(var(--icon-bg-start) * 0.6)) 0%, rgba(${cardColor}, calc(var(--icon-bg-end) * 0.6)) 100%)`,
-                      border: isActive 
-                        ? `1px solid rgba(${cardColor}, var(--icon-border))` 
+                      border: isActive
+                        ? `1px solid rgba(${cardColor}, var(--icon-border))`
                         : `1px solid rgba(${cardColor}, calc(var(--icon-border) * 0.5))`,
-                      boxShadow: isActive 
-                        ? `inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 0 0 1px rgba(${cardColor}, 0.2), 0 8px 24px -4px rgba(${cardColor}, 0.2)` 
+                      boxShadow: isActive
+                        ? `inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 0 0 1px rgba(${cardColor}, 0.2), 0 8px 24px -4px rgba(${cardColor}, 0.2)`
                         : `inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 8px -2px rgba(0,0,0,0.05)`,
                       transform: isActive ? "scale(1.01)" : "scale(1)",
                     }}
@@ -325,8 +325,8 @@ export function Sidebar({
                         className="sidebar-note-title whitespace-normal break-words"
                         style={{
                           color: isActive
-                              ? "hsl(var(--foreground))"
-                              : "hsl(var(--sidebar-fg))",
+                            ? "hsl(var(--foreground))"
+                            : "hsl(var(--sidebar-fg))",
                           display: "-webkit-box",
                           WebkitLineClamp: 3,
                           WebkitBoxOrient: "vertical",
@@ -334,7 +334,7 @@ export function Sidebar({
                       >
                         {note.title || "Untitled Note"}
                       </p>
-                      <div 
+                      <div
                         className="flex items-center justify-center shrink-0 w-4 h-4 cursor-pointer mt-0.5"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -351,7 +351,7 @@ export function Sidebar({
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center justify-between w-full mt-2 gap-1">
                       <p className="text-[10px] whitespace-nowrap flex-shrink-0 text-muted-foreground/80 font-medium">
                         {formatRelativeTime(note.updatedAt)}
@@ -408,23 +408,23 @@ export function Sidebar({
                   </div>
                 )}
                 {syncProgress.status === "syncing" && (
-                  <svg 
-                    className="absolute -inset-1.5 w-12 h-12 animate-spin" 
+                  <svg
+                    className="absolute -inset-1.5 w-12 h-12 animate-spin"
                     viewBox="0 0 100 100"
                     style={{ pointerEvents: 'none' }}
                   >
-                    <circle 
-                      cx="50" cy="50" r="46" 
-                      fill="none" 
-                      stroke="hsl(var(--foreground) / var(--icon-border))" 
-                      strokeWidth="6" 
+                    <circle
+                      cx="50" cy="50" r="46"
+                      fill="none"
+                      stroke="hsl(var(--foreground) / var(--icon-border))"
+                      strokeWidth="6"
                     />
-                    <circle 
-                      cx="50" cy="50" r="46" 
-                      fill="none" 
-                      stroke="hsl(var(--foreground) / 0.7)" 
-                      strokeWidth="6" 
-                      strokeLinecap="round" 
+                    <circle
+                      cx="50" cy="50" r="46"
+                      fill="none"
+                      stroke="hsl(var(--foreground) / 0.7)"
+                      strokeWidth="6"
+                      strokeLinecap="round"
                       strokeDasharray="80 200"
                     />
                   </svg>
@@ -447,8 +447,8 @@ export function Sidebar({
                     <div className="w-12 h-3.5 rounded-sm animate-pulse shrink-0" style={{ backgroundColor: "hsl(var(--muted))" }} />
                   ) : isPremium ? (
                     <div className="flex items-center gap-1 shrink-0">
-                      <span 
-                        className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-sm" 
+                      <span
+                        className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-sm"
                         style={{ color: "hsl(var(--muted-foreground))", backgroundColor: "hsl(var(--muted) / 0.5)" }}
                       >
                         PRO
@@ -469,7 +469,7 @@ export function Sidebar({
                         const url = `${CHECKOUT_BASE}?checkout[email]=${encodeURIComponent(user.email || "")}&checkout[custom][user_id]=${user.id}`;
                         chrome.tabs.create({ url });
                       }}
-                      className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-sm shrink-0 transition-opacity hover:opacity-80 active:scale-95" 
+                      className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-sm shrink-0 transition-opacity hover:opacity-80 active:scale-95"
                       style={{ color: "hsl(45 90% 55%)", backgroundColor: "hsl(45 90% 55% / 0.15)" }}
                     >
                       UPGRADE

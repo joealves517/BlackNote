@@ -13,6 +13,7 @@ import { MeetIcon } from "@/components/icons/meet";
 import { MessageSquareMoreIcon } from "@/components/icons/message-square-more";
 import { SettingsIcon } from "@/components/ui/settings";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
+import { MenuIcon } from "@/components/ui/menu";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Mic, MicOff, Menu, AppWindow, PanelRight, MoreHorizontal, User as UserIcon } from "lucide-react";
@@ -1838,25 +1839,34 @@ export function App() {
       <motion.div
         id="blacknote-root"
         animate={{
-          borderTopRightRadius: showRightToolbar ? 16 : 0,
-          borderBottomRightRadius: showRightToolbar ? 16 : 0,
+          borderTopRightRadius: (showRightToolbar && activePanel !== "note-chat") ? 16 : 0,
+          borderBottomRightRadius: (showRightToolbar && activePanel !== "note-chat") ? 16 : 0,
         }}
         className={`flex-1 flex flex-col min-w-0 h-full bg-background transition-all z-10 overflow-hidden relative `}
       >
         <AnimatePresence>
-          {!showRightToolbar && !isRecording && !isSTTActive && !isMeetSyncActive && (
+          {(!showRightToolbar || activePanel === "note-chat") && !isRecording && !isSTTActive && !isMeetSyncActive && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="absolute top-3 right-3 z-40 flex flex-col items-end"
-              onMouseEnter={handleMouseEnterMenu}
-              onMouseLeave={handleMouseLeaveMenu}
+              onMouseEnter={activePanel === "note-chat" ? undefined : handleMouseEnterMenu}
+              onMouseLeave={activePanel === "note-chat" ? undefined : handleMouseLeaveMenu}
             >
               <div
+                onClick={() => {
+                  if (activePanel === "note-chat") {
+                    handleTogglePanel("note-chat");
+                  }
+                }}
                 className="flex items-center justify-center w-9 h-9 rounded-md text-muted-foreground opacity-80 dark:opacity-75 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
               >
-                <Menu size={20} strokeWidth={1.25} />
+                {activePanel === "note-chat" ? (
+                  <MenuIcon size={20} className="w-5 h-5 flex items-center justify-center" />
+                ) : (
+                  <Menu size={20} strokeWidth={1.25} />
+                )}
               </div>
 
               <Popover.Root open={showAccountMenu && !showRightToolbar} onOpenChange={setShowAccountMenu}>
@@ -1912,7 +1922,7 @@ export function App() {
               </Popover.Root>
 
               <AnimatePresence>
-                {isMenuHovered && (
+                {isMenuHovered && activePanel !== "note-chat" && (
                   <FloatingToolbarDashboard
                     user={user}
                     activePanel={activePanel}
@@ -2130,7 +2140,7 @@ export function App() {
 
       {/* ─── Vertical Right Toolbar ─── */}
       <AnimatePresence>
-        {showRightToolbar && !isRecording && !isSTTActive && !isMeetSyncActive && (
+        {showRightToolbar && activePanel !== "note-chat" && !isRecording && !isSTTActive && !isMeetSyncActive && (
           <motion.div
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: isWide ? 56 : 40, opacity: 1 }}

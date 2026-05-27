@@ -12,6 +12,7 @@ import {
   useAui,
   useAuiState,
   ErrorPrimitive,
+  useMessage,
 } from "@assistant-ui/react";
 import {
   ArrowUpIcon,
@@ -43,6 +44,7 @@ import {
   Telescope,
   Search,
   FileText,
+  ArrowDownToLine,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -62,7 +64,7 @@ export const Thread: FC = () => {
       </AuiIf>
 
       <AuiIf condition={(s) => !s.thread.isEmpty}>
-        <ThreadPrimitive.Viewport className="flex grow flex-col gap-8 overflow-y-scroll pt-4">
+        <ThreadPrimitive.Viewport className="flex grow flex-col gap-4 overflow-y-scroll pt-4">
           <ThreadPrimitive.Messages>
             {({ message }) => {
               if (message.composer.isEditing) return <EditComposer />;
@@ -174,21 +176,88 @@ const ChatGPTToolsMenu: FC = () => {
   const [tabInfo, setTabInfo] = useState<{ url: string; favicon: string } | null>(null);
 
   useEffect(() => {
+    let active = true;
+
+    const updateTabInfo = () => {
+      if (!active) return;
+      try {
+        const queryInfo = { active: true, currentWindow: true };
+        const queryPromise = typeof chrome !== "undefined" && chrome.tabs
+          ? new Promise<any>((resolve) => chrome.tabs.query(queryInfo, resolve))
+          : (typeof browser !== "undefined" && browser.tabs ? browser.tabs.query(queryInfo) : null);
+
+        if (!queryPromise) return;
+
+        Promise.resolve(queryPromise).then((tabs: any) => {
+          if (!active) return;
+          let tab = tabs?.[0];
+
+          // Fallback to lastFocusedWindow if currentWindow returned no tabs
+          if (!tab) {
+            const fallbackPromise = typeof chrome !== "undefined" && chrome.tabs
+              ? new Promise<any>((resolve) => chrome.tabs.query({ active: true, lastFocusedWindow: true }, resolve))
+              : (typeof browser !== "undefined" && browser.tabs ? browser.tabs.query({ active: true, lastFocusedWindow: true }) : null);
+
+            if (fallbackPromise) {
+              Promise.resolve(fallbackPromise).then((fallbackTabs: any) => {
+                if (!active) return;
+                const fallbackTab = fallbackTabs?.[0];
+                processTab(fallbackTab);
+              });
+              return;
+            }
+          }
+
+          processTab(tab);
+        });
+      } catch (err) {
+        // Ignore errors
+      }
+    };
+
+    const processTab = (tab: any) => {
+      const url = tab?.url || "";
+      if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        setTabInfo(null);
+      } else {
+        setTabInfo({
+          url: url,
+          favicon: tab?.favIconUrl || "",
+        });
+      }
+    };
+
+    updateTabInfo();
+
+    // Listen for tab switching or URL updates
     try {
-      browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
-        const url = tabs[0]?.url || "";
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-          setTabInfo(null);
-        } else {
-          setTabInfo({
-            url: url,
-            favicon: tabs[0]?.favIconUrl || "",
-          });
-        }
-      });
+      if (typeof chrome !== "undefined" && chrome.tabs) {
+        chrome.tabs.onActivated.addListener(updateTabInfo);
+        chrome.tabs.onUpdated.addListener(updateTabInfo);
+      } else if (typeof browser !== "undefined" && browser.tabs) {
+        browser.tabs.onActivated.addListener(updateTabInfo);
+        browser.tabs.onUpdated.addListener(updateTabInfo);
+      }
     } catch (err) {
-      // Ignore if browser.tabs is not available
+      // Fallback
     }
+
+    // Periodic polling as a bulletproof fallback (e.g. every 1000ms)
+    const intervalId = setInterval(updateTabInfo, 1000);
+
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+      try {
+        if (typeof chrome !== "undefined" && chrome.tabs) {
+          chrome.tabs.onActivated.removeListener(updateTabInfo);
+          chrome.tabs.onUpdated.removeListener(updateTabInfo);
+        } else if (typeof browser !== "undefined" && browser.tabs) {
+          browser.tabs.onActivated.removeListener(updateTabInfo);
+          browser.tabs.onUpdated.removeListener(updateTabInfo);
+        }
+      } catch (err) {}
+    };
   }, []);
 
   const handleAskPage = async () => {
@@ -350,6 +419,43 @@ const EditComposer: FC = () => {
 const assistantActionClassName =
   "flex size-8 items-center justify-center rounded-md text-[#5d5d5d] transition-colors hover:bg-[#0d0d0d]/5 hover:text-[#0d0d0d] dark:text-[#afafaf] dark:hover:bg-white/10 dark:hover:text-white";
 
+const InsertToNoteButton: FC = () => {
+  const message = useMessage();
+
+  const handleInsert = () => {
+    let text = "";
+    if (Array.isArray(message.content)) {
+      text = message.content
+        .filter((part: any) => part.type === "text")
+        .map((part: any) => {
+          if (part.type === "text") return part.text;
+          if (part.text) return part.text;
+          return "";
+        })
+        .join("\n");
+    } else if (typeof message.content === "string") {
+      text = message.content;
+    }
+
+    if (text) {
+      window.dispatchEvent(new CustomEvent("insert-ai-content", { detail: { text } }));
+      // Automatically close the chat panel and sync active state back to editor
+      window.dispatchEvent(new CustomEvent("close-note-chat"));
+      window.dispatchEvent(new CustomEvent("panel-closed"));
+    }
+  };
+
+  return (
+    <TooltipIconButton
+      tooltip="Insert to Note"
+      onClick={handleInsert}
+      className={assistantActionClassName}
+    >
+      <ArrowDownToLine size={16} />
+    </TooltipIconButton>
+  );
+};
+
 const AssistantMessage: FC = () => {
   return (
     <MessagePrimitive.Root className="relative mx-auto flex w-full max-w-3xl flex-col px-4">
@@ -374,17 +480,22 @@ const AssistantMessage: FC = () => {
           hideWhenRunning
           className="flex items-center gap-0.5"
         >
-          <ActionBarPrimitive.Copy className={assistantActionClassName}>
-            <AuiIf condition={(s) => s.message.isCopied}>
-              <CheckIcon />
-            </AuiIf>
-            <AuiIf condition={(s) => !s.message.isCopied}>
-              <CopyIcon />
-            </AuiIf>
+          <ActionBarPrimitive.Copy asChild>
+            <TooltipIconButton tooltip="Copy" className={assistantActionClassName}>
+              <AuiIf condition={(s) => s.message.isCopied}>
+                <CheckIcon />
+              </AuiIf>
+              <AuiIf condition={(s) => !s.message.isCopied}>
+                <CopyIcon />
+              </AuiIf>
+            </TooltipIconButton>
           </ActionBarPrimitive.Copy>
-          <ActionBarPrimitive.Reload className={assistantActionClassName}>
-            <ReloadIcon />
+          <ActionBarPrimitive.Reload asChild>
+            <TooltipIconButton tooltip="Reload" className={assistantActionClassName}>
+              <ReloadIcon />
+            </TooltipIconButton>
           </ActionBarPrimitive.Reload>
+          <InsertToNoteButton />
         </ActionBarPrimitive.Root>
         <BranchPicker className="ml-1" />
       </div>

@@ -221,7 +221,7 @@ export function useNotes() {
             }
           ]
         };
-        
+
         const firstNote: LocalNote = {
           id: crypto.randomUUID(),
           title: "Welcome to BlackNote 👋",
@@ -435,7 +435,7 @@ export function useNotes() {
           };
           traverse(doc);
           extractedTags = Array.from(tags);
-        } catch(e) {}
+        } catch (e) { }
       }
 
       // Optimistic UI update
@@ -469,10 +469,10 @@ export function useNotes() {
         // Capture all pending updates and clear the ref
         const allPending = { ...pendingUpdatesRef.current };
         pendingUpdatesRef.current = {};
-        
+
         for (const [noteId, dbUpdates] of Object.entries(allPending)) {
           await db.notes.update(noteId, dbUpdates);
-          
+
           // Background cloud sync
           if (userId) {
             const note = await db.notes.get(noteId);
@@ -544,7 +544,7 @@ export function useNotes() {
           setNotes((prev) => prev.filter((n) => n.id !== removedId));
 
           // Fire-and-forget DB + cloud cleanup (no await = no extra render)
-          db.notes.delete(removedId).catch(() => {});
+          db.notes.delete(removedId).catch(() => { });
           if (userId) deleteRemoteNote(removedId);
         }
       }

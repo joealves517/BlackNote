@@ -1,7 +1,7 @@
 import { getUserByEmail } from "./services/firestore.js";
 
 async function main() {
-  const email = "alvesoscar517@gmail.com";
+  const email = "nguyenloc351352@gmail.com";
   console.log(`Querying user info for ${email}...`);
   try {
     const user = await getUserByEmail(email);

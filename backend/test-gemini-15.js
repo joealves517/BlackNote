@@ -3,14 +3,14 @@ import { GoogleGenAI } from "@google/genai";
 const ai = new GoogleGenAI({
   vertexai: true,
   project: "ask-this-page",
-  location: "us-central1",
+  location: "us-east4",
 });
 
 async function run() {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: "Hello, is gemini-1.5-flash available?",
+      model: "gemini-2.5-flash-lite",
+      contents: "Hello, is gemini-2.5-flash-lite available?",
     });
     console.log("RESULT:", response.text);
   } catch (err) {

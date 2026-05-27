@@ -108,7 +108,7 @@ function AIContentInsertBridge() {
       let pos = editor.state.doc.content.size;
       editor.state.doc.descendants((node, p) => {
         if ((node.type.name === "audioNode" || node.type.name === "videoNode") && node.attrs.mediaId === mediaId) {
-           pos = p + node.nodeSize;
+          pos = p + node.nodeSize;
         }
       });
 
@@ -140,7 +140,7 @@ function AIContentInsertBridge() {
     window.addEventListener("insert-ai-content", handleInsert);
     window.addEventListener("insert-media-ai-result", handleMediaResult);
     window.addEventListener("insert-captured-image", handleInsertImage);
-    
+
     // Expose for external toolbar actions
     (window as any).activeBlackNoteEditor = editor;
 
@@ -593,7 +593,7 @@ export function NoteEditor({
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const titleRef = useRef<HTMLTextAreaElement>(null);
-  
+
   const { startRecording, stopRecording, isRecording } = useSpeech();
 
   useEffect(() => {
@@ -905,19 +905,19 @@ export function NoteEditor({
             <AIContentInsertBridge />
             <ContentSwapBridge noteId={note.id} content={note.content} />
             <ChatSheetBridge note={note} noteTitle={titleValue} />
-            <ImportExportSheetBridge 
-              noteId={note.id} 
-              noteTitle={titleValue} 
-              onCreateNote={onCreateNote} 
+            <ImportExportSheetBridge
+              noteId={note.id}
+              noteTitle={titleValue}
+              onCreateNote={onCreateNote}
               theme={theme}
               themeMode={themeMode}
               setThemeMode={setThemeMode}
               toggleTheme={toggleTheme}
             />
-            <AgentInput 
-              noteId={note.id} 
+            <AgentInput
+              noteId={note.id}
               noteTitle={note.title}
-              onContentChange={onContentChange} 
+              onContentChange={onContentChange}
               onTitleChange={(id, val) => {
                 if (id === note.id) handleTitleChange(val);
                 else onTitleChange(id, val);
