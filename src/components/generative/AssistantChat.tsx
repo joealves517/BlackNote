@@ -27,6 +27,7 @@ interface AssistantChatProps {
   initialChatHistory?: any[];
   onUpdateChatHistory?: (history: any[]) => void;
   onClose: () => void;
+  show: boolean;
 }
 
 function ChatHistorySync({
@@ -94,6 +95,7 @@ export function AssistantChat({
   initialChatHistory = [],
   onUpdateChatHistory,
   onClose,
+  show,
 }: AssistantChatProps) {
   const [pageContext, setPageContextState] = useState<AttachedPageContext | null>(null);
   const pageContextRef = useRef<AttachedPageContext | null>(null);
@@ -168,9 +170,9 @@ export function AssistantChat({
     <PageContext.Provider value={{ noteTitle, pageContext, setPageContext }}>
       <motion.div
         className="absolute inset-0 z-30 flex flex-col bg-white dark:bg-[#212121]"
+        style={{ display: show ? "flex" : "none" }}
         initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 10 }}
+        animate={{ opacity: show ? 1 : 0, y: show ? 0 : 10 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
         <div className="flex-1 overflow-hidden flex flex-col">

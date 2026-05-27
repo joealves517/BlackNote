@@ -245,11 +245,13 @@ function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
     window.dispatchEvent(new CustomEvent("panel-closed"));
   }, []);
 
-  if (!show || !note) return null;
+  if (!note) return null;
 
   return createPortal(
     <AnimatePresence>
       <AssistantChat
+        key={note.id}
+        show={show}
         noteId={note.id}
         noteTitle={noteTitle || "Untitled"}
         noteContent={markdownContent}
