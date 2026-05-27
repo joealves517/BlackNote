@@ -21,7 +21,7 @@ export async function runFrontendAgentWithTools(
   });
 
   const { text, toolCalls } = await generateText({
-    model: google("gemini-2.0-flash-lite-preview-02-05"),
+    model: google("gemini-3.1-flash-lite"),
     system: `You are an AI assistant acting directly on a document.
 You have been provided with the current document content. The document is divided into blocks, each marked with an ID like «b0», «b1», etc.
 Your task is to fulfill the user's request by calling the appropriate tools to modify the document.
