@@ -297,6 +297,21 @@ chrome.windows.onRemoved.addListener((windowId) => {
         return true;
       }
 
+      if (message.type === "SINGLEFILE_INJECT_CORE") {
+        const { tabId } = message.payload || {};
+        if (!tabId) {
+          sendResponse({ error: "Missing tabId in payload" });
+          return false;
+        }
+        chrome.scripting.executeScript({
+          target: { tabId },
+          files: ['lib/single-file.js'],
+        })
+        .then(() => sendResponse({ success: true }))
+        .catch((err) => sendResponse({ error: err.message }));
+        return true;
+      }
+
       // Proxy fetch for YouTube InnerTube API to bypass CORS in Side Panel
       if (message.type === "FETCH_YOUTUBE_TRANSCRIPT" && message.url) {
         // Prevent sending browser cookies which cause 403 when using ANDROID client
