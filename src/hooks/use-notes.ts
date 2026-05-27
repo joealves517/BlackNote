@@ -297,7 +297,6 @@ export function useNotes() {
     syncedForUser.current = userId;
 
     const runSync = async () => {
-      showSyncingToast();
       let lastProgress: SyncProgress | null = null;
 
       try {
@@ -313,12 +312,13 @@ export function useNotes() {
         }
 
         if (lastProgress && (lastProgress as any).status === "done") {
-          showSyncSuccessToast((lastProgress as any).total);
-        } else if (lastProgress && (lastProgress as any).status === "error") {
-          showSyncErrorToast();
+          const totalSynced = (lastProgress as any).total || 0;
+          if (totalSynced > 0) {
+            showSyncSuccessToast(totalSynced);
+          }
         }
       } catch (err) {
-        showSyncErrorToast();
+        console.error("Silent background sync failed:", err);
       }
 
       // Auto-hide progress after 3s

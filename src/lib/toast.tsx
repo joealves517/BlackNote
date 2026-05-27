@@ -612,14 +612,15 @@ export function showSyncingToast() {
 }
 
 export function showSyncSuccessToast(count: number) {
-  const message = count > 0 
-    ? `Successfully synchronized ${count} ${count === 1 ? 'note' : 'notes'} with the cloud.`
-    : "Your notes are completely up to date.";
+  if (count <= 0) {
+    dismissSmoothly("sync-toast");
+    return "sync-toast";
+  }
 
-  goeyToast.update("sync-toast", {
-    title: "Notes Synced",
-    type: "success",
-    icon: null,
+  const message = `Successfully synchronized ${count} ${count === 1 ? 'note' : 'notes'} with the cloud.`;
+
+  goeyToast.success("Notes Synced", {
+    id: "sync-toast",
     showTimestamp: false,
     description: (
       <div className="flex flex-col gap-1 mt-1 w-[260px]">
@@ -634,10 +635,8 @@ export function showSyncSuccessToast(count: number) {
 }
 
 export function showSyncErrorToast() {
-  goeyToast.update("sync-toast", {
-    title: "Sync Failed",
-    type: "error",
-    icon: null,
+  goeyToast.error("Sync Failed", {
+    id: "sync-toast",
     showTimestamp: false,
     description: (
       <div className="flex flex-col gap-1 mt-1 w-[260px]">

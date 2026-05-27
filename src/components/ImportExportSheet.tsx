@@ -356,8 +356,8 @@ export function ImportExportSheet({
                                 : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
                             }`}
                           >
-                            {mode === "light" && <SunIcon className={`w-3.5 h-3.5 ${isActive ? "text-amber-500" : "text-muted-foreground"}`} />}
-                            {mode === "dark" && <MoonIcon className={`w-3.5 h-3.5 ${isActive ? "text-blue-400" : "text-muted-foreground"}`} />}
+                            {mode === "light" && <SunIcon className={`w-3.5 h-3.5 ${isActive ? "text-foreground" : "text-muted-foreground"}`} />}
+                            {mode === "dark" && <MoonIcon className={`w-3.5 h-3.5 ${isActive ? "text-foreground" : "text-muted-foreground"}`} />}
                             {mode === "system" && <Monitor size={13} className={isActive ? "text-foreground" : "text-muted-foreground"} />}
                             <span className="capitalize">{mode}</span>
                           </button>

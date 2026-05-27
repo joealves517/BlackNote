@@ -52,6 +52,7 @@ import { AIMediaResultSheet } from "@/components/AIMediaResultSheet";
 import { SupportActionSheet } from "@/components/SupportActionSheet";
 import { WebClipper } from "@/components/WebClipper";
 import { ImageClipper } from "@/components/ImageClipper";
+import { FloatingToolbarDashboard } from "@/components/FloatingToolbarDashboard";
 import { LoaderIcon } from "@/components/ui/loader";
 import { GripIcon } from "@/components/icons/grip";
 import { GlobalTooltip } from "@/components/Tooltip";
@@ -319,6 +320,41 @@ export function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [showRightToolbar, setShowRightToolbar] = useState(true);
   const [isWide, setIsWide] = useState(false);
+  const [isMenuHovered, setIsMenuHovered] = useState(false);
+  const menuHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnterMenu = useCallback(() => {
+    if (menuHoverTimeoutRef.current) {
+      clearTimeout(menuHoverTimeoutRef.current);
+      menuHoverTimeoutRef.current = null;
+    }
+    setIsMenuHovered(true);
+  }, []);
+
+  const handleMouseLeaveMenu = useCallback(() => {
+    if (menuHoverTimeoutRef.current) {
+      clearTimeout(menuHoverTimeoutRef.current);
+    }
+    menuHoverTimeoutRef.current = setTimeout(() => {
+      setIsMenuHovered(false);
+    }, 180); // 180ms delay creates a fluid safe-zone for cursor movement
+  }, []);
+
+  const handleCloseMenuImmediately = useCallback(() => {
+    if (menuHoverTimeoutRef.current) {
+      clearTimeout(menuHoverTimeoutRef.current);
+      menuHoverTimeoutRef.current = null;
+    }
+    setIsMenuHovered(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (menuHoverTimeoutRef.current) {
+        clearTimeout(menuHoverTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -414,15 +450,7 @@ export function App() {
     });
   }, []);
 
-  // Save right toolbar visibility state when it changes
-  const isFirstRenderToolbar = useRef(true);
-  useEffect(() => {
-    if (isFirstRenderToolbar.current) {
-      isFirstRenderToolbar.current = false;
-      return;
-    }
-    chrome.storage.local.set({ blacknote_show_right_toolbar: showRightToolbar }).catch(console.error);
-  }, [showRightToolbar]);
+  // Save right toolbar visibility state directly in user toggle handlers below to bypass React Strict Mode double-mount reset bugs
 
   const [showClipper, setShowClipper] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
@@ -1810,15 +1838,106 @@ export function App() {
       >
         <AnimatePresence>
           {!showRightToolbar && !isRecording && !isSTTActive && !isMeetSyncActive && (
-            <motion.button 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute top-4 right-2 z-40 flex items-center justify-center w-9 h-9 rounded-md text-muted-foreground opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-              onClick={() => setShowRightToolbar(true)}
+              className="absolute top-3 right-3 z-40 flex flex-col items-end"
+              onMouseEnter={handleMouseEnterMenu}
+              onMouseLeave={handleMouseLeaveMenu}
             >
-              <Menu size={20} strokeWidth={1.25} />
-            </motion.button>
+              <div 
+                className="flex items-center justify-center w-9 h-9 rounded-md text-muted-foreground opacity-80 dark:opacity-75 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <Menu size={20} strokeWidth={1.25} />
+              </div>
+
+              <Popover.Root open={showAccountMenu && !showRightToolbar} onOpenChange={setShowAccountMenu}>
+                <Popover.Anchor asChild>
+                  <div className="absolute top-0 right-0 w-0 h-0 pointer-events-none" />
+                </Popover.Anchor>
+                <Popover.Portal>
+                  <Popover.Content
+                    align="end"
+                    side="bottom"
+                    sideOffset={0}
+                    alignOffset={0}
+                    collisionPadding={0}
+                    className="z-[999] bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-md border-none shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] rounded-[20px] overflow-hidden focus:outline-none"
+                  >
+                    <AccountPopup
+                      user={user}
+                      credits={credits}
+                      onUpgradeClick={() => {
+                        setShowAccountMenu(false);
+                        setActivePanel(null);
+                        setIsUpgradeModalOpen(true);
+                      }}
+                      onSupportClick={() => {
+                        setShowAccountMenu(false);
+                        setActivePanel(null);
+                        setShowSupportSheet(true);
+                      }}
+                      onSignOut={async () => {
+                        setShowAccountMenu(false);
+                        setActivePanel(null);
+                        showSignOutConfirmToast({
+                          onConfirm: async () => {
+                            setIsSigningOut(true);
+                            try {
+                              await signOut();
+                              showSignOutSuccessToast();
+                            } finally {
+                              setIsSigningOut(false);
+                            }
+                          }
+                        });
+                      }}
+                      onLogin={handleLogin}
+                      isLoggingIn={isLoggingIn}
+                      onClose={() => {
+                        setShowAccountMenu(false);
+                        setActivePanel(null);
+                      }}
+                    />
+                  </Popover.Content>
+                </Popover.Portal>
+              </Popover.Root>
+
+              <AnimatePresence>
+                {isMenuHovered && (
+                  <FloatingToolbarDashboard
+                    user={user}
+                    activePanel={activePanel}
+                    onTogglePanel={(panel) => {
+                      handleTogglePanel(panel as any);
+                      handleCloseMenuImmediately();
+                    }}
+                    onCreateNote={() => {
+                      handleCreateNote();
+                      handleCloseMenuImmediately();
+                    }}
+                    onToolbarMediaAction={(action) => {
+                      handleToolbarMediaAction(action);
+                      handleCloseMenuImmediately();
+                    }}
+                    onTogglePiP={() => {
+                      handleTogglePiP();
+                      handleCloseMenuImmediately();
+                    }}
+                    onShowToolbar={() => {
+                      setShowRightToolbar(true);
+                      handleCloseMenuImmediately();
+                      chrome.storage.local.set({ blacknote_show_right_toolbar: true }).catch(() => {});
+                    }}
+                    onAccountClick={() => {
+                      setShowAccountMenu(true);
+                      handleCloseMenuImmediately();
+                    }}
+                  />
+                )}
+              </AnimatePresence>
+            </motion.div>
           )}
         </AnimatePresence>
         <NoteEditor
@@ -2018,7 +2137,10 @@ export function App() {
             <div className={`flex flex-col items-center gap-3 w-full opacity-100 ${isWide ? "px-0.5" : "min-w-[40px]"}`}>
               <button
                 className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-sidebar-hover cursor-pointer"
-                onClick={() => setShowRightToolbar(false)}
+                onClick={() => {
+                  setShowRightToolbar(false);
+                  chrome.storage.local.set({ blacknote_show_right_toolbar: false }).catch(() => {});
+                }}
                 data-tooltip="Close menu"
                 data-placement="left"
               >
@@ -2044,7 +2166,7 @@ export function App() {
               <button
                 className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={() => handleTogglePanel("note-chat")}
-                data-tooltip={isWide ? undefined : "Ask AI"}
+                data-tooltip={isWide ? undefined : "AI Chat"}
                 data-placement="left"
               >
                 <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
@@ -2060,7 +2182,7 @@ export function App() {
                       ? "text-foreground opacity-100 font-semibold"
                       : "text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:text-foreground"
                   }`}>
-                    Ask AI
+                    AI Chat
                   </span>
                 )}
               </button>

@@ -7,6 +7,8 @@ import type { AppUser } from "@/lib/auth-client";
 import { goeyToast } from "goey-toast";
 import { dismissSmoothly } from "@/lib/toast";
 
+import ShinyText from "@/components/ui/ShinyText";
+
 interface AccountPopupProps {
   user: AppUser | null;
   credits: { credits: number; tier: string } | null;
@@ -153,7 +155,7 @@ export function AccountPopup({
           >
             <div className="flex items-center gap-3">
               <FileText className="w-4 h-4 shrink-0 text-muted-foreground/80 group-hover:text-foreground transition-colors" />
-              <span>Privacy Policy</span>
+              <span>Privacy & Licenses</span>
             </div>
             <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0 group-hover:text-foreground/50 transition-colors" />
           </button>
@@ -196,24 +198,29 @@ export function AccountPopup({
         </div>
       </div>
 
-      {/* Upgrade Banner (Visible for Free Tier Users) */}
-      {!isPremium && (
-        <div className="px-1 flex justify-center">
-          <button
-            className="w-[92%] relative h-[56px] rounded-xl overflow-hidden group cursor-pointer border-none p-0 outline-none hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-md"
-            onClick={onUpgradeClick}
-          >
-            <img
-              src="/pro-banner.webp"
-              alt="Upgrade to Pro"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
-            />
-          </button>
-        </div>
-      )}
+
 
       {/* Menu Actions */}
       <div className="flex flex-col gap-0.5">
+        {!isPremium && (
+          <button
+            onClick={onUpgradeClick}
+            className="flex items-center justify-between w-full px-2.5 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted/40 rounded-xl transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-4 h-4 shrink-0 text-muted-foreground/80 group-hover:text-foreground transition-colors" />
+              <ShinyText
+                text="Upgrade to Pro"
+                speed={2}
+                color="hsl(var(--muted-foreground) / 0.85)"
+                shineColor="hsl(var(--foreground))"
+                className="font-semibold text-xs"
+              />
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0 group-hover:text-foreground/50 transition-colors" />
+          </button>
+        )}
+
         <button
           onClick={handleWhatsNewClick}
           className="flex items-center justify-between w-full px-2.5 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted/40 rounded-xl transition-all cursor-pointer group"
@@ -245,7 +252,7 @@ export function AccountPopup({
         >
           <div className="flex items-center gap-3">
             <FileText className="w-4 h-4 shrink-0 text-muted-foreground/80 group-hover:text-foreground transition-colors" />
-            <span>Privacy Policy</span>
+            <span>Privacy & Licenses</span>
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0 group-hover:text-foreground/50 transition-colors" />
         </button>
