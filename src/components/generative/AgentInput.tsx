@@ -13,7 +13,7 @@ import { fetchWithRetry, readStreamWithTimeout, validateAgentResponse } from "@/
 import { ThreeDot } from "react-loading-indicators";
 import BorderGlow from "@/components/ui/BorderGlow";
 import ShinyText from "@/components/ui/ShinyText";
-import { runFrontendAgentWithTools } from "@/lib/agent-tool-calling";
+import { marked } from "marked";
 
 // --- Types ---
 
@@ -349,7 +349,6 @@ export function AgentInput({
   const [loadingDots, setLoadingDots] = useState("");
   const [isHidden, setIsHidden] = useState(() => localStorage.getItem("blacknote_hide_agent") === "true");
   const [clarifications, setClarifications] = useState<string[]>([]);
-  const [useFrontendExperimental, setUseFrontendExperimental] = useState(true);
 
   const snapshotRef = useRef<any>(null);
   const snapshotTitleRef = useRef<string | null>(null);
@@ -496,41 +495,6 @@ export function AgentInput({
     setLocalInput("");
     setIsProcessing(true);
     setAgentMessage(null);
-
-    if (useFrontendExperimental) {
-      try {
-        const { text, tools } = await runFrontendAgentWithTools(instruction, markdown);
-        
-        const changes: AgentChange[] = [];
-        
-        for (const tool of tools) {
-          if (tool.type === "title") {
-             changes.push({ blockId: "title", content: tool.newTitle });
-          } else if (tool.type === "delete") {
-             changes.push({ blockId: tool.blockId, content: "[DELETE]" });
-          } else if (tool.type === "replace") {
-             changes.push({ blockId: tool.blockId, content: tool.newText });
-          } else if (tool.type === "insert") {
-             changes.push({ blockId: "new", content: tool.text });
-          }
-        }
-        
-        if (changes.length > 0) {
-          pendingChangesRef.current = changes;
-          applyChanges(ed, blockMap, changes, noteId, onTitleChange);
-          setHasPendingModifications(true);
-          setChangeCount(changes.length);
-        } else {
-          setAgentMessage(text || "Task completed.");
-          snapshotRef.current = null;
-        }
-      } catch (err) {
-        console.error("[Frontend Agent] Error:", err);
-        setAgentMessage("Experimental tool calling failed.");
-      }
-      setIsProcessing(false);
-      return;
-    }
 
     try {
       const response = await fetchWithRetry(
@@ -730,10 +694,10 @@ export function AgentInput({
                   {/* Agent Message Area */}
                   {agentMessage && !isProcessing && !hasPendingModifications && (() => {
                     const isImageResponse = agentMessage.trim().startsWith("<image>");
-                    const imageUrl = isImageResponse 
-                       ? agentMessage.replace("<image>", "").replace("</image>", "").trim() 
+                    const imageUrl = isImageResponse
+                      ? agentMessage.replace("<image>", "").replace("</image>", "").trim()
                       : "";
-     
+
                     return isImageResponse ? (
                       <div className="flex flex-col items-center justify-center p-5 gap-4 w-full pointer-events-auto">
                         <div className="relative group max-w-full rounded-2xl overflow-hidden border border-border bg-muted/40 shadow-inner">
@@ -761,7 +725,7 @@ export function AgentInput({
                             </button>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-2 w-full max-w-[320px]">
                           <div className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold py-2.5 px-4 bg-green-600/10 dark:bg-green-500/10 text-green-600 dark:text-green-400 rounded-xl border border-green-500/20 select-none">
                             <svg className="w-4 h-4 animate-in zoom-in duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -781,11 +745,19 @@ export function AgentInput({
                     ) : (
                       <>
                         <div
-                          className="px-5 py-4 text-[14px] text-foreground leading-relaxed max-h-[350px] overflow-y-auto custom-scrollbar whitespace-pre-wrap pointer-events-auto"
+                          className="px-5 py-4 text-[14.5px] text-foreground leading-relaxed max-h-[350px] overflow-y-auto custom-scrollbar pointer-events-auto agent-markdown-response"
                           onScroll={(e) => e.stopPropagation()}
-                        >
-                          {agentMessage}
-                        </div>
+                          dangerouslySetInnerHTML={{
+                            __html: (() => {
+                              try {
+                                return marked.parse(agentMessage);
+                              } catch (err) {
+                                console.error("[AgentInput] Failed to parse markdown:", err);
+                                return agentMessage;
+                              }
+                            })()
+                          }}
+                        />
                         {clarifications.length > 0 && (
                           <div className="px-4 pb-3 flex flex-wrap gap-1.5 pointer-events-auto">
                             {clarifications.map((suggestion, idx) => (
@@ -814,7 +786,7 @@ export function AgentInput({
                       </>
                     );
                   })()}
-     
+
                   {/* Loading State */}
                   {isProcessing ? (
                     <div className="px-5 py-3 flex items-center gap-3 text-muted-foreground">
@@ -822,11 +794,11 @@ export function AgentInput({
                         <ThreeDot color={["#32cd32", "#327fcd", "#cd32cd", "#cd8032"]} size="small" style={{ fontSize: "5px" }} />
                       </div>
                       <span className="text-[14px] font-medium text-foreground/70 flex items-center gap-1">
-                        <ShinyText 
-                          text={`Thinking${loadingDots}`} 
-                          speed={2} 
-                          color="hsl(var(--muted-foreground) / 0.85)" 
-                          shineColor="hsl(var(--foreground))" 
+                        <ShinyText
+                          text={`Thinking${loadingDots}`}
+                          speed={2}
+                          color="hsl(var(--muted-foreground) / 0.85)"
+                          shineColor="hsl(var(--foreground))"
                         />
                       </span>
                     </div>
@@ -857,35 +829,24 @@ export function AgentInput({
                       </div>
                     </div>
                   ) : (
-                    /* Normal Input Mode (Gemini Prompt Bar Design) */
+                    /* Normal Input Mode (Gemini Sleek Capsule/Pill Design) */
                     <form
                       onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
-                      className="w-full flex items-center bg-transparent gap-2 px-3 py-2.5 min-h-[52px]"
+                      className="w-full flex items-center gap-3 bg-transparent pl-5 pr-2 py-1.5"
                     >
-                      {/* Left: Plus Button */}
-                      <button
-                        type="button"
-                        className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground active:scale-95 transition-all duration-200 cursor-pointer shrink-0"
-                        title="Add context"
-                      >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                        </svg>
-                      </button>
-
-                      {/* Middle: Textarea Input */}
+                      {/* Textarea Input on the left */}
                       <textarea
                         ref={inputRef as any}
                         value={localInput}
                         onChange={(e) => {
                           setLocalInput(e.target.value);
                           e.target.style.height = "auto";
-                          e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+                          e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
                         }}
-                        placeholder="Ask Gemini"
-                        className="flex-1 bg-transparent py-1.5 text-[14px] text-foreground outline-none resize-none overflow-y-auto custom-scrollbar leading-relaxed"
+                        placeholder="Ask Anything"
+                        className="flex-1 bg-transparent p-0 text-[14.5px] text-foreground outline-none resize-none overflow-y-auto custom-scrollbar leading-relaxed agent-input-textarea"
                         rows={1}
-                        style={{ minHeight: "24px", maxHeight: "120px", lineHeight: "20px" }}
+                        style={{ minHeight: "24px", maxHeight: "160px", lineHeight: "22px", display: "flex", alignItems: "center" }}
                         disabled={isProcessing}
                         onKeyDown={(e) => {
                           e.stopPropagation();
@@ -898,43 +859,15 @@ export function AgentInput({
                         onKeyUp={(e) => e.stopPropagation()}
                       />
 
-                      {/* Right: Actions Container */}
-                      <div className="flex items-center gap-2 shrink-0 pl-1 select-none">
-                        {/* Speed/Model Selector */}
-                        <div 
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full hover:bg-muted/50 transition-colors cursor-pointer"
-                          onClick={() => setUseFrontendExperimental(prev => !prev)}
-                          title="Toggle experimental model calling"
-                        >
-                          <span className="text-[11.5px] font-medium text-muted-foreground whitespace-nowrap">
-                            {useFrontendExperimental ? "Fast" : "Cloud"}
-                          </span>
-                          <svg className="w-3 h-3 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
-
-                        {/* Microphone Button */}
-                        <button
-                          type="button"
-                          className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground active:scale-95 transition-all duration-200 cursor-pointer"
-                          title="Voice input (Muted)"
-                        >
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                          </svg>
-                        </button>
-
-                        {/* Send Button */}
-                        <button
-                          type="submit"
-                          disabled={!localInput.trim() || isProcessing}
-                          className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground hover:brightness-110 disabled:opacity-20 disabled:hover:brightness-100 active:scale-95 transition-all duration-200 cursor-pointer"
-                          title="Send message"
-                        >
-                          <ArrowUpIcon className="w-4 h-4" />
-                        </button>
-                      </div>
+                      {/* Right side: Send Button aligned side-by-side */}
+                      <button
+                        type="submit"
+                        disabled={!localInput.trim() || isProcessing}
+                        className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground hover:scale-105 active:scale-95 disabled:opacity-20 disabled:scale-100 transition-all duration-200 cursor-pointer shrink-0"
+                        title="Send message"
+                      >
+                        <ArrowUpIcon className="w-4 h-4" />
+                      </button>
                     </form>
                   )}
                 </div>

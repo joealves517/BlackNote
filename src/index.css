@@ -235,7 +235,8 @@ body {
 
 ::-webkit-scrollbar-track {
   background: transparent;
-  margin: 16px 0; /* Creates padding at the top and bottom of the track */
+  margin: 16px 0;
+  /* Creates padding at the top and bottom of the track */
 }
 
 ::-webkit-scrollbar-thumb {
@@ -671,14 +672,16 @@ body {
 .history-sheet-handle {
   display: flex;
   justify-content: center;
-  padding: 6px 0 4px; /* Sát viền trên hơn */
+  padding: 6px 0 4px;
+  /* Sát viền trên hơn */
   flex-shrink: 0;
   cursor: pointer;
 }
 
 .history-sheet-handle-bar {
   width: 36px;
-  height: 3px; /* Mỏng hơn (sleek) */
+  height: 3px;
+  /* Mỏng hơn (sleek) */
   border-radius: 9999px;
   background-color: hsl(var(--muted-foreground) / 0.2);
 }
@@ -690,6 +693,7 @@ body {
   padding: 0 !important;
   cursor: default;
 }
+
 .account-sheet .history-sheet-handle-bar {
   display: none !important;
 }
@@ -1265,11 +1269,25 @@ body {
 }
 
 @keyframes ellipsis {
-  0% { content: ""; }
-  25% { content: "."; }
-  50% { content: ".."; }
-  75% { content: "..."; }
-  100% { content: ""; }
+  0% {
+    content: "";
+  }
+
+  25% {
+    content: ".";
+  }
+
+  50% {
+    content: "..";
+  }
+
+  75% {
+    content: "...";
+  }
+
+  100% {
+    content: "";
+  }
 }
 
 .animate-ellipsis::after {
@@ -1817,6 +1835,7 @@ body {
     opacity: 0;
     transform: translate(calc(-100% - 2px), -50%);
   }
+
   to {
     opacity: 1;
     transform: translate(calc(-100% - 6px), -50%);
@@ -2783,7 +2802,7 @@ button:active .hover-zoom-icon-removed,
   justify-content: center;
 }
 
-.simple-loader-container > div {
+.simple-loader-container>div {
   width: 100% !important;
   height: 300px !important;
   display: flex !important;
@@ -2792,5 +2811,80 @@ button:active .hover-zoom-icon-removed,
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(1.15); /* Vector scale: thick bar, fits perfectly within margins without clipping */
+  transform: translate(-50%, -50%) scale(1.15);
+  /* Vector scale: thick bar, fits perfectly within margins without clipping */
+}
+
+/* ===== AI Agent Markdown Response styling ===== */
+.agent-markdown-response p {
+  margin-bottom: 0.75rem;
+}
+
+.agent-markdown-response p:last-child {
+  margin-bottom: 0;
+}
+
+.agent-markdown-response ul {
+  list-style-type: disc !important;
+  padding-left: 1.25rem !important;
+  margin-bottom: 0.75rem;
+}
+
+.agent-markdown-response ol {
+  list-style-type: decimal !important;
+  padding-left: 1.25rem !important;
+  margin-bottom: 0.75rem;
+}
+
+.agent-markdown-response li {
+  margin-bottom: 0.25rem;
+  display: list-item !important;
+}
+
+.agent-markdown-response strong {
+  font-weight: 600;
+}
+
+.agent-markdown-response h1,
+.agent-markdown-response h2,
+.agent-markdown-response h3,
+.agent-markdown-response h4 {
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: hsl(var(--foreground));
+}
+
+.agent-markdown-response h1 {
+  font-size: 1.25rem;
+}
+
+.agent-markdown-response h2 {
+  font-size: 1.15rem;
+}
+
+.agent-markdown-response h3 {
+  font-size: 1.05rem;
+}
+
+.agent-markdown-response code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background-color: hsl(var(--muted));
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+.agent-markdown-response pre {
+  background-color: hsl(var(--muted));
+  padding: 0.75rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin-bottom: 0.75rem;
+}
+
+.agent-markdown-response pre code {
+  padding: 0;
+  background-color: transparent;
+  font-size: 0.875rem;
 }

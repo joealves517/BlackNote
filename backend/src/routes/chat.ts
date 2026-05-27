@@ -15,8 +15,7 @@ import {
   deductFreeCredits,
 } from "../services/firestore.js";
 import { createVertex } from "@ai-sdk/google-vertex";
-import { streamText, UIMessage, convertToModelMessages, tool } from "ai";
-import { z } from "zod";
+import { streamText, UIMessage, convertToModelMessages, jsonSchema, tool, stepCountIs } from "ai";
 import { calculateTokenCost } from "../services/token-cost.js";
 import { PROMPTS } from "../prompts/index.js";
 import { config } from "../config/index.js";
@@ -68,12 +67,19 @@ router.post(
     const pageCtx = body.pageContext;
 
     // Agentic System Prompt
-    const systemPrompt = `You are a helpful and intelligent AI assistant embedded in a note-taking app called BlackNote.
+    let systemPrompt = `You are a helpful and intelligent AI assistant embedded in a note-taking app called BlackNote.
 You are chatting with the user as an independent assistant.
-If the user asks questions about their current note, you MUST use the \`read_current_note\` tool to fetch the note's content.
-If the user has attached a webpage context to their message and asks questions about it, you MUST use the \`read_current_page\` tool to read its contents.
-If the user asks general knowledge questions, you can use the \`google_search\` tool to find up-to-date information.
-Answer their questions clearly and concisely. Use Markdown formatting where appropriate.`;
+You have tools to automatically access the user's current context. DO NOT ask the user for their note content or which note they want to read.
+
+When the user asks you to read, summarize, or interact with their note, you MUST invoke the \`read_current_note\` tool to fetch its content automatically.
+When the user asks about an attached webpage, you MUST invoke the \`read_current_page\` tool to read its contents automatically.
+For general knowledge, use the \`google_search\` tool.
+
+CRITICAL REQUIREMENT FOR TOOL CALLS:
+Before you invoke any tool, you MUST output a short conversational sentence explaining what you are doing (e.g., "Let me check your note to find out.").
+After outputting this sentence, you MUST immediately invoke the tool in the same response. NEVER ask the user to provide the content themselves.
+
+Answer questions clearly and concisely. Use Markdown formatting.`;
 
     // Determine if user has credits (premium) or needs free tier
     const hasPremium = user.credits > 0;
@@ -99,30 +105,34 @@ Answer their questions clearly and concisely. Use Markdown formatting where appr
         messages: modelMessages,
         temperature: 0.7,
         maxOutputTokens: 4096,
+        stopWhen: stepCountIs(5),
         tools: {
-          read_current_note: {
+          read_current_note: tool({
             description: 'Read the contents of the note the user is currently looking at.',
-            // @ts-ignore - Vercel AI SDK types mismatch in this TS setup
-            parameters: z.object({}),
-            execute: async (_args: any) => {
+            inputSchema: jsonSchema({
+              type: 'object' as const,
+              properties: {},
+            }),
+            execute: async () => {
               if (!noteCtx || !noteCtx.noteContent) {
                 return "The current note is empty or no note is open.";
               }
               return `Title: ${noteCtx.noteTitle}\n\nContent:\n${noteCtx.noteContent}`;
             }
-          },
-          read_current_page: {
+          }),
+          read_current_page: tool({
             description: 'Read the content of the webpage the user has attached to this conversation.',
-            // @ts-ignore
-            parameters: z.object({}),
-            execute: async (_args: any) => {
+            inputSchema: jsonSchema({
+              type: 'object' as const,
+              properties: {},
+            }),
+            execute: async () => {
               if (!pageCtx || !pageCtx.markdown) {
                 return "No webpage is currently attached.";
               }
               return `Webpage Title: ${pageCtx.title}\nURL: ${pageCtx.url}\n\nContent:\n${pageCtx.markdown}`;
             }
-          },
-          google_search: vertex.tools.googleSearch({}),
+          }),
         },
         onFinish: async ({ usage }) => {
           try {

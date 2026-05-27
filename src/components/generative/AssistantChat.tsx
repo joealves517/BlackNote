@@ -3,9 +3,8 @@ import { useChatRuntime, AssistantChatTransport } from "@assistant-ui/react-ai-s
 import { Thread } from "@/components/assistant-ui/thread";
 import { AI_API_BASE } from "@/lib/constants";
 import { getAuthToken } from "@/lib/auth-client";
-import { motion, AnimatePresence } from "framer-motion";
-import { useMemo, useState, useRef, createContext, useEffect } from "react";
-import { XIcon } from "lucide-react";
+import { motion } from "framer-motion";
+import { useMemo, useState, useRef, createContext, useEffect, useCallback } from "react";
 import { useThread, getExternalStoreMessages } from "@assistant-ui/react";
 
 export interface AttachedPageContext {
@@ -16,6 +15,7 @@ export interface AttachedPageContext {
 }
 
 export const PageContext = createContext<{
+  noteTitle: string;
   pageContext: AttachedPageContext | null;
   setPageContext: (ctx: AttachedPageContext | null) => void;
 } | null>(null);
@@ -35,14 +35,53 @@ function ChatHistorySync({
   onUpdateChatHistory?: (history: any[]) => void;
 }) {
   const messages = useThread((t) => t.messages);
+  const isRunning = useThread((t) => t.isRunning);
+  const chatCtx = useContext(PageContext);
+  const wasRunningRef = useRef(false);
   
+  // Use ref to always access the latest callback without re-triggering the effect
+  const callbackRef = useRef(onUpdateChatHistory);
+  callbackRef.current = onUpdateChatHistory;
+  
+  // Track last synced message count to avoid redundant updates
+  const lastSyncedCountRef = useRef(0);
+
   useEffect(() => {
-    if (onUpdateChatHistory && messages.length > 0) {
-      // getExternalStoreMessages extracts the UIMessage[] from assistant-ui's ThreadMessage
-      const vercelMessages = messages.flatMap((m) => getExternalStoreMessages(m));
-      onUpdateChatHistory(vercelMessages);
+    if (callbackRef.current && messages.length > 0 && messages.length !== lastSyncedCountRef.current) {
+      lastSyncedCountRef.current = messages.length;
+      
+      // Parse thread messages directly and robustly to avoid external store bugs
+      const history = messages
+        .map((m) => {
+          let textContent = "";
+          if (Array.isArray(m.content)) {
+            textContent = m.content
+              .filter((part: any) => part.type === "text")
+              .map((part: any) => part.text)
+              .join("");
+          } else if (typeof m.content === "string") {
+            textContent = m.content;
+          }
+          return {
+            role: m.role,
+            content: textContent,
+          };
+        })
+        .filter((msg) => msg.content.trim() !== "");
+
+      callbackRef.current(history);
     }
-  }, [messages, onUpdateChatHistory]);
+  }, [messages]);
+
+  useEffect(() => {
+    if (wasRunningRef.current && !isRunning) {
+      // Stream just finished, automatically detach the page context to prevent redundant token usage
+      if (chatCtx && chatCtx.pageContext) {
+        chatCtx.setPageContext(null);
+      }
+    }
+    wasRunningRef.current = isRunning;
+  }, [isRunning, chatCtx]);
 
   return null;
 }
@@ -67,9 +106,9 @@ export function AssistantChat({
     () =>
       new AssistantChatTransport({
         api: `${AI_API_BASE}/api/chat`,
-        headers: async () => {
+        headers: async (): Promise<Record<string, string>> => {
           const token = await getAuthToken();
-          return token ? { Authorization: `Bearer ${token}` } : {};
+          return token ? { Authorization: `Bearer ${token}` } : ({} as Record<string, string>);
         },
         body: {
           noteContext: { noteId, noteTitle, noteContent },
@@ -81,13 +120,24 @@ export function AssistantChat({
     [noteId, noteTitle, noteContent]
   );
 
+  // Stable memoization of initial messages based strictly on noteId to prevent re-render loops
+  const initialMessages = useMemo(() => {
+    return initialChatHistory.map((msg: any, index: number) => ({
+      id: msg.id || `${noteId}-msg-${index}`,
+      role: msg.role as "user" | "assistant",
+      content: msg.content,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noteId]);
+
   const runtime = useChatRuntime({ 
+    id: noteId,
     transport,
-    initialMessages: initialChatHistory,
+    initialMessages,
   });
 
   return (
-    <PageContext.Provider value={{ pageContext, setPageContext }}>
+    <PageContext.Provider value={{ noteTitle, pageContext, setPageContext }}>
       <motion.div
         className="absolute inset-0 z-30 flex flex-col bg-white dark:bg-[#212121]"
         initial={{ opacity: 0, y: 10 }}

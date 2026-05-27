@@ -25,6 +25,8 @@ import {
 } from "@radix-ui/react-icons";
 import { useEffect, useState, type FC } from "react";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
+import { MarkdownText } from "@/components/assistant-ui/markdown-text";
+import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
 import { useShallow } from "zustand/shallow";
 import {
   AudioLines,
@@ -53,13 +55,13 @@ import { useContext } from "react";
 
 export const Thread: FC = () => {
   return (
-    <ThreadPrimitive.Root className="flex h-full flex-col items-stretch bg-white px-4 text-[#0d0d0d] dark:bg-[#212121] dark:text-[#ececec]">
+    <ThreadPrimitive.Root className="flex h-full flex-col items-stretch bg-white px-0 text-[#0d0d0d] dark:bg-[#212121] dark:text-[#ececec] text-[14px]">
       <AuiIf condition={(s) => s.thread.isEmpty}>
         <EmptyState />
       </AuiIf>
 
       <AuiIf condition={(s) => !s.thread.isEmpty}>
-        <ThreadPrimitive.Viewport className="flex grow flex-col gap-8 overflow-y-scroll pt-16">
+        <ThreadPrimitive.Viewport className="flex grow flex-col gap-8 overflow-y-scroll pt-4">
           <ThreadPrimitive.Messages>
             {({ message }) => {
               if (message.composer.isEditing) return <EditComposer />;
@@ -68,11 +70,11 @@ export const Thread: FC = () => {
             }}
           </ThreadPrimitive.Messages>
 
-          <ThreadPrimitive.ViewportFooter className="sticky bottom-0 mx-auto mt-auto flex w-full max-w-3xl flex-col gap-2 overflow-visible rounded-t-3xl bg-white pb-2 dark:bg-[#212121]">
+          <ThreadPrimitive.ViewportFooter className="sticky bottom-0 mx-auto mt-auto flex w-full max-w-3xl flex-col gap-2 overflow-visible rounded-t-3xl bg-white pb-2 dark:bg-[#212121] px-4">
             <ThreadScrollToBottom />
             <Composer placeholder="Ask anything" />
             <p className="text-center text-xs text-[#5d5d5d] dark:text-[#a8a8a8]">
-              ChatGPT can make mistakes. Check important info.
+              AI can make mistakes. Check important info.
             </p>
           </ThreadPrimitive.ViewportFooter>
         </ThreadPrimitive.Viewport>
@@ -106,43 +108,28 @@ const Composer: FC<{ placeholder: string }> = ({ placeholder }) => {
       </AuiIf>
       <AttachmentChips />
 
-      {/* Input Area */}
-      <div className="flex items-center gap-2 px-2 min-h-[44px]">
-        {/* Left: Plus Button (Add attachment) */}
-        <ComposerPrimitive.AddAttachment asChild>
-          <button
-            type="button"
-            className="flex size-8 shrink-0 items-center justify-center rounded-full text-[#5d5d5d] transition-all hover:bg-[#0d0d0d]/5 hover:text-[#0d0d0d] active:scale-90 dark:text-[#cdcdcd] dark:hover:bg-white/10 dark:hover:text-white cursor-pointer"
-            aria-label="Add attachment"
-          >
-            <PlusIcon size={18} />
-          </button>
-        </ComposerPrimitive.AddAttachment>
+      <ComposerPrimitive.Input
+        id="blacknote-composer-input"
+        placeholder={placeholder}
+        rows={1}
+        className="min-h-9 w-full resize-none bg-transparent px-3 pt-2 text-base text-[#0d0d0d] outline-none placeholder:text-[#8e8e8e] dark:text-[#ececec] dark:placeholder:text-[#8e8e8e]"
+      />
 
-        {/* Middle: Custom text field */}
-        <ComposerPrimitive.Input
-          id="blacknote-composer-input"
-          placeholder={placeholder}
-          rows={1}
-          className="flex-1 resize-none bg-transparent py-1.5 text-[14px] text-[#0d0d0d] outline-none placeholder:text-[#8e8e8e] dark:text-[#ececec] dark:placeholder:text-[#8e8e8e] leading-relaxed"
-          style={{ minHeight: "24px", maxHeight: "120px", lineHeight: "20px" }}
-        />
+      <div className="flex items-center justify-between gap-2 px-1 pt-1">
+        <div className="flex items-center gap-1">
+          <ComposerPrimitive.AddAttachment asChild>
+            <button
+              type="button"
+              className="flex size-9 items-center justify-center rounded-full text-[#5d5d5d] transition-colors hover:bg-[#0d0d0d]/5 hover:text-[#0d0d0d] dark:text-[#cdcdcd] dark:hover:bg-white/10 dark:hover:text-white"
+              aria-label="Add attachment"
+            >
+              <PlusIcon size={18} />
+            </button>
+          </ComposerPrimitive.AddAttachment>
+        </div>
 
-        {/* Right: Actions and Send button */}
-        <div className="flex items-center gap-1.5 shrink-0 select-none pl-1">
-          {/* Tools drop down */}
+        <div className="flex items-center gap-1">
           <ChatGPTToolsMenu />
-
-          {/* Voice Input icon */}
-          <button
-            type="button"
-            className="flex size-8 items-center justify-center rounded-full text-[#5d5d5d] transition-all hover:bg-[#0d0d0d]/5 hover:text-[#0d0d0d] active:scale-90 dark:text-[#cdcdcd] dark:hover:bg-white/10 dark:hover:text-white cursor-pointer"
-            title="Voice input (Muted)"
-          >
-            <Mic size={18} />
-          </button>
-
-          {/* Primary Action Button (Send / Stop / Cancel) */}
           <ComposerPrimaryAction />
         </div>
       </div>
@@ -177,7 +164,6 @@ const AttachmentChips: FC = () => {
 };
 
 const CHATGPT_TOOLS = [
-  { id: "search", label: "Search the web", Icon: Search },
   { id: "note", label: "Ask this note", Icon: FileText },
 ];
 
@@ -219,20 +205,20 @@ const ChatGPTToolsMenu: FC = () => {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex size-8 items-center justify-center rounded-full text-[#5d5d5d] transition-all hover:bg-[#0d0d0d]/5 hover:text-[#0d0d0d] active:scale-90 dark:text-[#cdcdcd] dark:hover:bg-white/10 dark:hover:text-white cursor-pointer">
-        <SlidersHorizontal className="size-4.5" />
+      <DropdownMenuTrigger className="flex h-9 items-center gap-1.5 rounded-full px-3 text-sm text-[#5d5d5d] transition-colors hover:bg-[#0d0d0d]/5 hover:text-[#0d0d0d] dark:text-[#cdcdcd] dark:hover:bg-white/10 dark:hover:text-white">
+        <SlidersHorizontal className="size-4" />
+        <span>Tools</span>
+        <ChevronDownIcon className="size-3.5 opacity-70" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-56 bg-white dark:bg-[#212121] border-[#e5e5e5] dark:border-white/10 shadow-lg rounded-2xl p-2">
-        {tabInfo && (
-          <DropdownMenuItem 
-            onClick={handleAskPage} 
-            disabled={status === "clipping"}
-            className="flex items-center gap-3 rounded-xl px-2 py-2.5 cursor-pointer text-[#0d0d0d] dark:text-[#ececec] focus:bg-[#f5f5f5] dark:focus:bg-white/10"
-          >
-            {status === "clipping" ? <ReloadIcon className="size-4 animate-spin" /> : <Globe className="size-4" />}
-            Ask this page
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem
+          onClick={handleAskPage}
+          disabled={!tabInfo || status === "clipping"}
+          className="flex items-center gap-3 rounded-xl px-2 py-2.5 cursor-pointer text-[#0d0d0d] dark:text-[#ececec] focus:bg-[#f5f5f5] dark:focus:bg-white/10 opacity-100 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {status === "clipping" ? <ReloadIcon className="size-4 animate-spin" /> : <Globe className="size-4" />}
+          Ask this page
+        </DropdownMenuItem>
         {CHATGPT_TOOLS.map(({ id, label, Icon }) => (
           <DropdownMenuItem
             key={id}
@@ -284,8 +270,8 @@ const ComposerPrimaryAction: FC = () => {
           s.composer.dictation == null
         }
       >
-        <ComposerPrimitive.Send className="flex size-8 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-25 dark:bg-white dark:text-black transition-all hover:brightness-110 active:scale-95 cursor-pointer">
-          <ArrowUpIcon className="size-4" />
+        <ComposerPrimitive.Send className="flex size-9 items-center justify-center rounded-full bg-[#0d0d0d] text-white transition-opacity disabled:opacity-30 dark:bg-white dark:text-black">
+          <ArrowUpIcon className="size-5" />
         </ComposerPrimitive.Send>
       </AuiIf>
     </div>
@@ -307,7 +293,7 @@ const ThreadScrollToBottom: FC = () => {
 
 const UserMessage: FC = () => {
   return (
-    <MessagePrimitive.Root className="relative mx-auto flex w-full max-w-3xl flex-col items-end gap-1">
+    <MessagePrimitive.Root className="relative mx-auto flex w-full max-w-3xl flex-col items-end gap-1 px-4">
       <div className="flex flex-row flex-wrap justify-end gap-2">
         <MessagePrimitive.Attachments
           components={{ Attachment: ChatGPTAttachmentUI }}
@@ -329,7 +315,12 @@ const UserMessage: FC = () => {
         </ActionBarPrimitive.Root>
 
         <div className="bg-secondary text-foreground rounded-3xl px-5 py-2 dark:bg-white/5 dark:text-[#eee]">
-          <MessagePrimitive.Parts />
+          <MessagePrimitive.Parts>
+            {({ part }) => {
+              if (part.type === "text") return <MarkdownText />;
+              return null;
+            }}
+          </MessagePrimitive.Parts>
         </div>
       </div>
 
@@ -340,7 +331,7 @@ const UserMessage: FC = () => {
 
 const EditComposer: FC = () => {
   return (
-    <ComposerPrimitive.Root className="bg-secondary mx-auto flex w-full max-w-3xl flex-col justify-end gap-1 rounded-3xl dark:bg-white/15">
+    <ComposerPrimitive.Root className="bg-secondary mx-auto flex w-full max-w-3xl flex-col justify-end gap-1 rounded-3xl dark:bg-white/15 px-4">
       <ComposerPrimitive.Input className="text-foreground flex h-8 w-full resize-none bg-transparent p-5 pb-0 outline-none dark:text-white" />
 
       <div className="m-3 mt-2 flex items-center justify-center gap-2 self-end">
@@ -360,9 +351,15 @@ const assistantActionClassName =
 
 const AssistantMessage: FC = () => {
   return (
-    <MessagePrimitive.Root className="relative mx-auto flex w-full max-w-3xl flex-col">
+    <MessagePrimitive.Root className="relative mx-auto flex w-full max-w-3xl flex-col px-4">
       <div className="text-[#0d0d0d] dark:text-[#ececec]">
-        <MessagePrimitive.Parts />
+        <MessagePrimitive.Parts>
+          {({ part }) => {
+            if (part.type === "text") return <MarkdownText />;
+            if (part.type === "tool-call") return part.toolUI ?? <ToolFallback {...part} />;
+            return null;
+          }}
+        </MessagePrimitive.Parts>
       </div>
 
       <div className="-ml-2 flex items-center pt-1">

@@ -89,5 +89,8 @@
     "@wxt-dev/module-react": "^1.1.5",
     "typescript": "^5.9.3",
     "wxt": "^0.20.25"
+  },
+  "overrides": {
+    "@radix-ui/react-slot": "^1.2.4"
   }
 }

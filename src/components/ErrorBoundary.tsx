@@ -78,7 +78,7 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   public static getDerivedStateFromError(_: Error): State {
-    return { hasError: true };
+    return { hasError: true, showSupportSheet: false, hasUser: false };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {

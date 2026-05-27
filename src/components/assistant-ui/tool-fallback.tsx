@@ -1,6 +1,7 @@
 "use client";
 
-import { memo, useCallback, useRef, useState } from "react";
+import { memo, useCallback, useRef, useState, useContext } from "react";
+import { PageContext } from "@/components/generative/AssistantChat";
 import {
   AlertCircleIcon,
   CheckIcon,
@@ -66,7 +67,7 @@ function ToolFallbackRoot({
       open={isOpen}
       onOpenChange={handleOpenChange}
       className={cn(
-        "aui-tool-fallback-root group/tool-fallback-root w-full rounded-lg border py-3",
+        "aui-tool-fallback-root group/tool-fallback-root w-full rounded-lg border py-3 my-4",
         className,
       )}
       style={
@@ -99,6 +100,7 @@ function ToolFallbackTrigger({
   toolName: string;
   status?: ToolCallMessagePartStatus;
 }) {
+  const chatCtx = useContext(PageContext);
   const statusType = status?.type ?? "complete";
   const isRunning = statusType === "running";
   const isCancelled =
@@ -106,6 +108,20 @@ function ToolFallbackTrigger({
 
   const Icon = statusIconMap[statusType];
   const label = isCancelled ? "Cancelled tool" : "Used tool";
+
+  const truncate = (str: string, max: number = 25) => {
+    if (!str) return "";
+    return str.length > max ? str.slice(0, max) + "..." : str;
+  };
+
+  let formattedToolName = toolName;
+  if (toolName === "read_current_note") {
+    const noteTitle = chatCtx?.noteTitle || "Current note";
+    formattedToolName = `note: "${truncate(noteTitle)}"`;
+  } else if (toolName === "read_current_page") {
+    const pageTitle = chatCtx?.pageContext?.title || "Attached webpage";
+    formattedToolName = `page: "${truncate(pageTitle)}"`;
+  }
 
   return (
     <CollapsibleTrigger
@@ -132,7 +148,7 @@ function ToolFallbackTrigger({
         )}
       >
         <span>
-          {label}: <b>{toolName}</b>
+          {label}: <b>{formattedToolName}</b>
         </span>
         {isRunning && (
           <span
@@ -140,7 +156,7 @@ function ToolFallbackTrigger({
             data-slot="tool-fallback-trigger-shimmer"
             className="aui-tool-fallback-trigger-shimmer shimmer pointer-events-none absolute inset-0 motion-reduce:animate-none"
           >
-            {label}: <b>{toolName}</b>
+            {label}: <b>{formattedToolName}</b>
           </span>
         )}
       </span>

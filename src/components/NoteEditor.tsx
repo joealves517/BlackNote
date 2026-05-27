@@ -21,7 +21,7 @@ import { PlusIcon } from "@/components/icons/plus";
 import { SparklesIcon } from "@/components/icons/sparkles";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { AnimatePresence } from "framer-motion";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   EditorRoot,
@@ -191,12 +191,17 @@ function ContentSwapBridge({ noteId, content }: { noteId: string; content: strin
 /**
  * Bridge for AssistantChat inside EditorContent so it has useEditor() access.
  */
-function ChatSheetBridge({ note, noteTitle }: {
+function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
   note: Note | null;
   noteTitle: string;
+  onUpdateNote: (noteId: string, updates: Partial<Note>) => void;
 }) {
   const [show, setShow] = useState(false);
   const { editor } = useEditor();
+
+  // Stabilize onUpdateNote reference to prevent infinite re-render loops
+  const onUpdateNoteRef = useRef(onUpdateNote);
+  onUpdateNoteRef.current = onUpdateNote;
 
   useEffect(() => {
     const handler = () => setShow(true);
@@ -217,14 +222,30 @@ function ChatSheetBridge({ note, noteTitle }: {
     };
   }, [show]);
 
-  if (!show || !note) return null;
+  // Memoize markdown conversion so it only recalculates when the note changes,
+  // not on every parent re-render (which would cascade into transport recreation)
+  const markdownContent = useMemo(() => {
+    if (!note) return "";
+    if (editor) {
+      const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
+      return turndown.turndown(editor.getHTML());
+    }
+    return note.content;
+  }, [note?.id, editor]);
 
-  // Convert current editor state to Markdown to preserve formatting in AI context
-  let markdownContent = note.content;
-  if (editor) {
-    const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
-    markdownContent = turndown.turndown(editor.getHTML());
-  }
+  // Stable callback that won't change reference across renders
+  const handleUpdateChatHistory = useCallback((chatHistory: any[]) => {
+    if (note) {
+      onUpdateNoteRef.current(note.id, { chatHistory });
+    }
+  }, [note?.id]);
+
+  const handleClose = useCallback(() => {
+    setShow(false);
+    window.dispatchEvent(new CustomEvent("panel-closed"));
+  }, []);
+
+  if (!show || !note) return null;
 
   return createPortal(
     <AnimatePresence>
@@ -233,10 +254,8 @@ function ChatSheetBridge({ note, noteTitle }: {
         noteTitle={noteTitle || "Untitled"}
         noteContent={markdownContent}
         initialChatHistory={note.chatHistory || []}
-        onUpdateChatHistory={(chatHistory) => {
-          onUpdateNote({ chatHistory });
-        }}
-        onClose={() => { setShow(false); window.dispatchEvent(new CustomEvent("panel-closed")); }}
+        onUpdateChatHistory={handleUpdateChatHistory}
+        onClose={handleClose}
       />
     </AnimatePresence>,
     document.getElementById("note-editor-container") || document.body
@@ -252,7 +271,7 @@ interface NoteEditorProps {
   onTitleChange: (noteId: string, title: string) => void;
   onCreateNote: (title: string, content: string) => void;
   onScrollProgress: (progress: number) => void;
-  onUpdateNote: (note: Partial<Note>) => void;
+  onUpdateNote: (noteId: string, updates: Partial<Note>) => void;
   toggleTheme?: () => void;
 }
 
@@ -897,7 +916,7 @@ export function NoteEditor({
             <AIImproverBridge />
             <AIContentInsertBridge />
             <ContentSwapBridge noteId={note.id} content={note.content} />
-            <ChatSheetBridge note={note} noteTitle={titleValue} />
+            <ChatSheetBridge note={note} noteTitle={titleValue} onUpdateNote={onUpdateNote} />
             <ImportExportSheetBridge 
               noteId={note.id} 
               noteTitle={titleValue} 
