@@ -134,7 +134,7 @@ function HTMLViewer() {
 
           <button
             onClick={handleDownload}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-semibold text-white bg-primary hover:bg-primary/95 shadow-lg shadow-primary/15 transition-all duration-150 cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-semibold text-primary-foreground bg-primary hover:bg-primary/95 shadow-lg shadow-primary/15 transition-all duration-150 cursor-pointer"
             title="Export page as static HTML file"
           >
             <Download className="w-3.5 h-3.5" />
