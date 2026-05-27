@@ -67,7 +67,7 @@ import { AgentDecorationExtension } from "@/extensions/AgentDecoration";
 
 import { Button } from "@/components/ui/button";
 import { GenerativeMenuSwitch } from "@/components/generative/GenerativeMenuSwitch";
-import { AISelector } from "@/components/generative/AISelector";
+import { AIImproverBridge } from "@/components/generative/AIImproverBridge";
 import { ColorSelector } from "@/components/generative/ColorSelector";
 import { AssistantChat } from "@/components/generative/AssistantChat";
 import { AgentInput } from "@/components/generative/AgentInput";
@@ -186,30 +186,7 @@ function ContentSwapBridge({ noteId, content }: { noteId: string; content: strin
 }
 
 
-/**
- * Lightweight bridge: listens for 'open-ai-sheet' event
- * and renders AISelector inside EditorContent context.
- */
-function AISheetTrigger() {
-  const [show, setShow] = useState(false);
 
-  useEffect(() => {
-    const handler = () => setShow(true);
-    const closeHandler = () => setShow(false);
-    window.addEventListener("close-note-chat", closeHandler);
-    window.addEventListener("open-ai-sheet", handler);
-    return () => window.removeEventListener("open-ai-sheet", handler);
-  }, []);
-
-  useEffect(() => {
-    if (!show) {
-      window.dispatchEvent(new CustomEvent("ai-sheet-closed"));
-    }
-  }, [show]);
-
-  if (!show) return null;
-  return <AISelector open={show} onOpenChange={setShow} />;
-}
 
 /**
  * Bridge for AssistantChat inside EditorContent so it has useEditor() access.
@@ -917,7 +894,7 @@ export function NoteEditor({
             </EditorCommand>
 
             {/* AI Bottom Sheet — inside EditorContent but portaled to prevent Prosemirror scroll jumps */}
-            <AISheetTrigger />
+            <AIImproverBridge />
             <AIContentInsertBridge />
             <ContentSwapBridge noteId={note.id} content={note.content} />
             <ChatSheetBridge note={note} noteTitle={titleValue} />
