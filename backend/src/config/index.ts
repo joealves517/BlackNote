@@ -18,9 +18,7 @@ function loadEnv() {
       projectId: process.env.GCP_PROJECT_ID || "ask-this-page",
       region: process.env.GCP_REGION || "us-central1",
     },
-    gemini: {
-      apiKey: process.env.GEMINI_API_KEY || "",
-    },
+
     aws: {
       region: process.env.AWS_REGION || "us-east-1",
       accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",

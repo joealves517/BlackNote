@@ -64,9 +64,7 @@ export function showAIErrorToast({
 
   const toastId = goeyToast.error("AI Error", {
     duration: 15000,
-    timing: {
-      displayDuration: 15000,
-    },
+    timing: { displayDuration: 15000 },
     showProgress: false,
     showTimestamp: false,
     classNames: {
@@ -483,10 +481,8 @@ export function updateRecordingLimitToast(timeLeft: number, onUpgrade: () => voi
 export function showSupportSuccessToast() {
   const toastId = goeyToast.success("Message Sent!", {
     duration: 4000,
+    timing: { displayDuration: 4000 },
     showProgress: false,
-    timing: {
-      displayDuration: 4000,
-    },
     showTimestamp: false,
     classNames: {
       title: "text-sm font-bold leading-none tracking-tight",
@@ -505,9 +501,7 @@ export function showSupportSuccessToast() {
 export function showSupportErrorToast(errorMessage?: string, onRetry?: () => void) {
   const toastId = goeyToast.error("Failed to Send", {
     duration: 15000,
-    timing: {
-      displayDuration: 15000,
-    },
+    timing: { displayDuration: 15000 },
     showTimestamp: false,
     classNames: {
       title: "text-sm font-bold leading-none tracking-tight",
@@ -561,6 +555,7 @@ export function showSupportErrorToast(errorMessage?: string, onRetry?: () => voi
 export function showSignInSuccessToast(userName: string) {
   return goeyToast.success("Welcome back!", {
     duration: 4000,
+    timing: { displayDuration: 4000 },
     showProgress: false,
     showTimestamp: false,
     classNames: {
@@ -579,6 +574,7 @@ export function showSignInSuccessToast(userName: string) {
 export function showSignOutSuccessToast() {
   return goeyToast.success("Signed Out", {
     duration: 4000,
+    timing: { displayDuration: 4000 },
     showProgress: false,
     showTimestamp: false,
     classNames: {
@@ -597,7 +593,8 @@ export function showSignOutSuccessToast() {
 export function showSyncingToast() {
   return goeyToast("Syncing Notes", {
     id: "sync-toast",
-    duration: 86400000, // Persistent until updated or dismissed manually
+    duration: 86400000,
+    timing: { displayDuration: 86400000 }, // Persistent until updated or dismissed manually
     showProgress: false,
     showTimestamp: false,
     icon: <LoaderCircleIcon className="h-4 w-4 animate-spin text-zinc-500 dark:text-white/80" />,
@@ -631,9 +628,7 @@ export function showSyncSuccessToast(count: number) {
     ),
   });
 
-  setTimeout(() => {
-    goeyToast.dismiss("sync-toast");
-  }, 4000);
+  setTimeout(() => dismissSmoothly("sync-toast"), 4000);
 
   return "sync-toast";
 }
@@ -653,9 +648,7 @@ export function showSyncErrorToast() {
     ),
   });
 
-  setTimeout(() => {
-    goeyToast.dismiss("sync-toast");
-  }, 6000);
+  setTimeout(() => dismissSmoothly("sync-toast"), 6000);
 
   return "sync-toast";
 }
@@ -665,7 +658,8 @@ export function showSyncErrorToast() {
 export function showOfflineToast() {
   return goeyToast.warning("Connection Lost", {
     id: "network-toast",
-    duration: 86400000, // Persistent until online
+    duration: 86400000,
+    timing: { displayDuration: 86400000 }, // Persistent until online
     showProgress: false,
     showTimestamp: false,
     classNames: {
@@ -695,9 +689,7 @@ export function showOnlineToast() {
     ),
   });
 
-  setTimeout(() => {
-    goeyToast.dismiss("network-toast");
-  }, 4000);
+  setTimeout(() => dismissSmoothly("network-toast"), 4000);
 
   return "network-toast";
 }
@@ -707,7 +699,8 @@ export function showOnlineToast() {
 export function showAILoaderToast(id: string, title: string, descriptionText: string) {
   return goeyToast(title, {
     id,
-    duration: 86400000, // Persistent until updated/dismissed manually
+    duration: 86400000,
+    timing: { displayDuration: 86400000 }, // Persistent until updated/dismissed manually
     showProgress: false,
     showTimestamp: false,
     icon: <LoaderCircleIcon className="h-4 w-4 animate-spin text-zinc-500 dark:text-white/80" />,
@@ -736,9 +729,7 @@ export function updateAISuccessToast(id: string, title: string, descriptionText:
     ),
   });
 
-  setTimeout(() => {
-    goeyToast.dismiss(id);
-  }, 4000);
+  setTimeout(() => dismissSmoothly(id), 4000);
 }
 
 export function updateAIErrorToast(id: string, title: string, descriptionText: string) {
@@ -754,9 +745,7 @@ export function updateAIErrorToast(id: string, title: string, descriptionText: s
     ),
   });
 
-  setTimeout(() => {
-    goeyToast.dismiss(id);
-  }, 5000);
+  setTimeout(() => dismissSmoothly(id), 5000);
 }
 
 // ─── SIGN OUT CONFIRM TOAST ──────────────────────────────────────────

@@ -87,6 +87,9 @@ export function WebClipper({ onSaveAsNote, onSaveWebClip, onClose }: WebClipperP
     if (!content || !onSaveWebClip) return;
 
     const toastId = `html-clip-toast-${Date.now()}`;
+
+    handleClose(); // Close the sidebar immediately, like other actions
+
     showAILoaderToast(toastId, "HTML Snapshot", "Saving full page snapshot...");
 
     try {
@@ -96,13 +99,16 @@ export function WebClipper({ onSaveAsNote, onSaveWebClip, onClose }: WebClipperP
       if (clipId) {
         onSaveWebClip(content.title, content.url, clipId, noteId);
         updateAISuccessToast(toastId, "HTML Snapshot", "Page snapshot saved successfully!");
-        handleClose(); // Close clipper only after success
       } else {
-        updateAIErrorToast(toastId, "HTML Snapshot", "Failed to save page snapshot.");
+        updateAIErrorToast(toastId, "HTML Snapshot", "This page could not be captured. Try a simpler page.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("[WebClipper] Save HTML snapshot error:", err);
-      updateAIErrorToast(toastId, "HTML Snapshot", "Failed to save page snapshot.");
+      const isTimeout = err?.message?.includes("timed out");
+      const errorMsg = isTimeout
+        ? "Page took too long to capture. Complex pages (Gmail, Docs) may not be supported."
+        : "Could not capture this page. It may have restrictions preventing snapshots.";
+      updateAIErrorToast(toastId, "HTML Snapshot", errorMsg);
     }
   };
 

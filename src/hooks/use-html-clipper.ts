@@ -1,6 +1,8 @@
 import { useState, useCallback } from "react";
 import { db } from "@/lib/local-db";
 
+const CLIP_TIMEOUT_MS = 30_000; // 30 seconds max for page capture
+
 const DEFAULT_SINGLEFILE_OPTIONS = {
   removeHiddenElements: true,
   removeUnusedStyles: true,
@@ -55,6 +57,19 @@ const DEFAULT_SINGLEFILE_OPTIONS = {
   imageReductionFactor: 1
 };
 
+/** Race a promise against a timeout. Rejects with a clear message on expiry. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s. This page may not support offline snapshots.`));
+    }, ms);
+
+    promise
+      .then((val) => { clearTimeout(timer); resolve(val); })
+      .catch((err) => { clearTimeout(timer); reject(err); });
+  });
+}
+
 export type HTMLClipStatus = "idle" | "clipping" | "done" | "error";
 
 interface UseHTMLClipperReturn {
@@ -82,25 +97,33 @@ export function useHTMLClipper(): UseHTMLClipperReturn {
 
       const tabId = tab.id;
 
-      // 2. Inject SingleFile core scripts into the active tab directly from Side Panel
-      await browser.scripting.executeScript({
-        target: { tabId },
-        files: ["lib/single-file.js"]
-      });
+      // 2. Inject SingleFile core scripts (quick, unlikely to hang)
+      await withTimeout(
+        browser.scripting.executeScript({
+          target: { tabId },
+          files: ["lib/single-file.js"]
+        }),
+        10_000,
+        "Script injection"
+      );
 
-      // 3. Trigger capture in the tab's context using browser.scripting.executeScript
-      const [scriptResult] = await browser.scripting.executeScript({
-        target: { tabId },
-        func: async (options) => {
-          // @ts-ignore
-          if (!globalThis.singlefile || !globalThis.singlefile.getPageData) {
-            throw new Error("SingleFile engine is not initialized in tab");
-          }
-          // @ts-ignore
-          return await globalThis.singlefile.getPageData(options);
-        },
-        args: [DEFAULT_SINGLEFILE_OPTIONS]
-      });
+      // 3. Trigger capture — this is where hangs occur on complex/restricted pages
+      const [scriptResult] = await withTimeout(
+        browser.scripting.executeScript({
+          target: { tabId },
+          func: async (options) => {
+            // @ts-ignore
+            if (!globalThis.singlefile || !globalThis.singlefile.getPageData) {
+              throw new Error("SingleFile engine is not initialized in tab");
+            }
+            // @ts-ignore
+            return await globalThis.singlefile.getPageData(options);
+          },
+          args: [DEFAULT_SINGLEFILE_OPTIONS]
+        }),
+        CLIP_TIMEOUT_MS,
+        "Page capture"
+      );
 
       const pageData = scriptResult?.result as any;
       if (!pageData || !pageData.content) {
@@ -137,3 +160,4 @@ export function useHTMLClipper(): UseHTMLClipperReturn {
 
   return { clipHTML, status, error, reset };
 }
+

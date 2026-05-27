@@ -10,7 +10,7 @@ import { ErrorCode } from "@/lib/constants";
 type ClipStatus = "idle" | "clipping" | "done" | "error";
 
 interface UseWebClipperReturn {
-  clip: () => Promise<void>;
+  clip: () => Promise<PageContent | null>;
   status: ClipStatus;
   content: PageContent | null;
   error: { message: string; code?: ErrorCode } | null;
@@ -32,7 +32,6 @@ export function useWebClipper(): UseWebClipperReturn {
         await browser.runtime.sendMessage({ type: "REQUEST_CLIP" });
 
       if (response.error) {
-        // We throw an object that we will catch and parse
         throw { message: response.error, code: response.errorCode };
       }
 
@@ -42,12 +41,14 @@ export function useWebClipper(): UseWebClipperReturn {
 
       setContent(response.parsed);
       setStatus("done");
+      return response.parsed;
     } catch (err: any) {
       setError({
         message: err?.message || "Clip failed",
         code: err?.code || ErrorCode.CLIP_FAILED,
       });
       setStatus("error");
+      return null;
     }
   }, []);
 

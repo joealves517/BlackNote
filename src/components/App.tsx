@@ -751,7 +751,7 @@ export function App() {
     };
   }, []);
 
-  const handleTogglePanel = useCallback((panel: "history" | "clipper" | "account" | "note-chat" | "settings" | "support") => {
+  const handleTogglePanel = useCallback((panel: "history" | "clipper" | "note-chat" | "settings" | "support") => {
     // Dismiss tooltips
     document.querySelectorAll("[data-tippy-root]").forEach((el) => {
       const instance = (el as any)._tippy;
@@ -767,7 +767,6 @@ export function App() {
     setActivePanel(next);
     setShowHistory(next === "history");
     setShowClipper(next === "clipper");
-    setShowAccountMenu(next === "account");
     setShowSupportSheet(next === "support");
 
     if (next === "note-chat") {
@@ -1629,6 +1628,13 @@ export function App() {
   };
 
   const handleCreateNote = (title?: string, content?: string) => {
+    setActivePanel(null);
+    setShowHistory(false);
+    setShowClipper(false);
+    setShowSupportSheet(false);
+    window.dispatchEvent(new CustomEvent("close-note-chat"));
+    window.dispatchEvent(new CustomEvent("close-import-export-sheet"));
+
     if (title && content) {
       createNoteWithContent(title, content);
     } else {
@@ -2235,21 +2241,15 @@ export function App() {
                 )}
               </button>
 
-              <Popover.Root open={showAccountMenu} onOpenChange={(open) => {
-                setShowAccountMenu(open);
-                if (!open && activePanel === "account") {
-                  setActivePanel(null);
-                }
-              }}>
+              <Popover.Root open={showAccountMenu} onOpenChange={setShowAccountMenu}>
                 <Popover.Trigger asChild>
                   <button
                     className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[52px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
-                    onClick={() => handleTogglePanel("account")}
                     data-tooltip={isWide ? undefined : (!user ? "Sign in / Account" : "Account")}
                     data-placement="left"
                   >
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                      activePanel === "account"
+                      showAccountMenu
                         ? "bg-sidebar-active text-foreground opacity-100"
                         : !user
                           ? "opacity-90 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
@@ -2267,7 +2267,7 @@ export function App() {
                     </div>
                     {isWide && (
                       <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
-                        activePanel === "account"
+                        showAccountMenu
                           ? "text-foreground opacity-100 font-semibold"
                           : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
                       }`}>

@@ -69,7 +69,7 @@ import { Button } from "@/components/ui/button";
 import { GenerativeMenuSwitch } from "@/components/generative/GenerativeMenuSwitch";
 import { AISelector } from "@/components/generative/AISelector";
 import { ColorSelector } from "@/components/generative/ColorSelector";
-import { NoteChatSheet } from "@/components/generative/NoteChatSheet";
+import { AssistantChat } from "@/components/generative/AssistantChat";
 import { AgentInput } from "@/components/generative/AgentInput";
 import TurndownService from "turndown";
 import { getAuthToken } from "@/lib/auth-client";
@@ -212,12 +212,11 @@ function AISheetTrigger() {
 }
 
 /**
- * Bridge for NoteChatSheet inside EditorContent so it has useEditor() access.
+ * Bridge for AssistantChat inside EditorContent so it has useEditor() access.
  */
-function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
+function ChatSheetBridge({ note, noteTitle }: {
   note: Note | null;
   noteTitle: string;
-  onUpdateNote?: (noteId: string, updates: Partial<Note>) => void;
 }) {
   const [show, setShow] = useState(false);
   const { editor } = useEditor();
@@ -233,6 +232,14 @@ function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
     };
   }, []);
 
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("blacknote_agent_visibility", { detail: !show }));
+    return () => {
+      // Restore visibility on unmount
+      window.dispatchEvent(new CustomEvent("blacknote_agent_visibility", { detail: true }));
+    };
+  }, [show]);
+
   if (!show || !note) return null;
 
   // Convert current editor state to Markdown to preserve formatting in AI context
@@ -244,20 +251,18 @@ function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
 
   return createPortal(
     <AnimatePresence>
-      <NoteChatSheet
+      <AssistantChat
         noteId={note.id}
         noteTitle={noteTitle || "Untitled"}
         noteContent={markdownContent}
-        initialHistory={note.chatHistory || []}
-        onHistoryChange={(newHistory) => {
-          if (onUpdateNote) {
-            onUpdateNote(note.id, { chatHistory: newHistory });
-          }
+        initialChatHistory={note.chatHistory || []}
+        onUpdateChatHistory={(chatHistory) => {
+          onUpdateNote({ chatHistory });
         }}
         onClose={() => { setShow(false); window.dispatchEvent(new CustomEvent("panel-closed")); }}
       />
     </AnimatePresence>,
-    document.getElementById("blacknote-root") || document.body
+    document.getElementById("note-editor-container") || document.body
   );
 }
 
@@ -734,10 +739,9 @@ export function NoteEditor({
 
   return (
     <div
+      id="note-editor-container"
       className="flex-1 flex flex-col h-full overflow-hidden relative"
-      style={{ backgroundColor: "hsl(var(--background))" }}
     >
-
       {/* Scrollable Container for Title + Editor */}
       <div
         className="flex-1 overflow-y-auto novel-wrapper"
@@ -916,7 +920,7 @@ export function NoteEditor({
             <AISheetTrigger />
             <AIContentInsertBridge />
             <ContentSwapBridge noteId={note.id} content={note.content} />
-            <ChatSheetBridge note={note} noteTitle={titleValue} onUpdateNote={onUpdateNote} />
+            <ChatSheetBridge note={note} noteTitle={titleValue} />
             <ImportExportSheetBridge 
               noteId={note.id} 
               noteTitle={titleValue} 

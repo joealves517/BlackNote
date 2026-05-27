@@ -42,8 +42,6 @@ spec:
       - env:
         - name: GCP_PROJECT_ID
           value: ask-this-page
-        - name: GEMINI_API_KEY
-          value: ""
         - name: GROQ_API_KEY
           value: ""
         - name: AWS_ACCESS_KEY_ID
