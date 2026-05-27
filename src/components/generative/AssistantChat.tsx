@@ -5,7 +5,6 @@ import { AI_API_BASE } from "@/lib/constants";
 import { getAuthToken } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import { useMemo, useState, useRef, createContext, useEffect, useCallback, useContext } from "react";
-import { useThread } from "@assistant-ui/react";
 import { db } from "@/lib/local-db";
 
 export interface AttachedPageContext {
@@ -29,74 +28,6 @@ interface AssistantChatProps {
   onUpdateChatHistory?: (history: any[]) => void;
   onClose: () => void;
   show: boolean;
-}
-
-function ChatHistorySync({
-  noteId,
-  onUpdateChatHistory,
-}: {
-  noteId: string;
-  onUpdateChatHistory?: (history: any[]) => void;
-}) {
-  const messages = useThread((t) => t.messages);
-  const isRunning = useThread((t) => t.isRunning);
-  const chatCtx = useContext(PageContext);
-  const wasRunningRef = useRef(false);
-  
-  // Use ref to always access the latest callback without re-triggering the effect
-  const callbackRef = useRef(onUpdateChatHistory);
-  callbackRef.current = onUpdateChatHistory;
-  
-  // Track last synced message count to avoid redundant updates
-  const lastSyncedCountRef = useRef(0);
-
-  useEffect(() => {
-    if (messages.length > 0 && messages.length !== lastSyncedCountRef.current) {
-      lastSyncedCountRef.current = messages.length;
-      
-      // Parse thread messages directly and robustly to avoid external store bugs
-      const history = messages
-        .map((m) => {
-          let textContent = "";
-          if (Array.isArray(m.content)) {
-            textContent = m.content
-              .filter((part: any) => part.type === "text")
-              .map((part: any) => part.text)
-              .join("");
-          } else if (typeof m.content === "string") {
-            textContent = m.content;
-          }
-          return {
-            id: m.id,
-            role: m.role,
-            content: textContent,
-          };
-        })
-        .filter((msg) => msg.content.trim() !== "");
-
-      // Perform IMMEDIATE direct write to IndexedDB to bypass 400ms react state debounce
-      db.notes.update(noteId, {
-        chatHistory: JSON.stringify(history),
-        updatedAt: Date.now()
-      }).catch(err => console.error("[IndexedDB Direct Sync Error]:", err));
-
-      if (callbackRef.current) {
-        callbackRef.current(history);
-      }
-    }
-  }, [messages, noteId]);
-
-  useEffect(() => {
-    if (wasRunningRef.current && !isRunning) {
-      // Stream just finished, automatically detach the page context to prevent redundant token usage
-      if (chatCtx && chatCtx.pageContext) {
-        chatCtx.setPageContext(null);
-      }
-    }
-    wasRunningRef.current = isRunning;
-  }, [isRunning, chatCtx]);
-
-  return null;
 }
 
 export function AssistantChat({
@@ -171,14 +102,84 @@ export function AssistantChat({
     initialMessages,
   });
 
-  // Decoupled reset mechanism: Only runs ONCE on note switch (when noteId or runtime changes).
-  // Decoupled from initialMessages to avoid infinite resetting during an active chat stream.
+  // 1. Force the thread runtime to reset and populate with the correct initial messages
+  // ONLY once when the note changes or when the component is mounted!
   useEffect(() => {
     if (runtime && initialMessages) {
       runtime.thread.reset(initialMessages);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteId, runtime]);
+
+  // 2. Perform robust, direct, reactive synchronization to IndexedDB & React State
+  // by subscribing to the assistant-ui thread state directly.
+  // This bypasses React render lags, unmount race conditions, and debounce delays.
+  useEffect(() => {
+    if (!runtime) return;
+
+    let lastSavedCount = 0;
+
+    const unsubscribe = runtime.thread.subscribe(() => {
+      const state = runtime.thread.getState();
+      const messages = state.messages;
+
+      if (messages.length === 0 || messages.length === lastSavedCount) return;
+      lastSavedCount = messages.length;
+
+      // Filter and map messages to simple persistable history format
+      const history = messages
+        .map((m) => {
+          let textContent = "";
+          if (Array.isArray(m.content)) {
+            textContent = m.content
+              .filter((part: any) => part.type === "text")
+              .map((part: any) => part.text)
+              .join("");
+          } else if (typeof m.content === "string") {
+            textContent = m.content;
+          }
+          return {
+            id: m.id,
+            role: m.role,
+            content: textContent,
+          };
+        })
+        .filter((msg) => msg.content.trim() !== "");
+
+      if (history.length > 0) {
+        // Direct, instant, non-debounced IndexedDB write
+        db.notes.update(noteId, {
+          chatHistory: JSON.stringify(history),
+          updatedAt: Date.now()
+        }).catch(err => console.error("[IndexedDB Direct Sync Error]:", err));
+
+        // Call the app state synchronizer
+        if (onUpdateChatHistory) {
+          onUpdateChatHistory(history);
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [runtime, noteId, onUpdateChatHistory]);
+
+  // 3. PageContext auto-cleanup when AI finishes generation
+  useEffect(() => {
+    if (!runtime) return;
+    let wasRunning = false;
+
+    const unsubscribe = runtime.thread.subscribe(() => {
+      const { isRunning } = runtime.thread.getState();
+      if (wasRunning && !isRunning) {
+        if (pageContextRef.current) {
+          setPageContext(null);
+        }
+      }
+      wasRunning = isRunning;
+    });
+
+    return unsubscribe;
+  }, [runtime]);
 
   return (
     <PageContext.Provider value={{ noteTitle, pageContext, setPageContext }}>
@@ -191,7 +192,6 @@ export function AssistantChat({
       >
         <div className="flex-1 overflow-hidden flex flex-col">
           <AssistantRuntimeProvider runtime={runtime}>
-            <ChatHistorySync noteId={noteId} onUpdateChatHistory={onUpdateChatHistory} />
             <Thread />
           </AssistantRuntimeProvider>
         </div>
