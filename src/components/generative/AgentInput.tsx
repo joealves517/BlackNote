@@ -140,6 +140,22 @@ function parseMarkdownToNodes(md: string): any[] {
 
 
 /**
+ * Smoothly update editor content using a single ProseMirror transaction.
+ * Preserves unchanged DOM elements and prevents scroll jumps completely.
+ */
+function safeSetContent(editor: any, content: any) {
+  if (!editor || !editor.state) return;
+  try {
+    const rawContent = Array.isArray(content) ? content : (content.content || []);
+    editor.commands.setContent(rawContent, false);
+  } catch (err) {
+    console.error("[Agent] safeSetContent failed, falling back:", err);
+    editor.commands.setContent(content);
+  }
+}
+
+
+/**
  * Extract image URL from agent text response if it contains a generated image.
  * Supports Markdown ![Description](URL), custom <image>URL</image>, <img>, and raw S3 URLs.
  */
@@ -180,22 +196,34 @@ function applyChanges(
   noteId?: string,
   onTitleChange?: (id: string, title: string) => void
 ) {
-  if (!editor) return;
+  if (!editor) {
+    console.log("[applyChanges] No editor ref!");
+    return;
+  }
+
+  console.log("[applyChanges] Starting. noteId:", noteId, "changes:", changes);
 
   const docJson = editor.getJSON();
-  if (!docJson.content) return;
+  if (!docJson.content) {
+    console.log("[applyChanges] docJson has no content:", docJson);
+    return;
+  }
+
+  console.log("[applyChanges] Original doc content count:", docJson.content.length);
 
   // --- Handle Title Change ---
   const titleChange = changes.find((c) => c.blockId === "title");
   if (titleChange && noteId && onTitleChange) {
+    console.log("[applyChanges] Applying title change:", titleChange.content);
     onTitleChange(noteId, titleChange.content.trim());
   }
 
   // --- Handle Full Rewrite ---
   const replaceAllChange = changes.find((c) => c.blockId === "replace_all");
   if (replaceAllChange) {
+    console.log("[applyChanges] Applying full rewrite:", replaceAllChange.content);
     const parsedNodes = parseMarkdownToNodes(replaceAllChange.content);
-    editor.commands.setContent({ type: "doc", content: parsedNodes });
+    safeSetContent(editor, parsedNodes);
 
     const decorationRanges: { from: number, to: number }[] = [];
     editor.state.doc.forEach((node, offset) => {
@@ -217,19 +245,23 @@ function applyChanges(
 
   const changeMap = new Map(changes.map((c) => [c.blockId, c]));
 
-  // Track which output block indices were modified for highlighting later
+  // Track which output block indices were modified/deleted for highlighting later
   const modifiedIndices = new Set<number>();
+  const deletedIndices = new Set<number>();
   const newContent: any[] = [];
   let outputIdx = 0;
 
-  // Rebuild document: replace changed blocks, keep unchanged ones
+  // Rebuild document: replace changed blocks, keep unchanged ones, but mark deleted ones for styling
   docJson.content.forEach((node, idx) => {
     const blockId = `b${idx}`;
     const change = changeMap.get(blockId);
 
     if (change) {
       if (/\[DELETE\]/i.test(change.content.replace(/[*_`~]/g, "").trim())) {
-        // Skip this block — effectively deletes it
+        // KEEP the block node in newContent during Review Mode so it can be decorated
+        newContent.push(node);
+        deletedIndices.add(outputIdx);
+        outputIdx++;
         return;
       }
       // Replace with AI-generated content
@@ -257,17 +289,22 @@ function applyChanges(
     }
   }
 
-  // Single atomic setContent — no position drift, no state corruption
-  editor.commands.setContent({ type: "doc", content: newContent });
+  console.log("[applyChanges] Dispatching setContent. New doc content count:", newContent.length, "newContent:", newContent);
 
-  // Highlight the modified blocks using fake decorations and scroll to the first one
+  // Single atomic setContent — no position drift, no state corruption
+  safeSetContent(editor, newContent);
+
+  // Highlight the modified/deleted blocks using fake decorations and scroll to the first one
   let hlIdx = 0;
   let firstModifiedPos = -1;
-  const decorationRanges: { from: number, to: number }[] = [];
+  const decorationRanges: { from: number, to: number, type?: 'add' | 'delete' }[] = [];
 
   editor.state.doc.forEach((node, offset) => {
     if (modifiedIndices.has(hlIdx)) {
-      decorationRanges.push({ from: offset, to: offset + node.nodeSize });
+      decorationRanges.push({ from: offset, to: offset + node.nodeSize, type: 'add' });
+      if (firstModifiedPos === -1) firstModifiedPos = offset;
+    } else if (deletedIndices.has(hlIdx)) {
+      decorationRanges.push({ from: offset, to: offset + node.nodeSize, type: 'delete' });
       if (firstModifiedPos === -1) firstModifiedPos = offset;
     }
     hlIdx++;
@@ -277,7 +314,7 @@ function applyChanges(
     editor.view.dispatch(editor.state.tr.setMeta(agentDecorationKey, { add: decorationRanges }));
   }
 
-  // Smooth scroll to the first changed block
+  // Smooth scroll to the first changed block (using block: 'nearest' to avoid unneeded scroll jumps)
   if (firstModifiedPos >= 0) {
     requestAnimationFrame(() => {
       try {
@@ -285,7 +322,7 @@ function applyChanges(
         const targetEl = domPos.node instanceof HTMLElement
           ? domPos.node
           : domPos.node.parentElement;
-        targetEl?.scrollIntoView({ behavior: "smooth", block: "center" });
+        targetEl?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       } catch { }
     });
   }
@@ -316,6 +353,7 @@ export function AgentInput({
 
   const snapshotRef = useRef<any>(null);
   const snapshotTitleRef = useRef<string | null>(null);
+  const pendingChangesRef = useRef<AgentChange[]>([]);
   const blockMapRef = useRef<Map<string, BlockPosition>>(new Map());
   const busyRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -478,6 +516,7 @@ export function AgentInput({
         }
         
         if (changes.length > 0) {
+          pendingChangesRef.current = changes;
           applyChanges(ed, blockMap, changes, noteId, onTitleChange);
           setHasPendingModifications(true);
           setChangeCount(changes.length);
@@ -566,6 +605,7 @@ export function AgentInput({
         const changes = parseAgentResponse(cleanText);
 
         if (changes.length > 0) {
+          pendingChangesRef.current = changes;
           applyChanges(ed, blockMap, changes, noteId, onTitleChange);
           setHasPendingModifications(true);
           setChangeCount(changes.length);
@@ -595,6 +635,27 @@ export function AgentInput({
 
   const acceptAll = useCallback(() => {
     if (!editor || !editor.state) return;
+
+    // Officially apply deletions by filtering out blocks marked for deletion
+    const docJson = editor.getJSON();
+    if (docJson.content) {
+      const changeMap = new Map(pendingChangesRef.current.map((c) => [c.blockId, c]));
+      const finalContent: any[] = [];
+
+      docJson.content.forEach((node, idx) => {
+        const blockId = `b${idx}`;
+        const change = changeMap.get(blockId);
+
+        if (change && /\[DELETE\]/i.test(change.content.replace(/[*_`~]/g, "").trim())) {
+          // Skip this block — now it is officially deleted!
+          return;
+        }
+        finalContent.push(node);
+      });
+
+      safeSetContent(editor, finalContent);
+    }
+
     editor.view.dispatch(editor.state.tr.setMeta(agentDecorationKey, { clear: true }));
 
     // Force an update to ensure onUpdate triggers save
@@ -607,12 +668,13 @@ export function AgentInput({
 
     setHasPendingModifications(false);
     snapshotRef.current = null;
+    pendingChangesRef.current = [];
     setAgentMessage(null);
-  }, [editor]);
+  }, [editor, noteId, onContentChange]);
 
   const rejectAll = useCallback(() => {
     if (!editor || !editor.state || !snapshotRef.current) return;
-    editor.commands.setContent(snapshotRef.current);
+    safeSetContent(editor, snapshotRef.current);
 
     // Revert title if needed
     if (noteId && onTitleChange && snapshotTitleRef.current !== null) {
