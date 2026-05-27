@@ -59,11 +59,11 @@ export function AccountPopup({
         <div className="flex flex-col gap-2.5 mt-1 w-[260px]">
           <p className="text-[12px] font-bold text-zinc-800 dark:text-white/90">What's new in this release:</p>
           <ul className="list-disc pl-4 text-[11px] text-zinc-600 dark:text-white/70 space-y-1 leading-normal">
-            <li>High-opacity Monochrome Toolbar & dynamic Agent Input</li>
-            <li>Ultra-fast Offline Privacy Policy page integration</li>
-            <li>Smooth morph-collapse (Gooey) Toast dismissals</li>
-            <li>Light mode Toast icon visibility & UI optimization</li>
-            <li>Lighter build (-40% size) & redesigned Media Sheet</li>
+            <li>Optimized UI & Spacing for AI Chat</li>
+            <li>Added Save HTML Snapshot feature for clipping</li>
+            <li>Enhanced AI Agent capabilities & morphing menus</li>
+            <li>Improved Overall User Interface & layout system</li>
+            <li>Optimized page-scanning tab detection & Auto-sync engine</li>
           </ul>
 
           <div className="flex flex-col gap-1.5 mt-1.5 w-full">
