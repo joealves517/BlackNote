@@ -288,7 +288,7 @@ export function WebClipper({ onSaveAsNote, onSaveWebClip, onClose }: WebClipperP
                 <div>
                   <p className="text-[13px] font-medium">Save as Note</p>
                   <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                    Extract readable text and images
+                    Extract clean, readable text
                   </p>
                 </div>
               </button>

@@ -19,30 +19,6 @@ export interface PageContent {
   clippedAt: string;
 }
 
-/** Domains/patterns for badge or tracking images — always strip */
-const BADGE_PATTERNS = [
-  "shields.io",
-  "badge",
-  "travis-ci",
-  "codecov.io",
-  "img.shields",
-  "github.com/.*\\.svg",
-  "circleci.com",
-  "appveyor.com",
-  "coveralls.io",
-  "david-dm.org",
-  "snyk.io",
-];
-
-const BADGE_REGEX = new RegExp(BADGE_PATTERNS.join("|"), "i");
-
-/**
- * Check if an image URL is a small badge/icon that adds no value to notes.
- */
-function isBadgeImage(src: string): boolean {
-  return BADGE_REGEX.test(src);
-}
-
 /**
  * Build a Turndown instance with custom rules optimized for note-taking.
  * Focuses on extracting readable text content, stripping visual noise.
@@ -55,25 +31,6 @@ function createTurndownService(): TurndownService {
     emDelimiter: "_",
     strongDelimiter: "**",
     hr: "---",
-  });
-
-  // Images — strip badges, keep meaningful images
-  td.addRule("cleanImages", {
-    filter: "img",
-    replacement: (_content, node) => {
-      const el = node as HTMLImageElement;
-      const src = el.getAttribute("src") || "";
-      const alt = el.getAttribute("alt") || "";
-
-      // Strip badge/icon images entirely
-      if (isBadgeImage(src)) return "";
-
-      // Strip very long base64 data URIs to keep document size reasonable
-      if (src.startsWith("data:")) return "";
-
-      // Keep the actual markdown image tag!
-      return src ? `\n![${alt}](${src})\n` : "";
-    },
   });
 
   // Strikethrough
@@ -136,10 +93,10 @@ function createTurndownService(): TurndownService {
     replacement: (content) => `\n\n${content}\n\n`,
   });
 
-  // Strip noisy elements that Readability might miss
+  // Strip noisy elements that Readability might miss, including images
   td.remove([
     "script", "style", "nav", "footer", "iframe", "noscript",
-    "svg", "canvas", "video", "audio",
+    "svg", "canvas", "video", "audio", "img",
   ] as any);
 
   return td;
@@ -215,16 +172,6 @@ function fixRelativeUris(doc: Document, baseUri: string): void {
       if (href && !href.startsWith("http") && !href.startsWith("data:") && !href.startsWith("#")) {
         try {
           el.setAttribute("href", new URL(href, baseUrl).href);
-        } catch (e) { /* ignore invalid urls */ }
-      }
-    });
-
-    // Fix images
-    doc.querySelectorAll("img[src]").forEach((el) => {
-      const src = el.getAttribute("src");
-      if (src && !src.startsWith("http") && !src.startsWith("data:")) {
-        try {
-          el.setAttribute("src", new URL(src, baseUrl).href);
         } catch (e) { /* ignore invalid urls */ }
       }
     });
