@@ -4,8 +4,8 @@ import { Thread } from "@/components/assistant-ui/thread";
 import { AI_API_BASE } from "@/lib/constants";
 import { getAuthToken } from "@/lib/auth-client";
 import { motion } from "framer-motion";
-import { useMemo, useState, useRef, createContext, useEffect, useCallback } from "react";
-import { useThread, getExternalStoreMessages } from "@assistant-ui/react";
+import { useMemo, useState, useRef, createContext, useEffect, useCallback, useContext } from "react";
+import { useThread, type ThreadHistoryAdapter } from "@assistant-ui/react";
 
 export interface AttachedPageContext {
   title: string;
@@ -29,49 +29,10 @@ interface AssistantChatProps {
   onClose: () => void;
 }
 
-function ChatHistorySync({
-  onUpdateChatHistory,
-}: {
-  onUpdateChatHistory?: (history: any[]) => void;
-}) {
-  const messages = useThread((t) => t.messages);
+function PageContextCleanup() {
   const isRunning = useThread((t) => t.isRunning);
   const chatCtx = useContext(PageContext);
   const wasRunningRef = useRef(false);
-  
-  // Use ref to always access the latest callback without re-triggering the effect
-  const callbackRef = useRef(onUpdateChatHistory);
-  callbackRef.current = onUpdateChatHistory;
-  
-  // Track last synced message count to avoid redundant updates
-  const lastSyncedCountRef = useRef(0);
-
-  useEffect(() => {
-    if (callbackRef.current && messages.length > 0 && messages.length !== lastSyncedCountRef.current) {
-      lastSyncedCountRef.current = messages.length;
-      
-      // Parse thread messages directly and robustly to avoid external store bugs
-      const history = messages
-        .map((m) => {
-          let textContent = "";
-          if (Array.isArray(m.content)) {
-            textContent = m.content
-              .filter((part: any) => part.type === "text")
-              .map((part: any) => part.text)
-              .join("");
-          } else if (typeof m.content === "string") {
-            textContent = m.content;
-          }
-          return {
-            role: m.role,
-            content: textContent,
-          };
-        })
-        .filter((msg) => msg.content.trim() !== "");
-
-      callbackRef.current(history);
-    }
-  }, [messages]);
 
   useEffect(() => {
     if (wasRunningRef.current && !isRunning) {
@@ -96,6 +57,12 @@ export function AssistantChat({
 }: AssistantChatProps) {
   const [pageContext, setPageContextState] = useState<AttachedPageContext | null>(null);
   const pageContextRef = useRef<AttachedPageContext | null>(null);
+  const chatHistoryRowsRef = useRef<any[]>([]);
+
+  // Synchronize ref on note changes
+  useEffect(() => {
+    chatHistoryRowsRef.current = initialChatHistory || [];
+  }, [noteId, initialChatHistory]);
 
   const setPageContext = (ctx: AttachedPageContext | null) => {
     pageContextRef.current = ctx;
@@ -120,20 +87,67 @@ export function AssistantChat({
     [noteId, noteTitle, noteContent]
   );
 
-  // Stable memoization of initial messages based strictly on noteId to prevent re-render loops
-  const initialMessages = useMemo(() => {
-    return initialChatHistory.map((msg: any, index: number) => ({
-      id: msg.id || `${noteId}-msg-${index}`,
-      role: msg.role as "user" | "assistant",
-      content: msg.content,
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noteId]);
+  const historyAdapter = useMemo<ThreadHistoryAdapter>(() => {
+    return {
+      async load() {
+        return { headId: null, messages: [] };
+      },
+      async append() {},
+      withFormat: (fmt) => ({
+        async load() {
+          const rows = chatHistoryRowsRef.current;
+          return {
+            messages: rows.map((row: any, index: number) => {
+              // Backward compatibility for old simple format { role, content }
+              if (row && typeof row === "object" && "role" in row && "content" in row && typeof row.content === "string") {
+                return {
+                  id: row.id || `${noteId}-old-${index}`,
+                  role: row.role as "user" | "assistant",
+                  content: row.content,
+                };
+              }
+              // Standard assistant-ui format
+              return fmt.decode({
+                id: row.id,
+                parent_id: row.parent_id || null,
+                format: row.format,
+                content: row.content,
+              });
+            }),
+          };
+        },
+        async append(item) {
+          const id = fmt.getId(item.message);
+          const newRow = {
+            id,
+            parent_id: item.parentId,
+            format: fmt.format,
+            content: fmt.encode(item),
+          };
 
-  const runtime = useChatRuntime({ 
-    id: noteId,
+          const existingIndex = chatHistoryRowsRef.current.findIndex((r) => r.id === id);
+          const updatedRows = [...chatHistoryRowsRef.current];
+
+          if (existingIndex >= 0) {
+            updatedRows[existingIndex] = newRow;
+          } else {
+            updatedRows.push(newRow);
+          }
+
+          chatHistoryRowsRef.current = updatedRows;
+          if (onUpdateChatHistory) {
+            onUpdateChatHistory(updatedRows);
+          }
+        },
+      }),
+    };
+  }, [noteId, onUpdateChatHistory]);
+
+  const runtime = useChatRuntime({
     transport,
-    initialMessages,
+    adapters: {
+      history: historyAdapter,
+    },
   });
 
   return (
@@ -147,7 +161,7 @@ export function AssistantChat({
       >
         <div className="flex-1 overflow-hidden flex flex-col">
           <AssistantRuntimeProvider runtime={runtime}>
-            <ChatHistorySync onUpdateChatHistory={onUpdateChatHistory} />
+            <PageContextCleanup />
             <Thread />
           </AssistantRuntimeProvider>
         </div>
