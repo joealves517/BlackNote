@@ -11,6 +11,7 @@ import {
   ThreadPrimitive,
   useAui,
   useAuiState,
+  ErrorPrimitive,
 } from "@assistant-ui/react";
 import {
   ArrowUpIcon,
@@ -361,6 +362,12 @@ const AssistantMessage: FC = () => {
           }}
         </MessagePrimitive.Parts>
       </div>
+
+      <MessagePrimitive.Error>
+        <div className="mt-2 text-red-500 text-[14px] leading-relaxed dark:text-red-400 font-medium animate-in fade-in duration-200">
+          You have reached your daily limit or an error occurred. Please upgrade to Pro or try again later.
+        </div>
+      </MessagePrimitive.Error>
 
       <div className="-ml-2 flex items-center pt-1">
         <ActionBarPrimitive.Root

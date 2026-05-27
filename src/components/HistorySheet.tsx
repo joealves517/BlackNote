@@ -10,7 +10,7 @@ import { useState, useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { Note } from "@/hooks/use-notes";
-import { PinOff, Trash2Icon, Mic, Video } from "lucide-react";
+import { PinOff, Trash2Icon, Mic, Video, LayoutGrid, List } from "lucide-react";
 import { ArrowDownUpIcon } from "@/components/icons/arrow-down-up";
 import { PinIcon } from "@/components/animate-ui/icons/pin";
 import Masonry from "react-masonry-css";
@@ -72,6 +72,16 @@ export function HistorySheet({
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<"updated" | "created" | "title">("updated");
   const [tagFilter, setTagFilter] = useState<string>("All");
+  const [layoutMode, setLayoutMode] = useState<"grid" | "list">(() => {
+    return (localStorage.getItem("blacknote_history_layout") as "grid" | "list") || "grid";
+  });
+
+  const handleToggleLayout = () => {
+    const next = layoutMode === "grid" ? "list" : "grid";
+    setLayoutMode(next);
+    localStorage.setItem("blacknote_history_layout", next);
+  };
+
   const DEFAULT_TAGS = ["All", "Work", "Life", "To-do", "Meetings"];
   
   const getTagMeta = (tag: string) => {
@@ -131,21 +141,8 @@ export function HistorySheet({
       return 0;
     });
 
-  const renderNote = (note: Note) => {
-    const isActive = note.id === activeNoteId;
-
-    // Derive card color from the note's first hashtag, fallback to deterministic random
-    const defaultColors = [
-      "59, 130, 246", // Blue
-      "168, 85, 247", // Purple
-      "245, 158, 11", // Amber
-      "16, 185, 129", // Green
-    ];
-    const colorIdx = note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % defaultColors.length;
-    const tagColor = note.tags && note.tags.length > 0 ? getTagMeta(note.tags[0]).color : null;
-    const cardColor = tagColor || defaultColors[colorIdx];
-
-    // Extract brief snippet from ProseMirror content
+  // Helper to extract media previews and snippets
+  const getNotePreviewDetails = (note: Note) => {
     let snippet = "";
     let firstImageSrc = "";
     let audioCount = 0;
@@ -161,7 +158,7 @@ export function HistorySheet({
           if (node.type === "audioNode") audioCount++;
           if (node.type === "videoNode") videoCount++;
 
-          if (snippet.length > 400) return; // Allow longer text previews
+          if (snippet.length > 400) return;
           if (node.type === "text" && node.text) {
             snippet += node.text + " ";
           }
@@ -174,13 +171,74 @@ export function HistorySheet({
         // Ignore parse errors
       }
     }
-    snippet = snippet.trim();
+    return {
+      snippet: snippet.trim(),
+      firstImageSrc,
+      audioCount,
+      videoCount,
+    };
+  };
 
-    // Max lines for natural organic staggering (Google Keep allows around 8-10 lines)
+  // Helper to group notes by date categories (Apple Notes style)
+  const groupNotesByDate = (notesToGroup: Note[]) => {
+    const groups: { [key: string]: Note[] } = {};
+    const groupOrder: string[] = [];
+    const now = new Date();
+    
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    notesToGroup.forEach((note) => {
+      const date = note.updatedAt;
+      const noteDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      
+      let groupName = "";
+      if (noteDay.getTime() === today.getTime()) {
+        groupName = "Today";
+      } else if (noteDay.getTime() === yesterday.getTime()) {
+        groupName = "Yesterday";
+      } else if (noteDay >= sevenDaysAgo) {
+        groupName = "Previous 7 Days";
+      } else if (date.getFullYear() === now.getFullYear()) {
+        groupName = date.toLocaleDateString("en-US", { month: "long" });
+      } else {
+        groupName = date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      }
+      
+      if (!groups[groupName]) {
+        groups[groupName] = [];
+        groupOrder.push(groupName);
+      }
+      groups[groupName].push(note);
+    });
+    
+    return groupOrder.map((title) => ({
+      title,
+      notes: groups[title],
+    }));
+  };
+
+  // Render a grid note card (original Grid View)
+  const renderNote = (note: Note) => {
+    const isActive = note.id === activeNoteId;
+    const { snippet, firstImageSrc, audioCount, videoCount } = getNotePreviewDetails(note);
+
+    const defaultColors = [
+      "59, 130, 246", // Blue
+      "168, 85, 247", // Purple
+      "245, 158, 11", // Amber
+      "16, 185, 129", // Green
+    ];
+    const colorIdx = note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % defaultColors.length;
+    const tagColor = note.tags && note.tags.length > 0 ? getTagMeta(note.tags[0]).color : null;
+    const cardColor = tagColor || defaultColors[colorIdx];
+
     const maxLines = 6;
-
     const isColored = tagColor !== null;
-    const neutralColor = "120, 120, 128"; // Premium Apple-style neutral gray
+    const neutralColor = "120, 120, 128";
     const displayColor = isColored || isActive ? cardColor : neutralColor;
 
     return (
@@ -210,7 +268,7 @@ export function HistorySheet({
         )}
         <div className="flex items-start justify-between gap-2 w-full">
           <span
-            className="history-sheet-item-title whitespace-normal break-words font-semibold text-sm"
+            className="history-sheet-item-title whitespace-normal break-words font-semibold text-sm text-left"
             style={{
               display: "-webkit-box",
               WebkitLineClamp: 2,
@@ -218,7 +276,11 @@ export function HistorySheet({
               color: isActive ? "hsl(var(--foreground))" : "hsl(var(--sidebar-fg))"
             }}
           >
-            {highlightText(note.title || "Untitled", searchQuery)}
+            {note.title ? (
+              highlightText(note.title, searchQuery)
+            ) : (
+              <span className="text-muted-foreground/40 font-normal italic">Untitled Note</span>
+            )}
           </span>
           <div
             className="flex items-center justify-center shrink-0 w-4 h-4 cursor-pointer mt-0.5"
@@ -312,6 +374,108 @@ export function HistorySheet({
     );
   };
 
+  // Render a list row (Apple Notes style)
+  const renderListNote = (note: Note) => {
+    const isActive = note.id === activeNoteId;
+    const { snippet, firstImageSrc } = getNotePreviewDetails(note);
+
+    return (
+      <button
+        key={note.id}
+        id={`history-item-${note.id}`}
+        onClick={() => {
+          onSelectNote(note.id);
+          onClose();
+        }}
+        className={`w-full group flex items-center justify-between p-3.5 text-left transition-all duration-150 relative border-none cursor-pointer ${
+          isActive 
+            ? "bg-zinc-200/60 dark:bg-zinc-800/40 text-foreground font-semibold" 
+            : "bg-transparent text-foreground hover:bg-zinc-200/30 dark:hover:bg-zinc-800/20"
+        }`}
+      >
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          {/* Note Title */}
+          {note.title ? (
+            <span className="text-sm font-semibold truncate text-foreground group-hover:text-primary transition-colors">
+              {highlightText(note.title, searchQuery)}
+            </span>
+          ) : (
+            <span className="text-sm font-normal italic text-muted-foreground/60 dark:text-muted-foreground/40">
+              Untitled Note
+            </span>
+          )}
+          
+          {/* Note Date + Snippet */}
+          <div className="flex items-center gap-1.5 text-xs text-left min-w-0">
+            <span className="text-[11px] font-medium text-muted-foreground/75 dark:text-muted-foreground/50 shrink-0">
+              {note.updatedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+            </span>
+            <span className="text-muted-foreground/40 dark:text-muted-foreground/20 shrink-0">•</span>
+            <span className="text-[11px] text-muted-foreground/70 dark:text-muted-foreground/45 truncate flex-1">
+              {snippet || "No additional text"}
+            </span>
+          </div>
+        </div>
+
+        {/* Thumbnail Preview on Right (if note has an image) */}
+        {firstImageSrc && (
+          <div className="w-8 h-8 rounded-md overflow-hidden bg-black/10 border border-border/10 shrink-0 ml-2">
+            <img src={firstImageSrc} alt="" className="w-full h-full object-cover" />
+          </div>
+        )}
+
+        {/* Hover Actions: Pin & Delete */}
+        <div className="flex items-center gap-1 ml-2 shrink-0">
+          <button
+            className={`flex items-center justify-center w-6 h-6 rounded-md cursor-pointer transition-all ${
+              note.isPinned 
+                ? "text-yellow-500 bg-yellow-500/10 opacity-100" 
+                : "text-muted-foreground/40 hover:text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-800 opacity-0 group-hover:opacity-100"
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onTogglePin) onTogglePin(note.id);
+            }}
+            title={note.isPinned ? "Unpin note" : "Pin note"}
+          >
+            {note.isPinned ? (
+              <PinIcon size={13} className="w-3.5 h-3.5" style={{ fill: "currentColor" }} />
+            ) : (
+              <PinIcon size={13} className="w-3.5 h-3.5" />
+            )}
+          </button>
+
+          <button
+            className={`flex items-center justify-center w-6 h-6 rounded-md cursor-pointer transition-all opacity-0 group-hover:opacity-100 ${
+              noteToDelete === note.id 
+                ? "bg-destructive/15 text-destructive opacity-100 animate-pulse" 
+                : "hover:bg-destructive/10 text-muted-foreground/40 hover:text-destructive"
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (noteToDelete === note.id) {
+                onDeleteNote(note.id);
+                setNoteToDelete(null);
+              } else {
+                setNoteToDelete(note.id);
+                setTimeout(() => {
+                  setNoteToDelete((prev) => prev === note.id ? null : prev);
+                }, 3000);
+              }
+            }}
+            title={noteToDelete === note.id ? "Confirm delete" : "Delete note"}
+          >
+            {noteToDelete === note.id ? (
+              <CheckIcon className="w-3 h-3" />
+            ) : (
+              <Trash2Icon className="w-3 h-3" />
+            )}
+          </button>
+        </div>
+      </button>
+    );
+  };
+
   return (
     <>
       {/* Backdrop */}
@@ -356,7 +520,7 @@ export function HistorySheet({
         {/* Content */}
         <div className="history-sheet-content">
           {/* Tag Filter Row */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none px-2">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none px-4">
             {DEFAULT_TAGS.map((tag) => {
               const isActive = tagFilter === tag;
               const isAll = tag === "All";
@@ -394,22 +558,44 @@ export function HistorySheet({
           </div>
 
           {/* Section label */}
-          <div className="history-sheet-section-label">
-            <span>Notes</span>
-            <button
-              onClick={() => {
-                const modes: ("updated" | "created" | "title")[] = ["updated", "created", "title"];
-                const nextIndex = (modes.indexOf(sortMode) + 1) % modes.length;
-                setSortMode(modes[nextIndex]);
-              }}
-              className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60 hover:text-muted-foreground transition-colors bg-transparent border-none cursor-pointer p-0"
-              title="Change sort order"
-            >
-              <ArrowDownUpIcon size={14} className="w-3.5 h-3.5" />
-              <span className="w-[52px] text-left">
-                {sortMode === "updated" ? "Updated" : sortMode === "created" ? "Created" : "Title"}
-              </span>
-            </button>
+          <div className="history-sheet-section-label flex items-center justify-between">
+            <span>Notes ({filteredNotes.length})</span>
+            <div className="flex items-center gap-3">
+              {/* Layout Switcher */}
+              <button
+                onClick={handleToggleLayout}
+                className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60 hover:text-muted-foreground transition-colors bg-transparent border-none cursor-pointer p-0"
+              >
+                {layoutMode === "grid" ? (
+                  <>
+                    <List size={14} className="w-3.5 h-3.5" />
+                    <span className="w-6 text-left">List</span>
+                  </>
+                ) : (
+                  <>
+                    <LayoutGrid size={14} className="w-3.5 h-3.5" />
+                    <span className="w-6 text-left">Grid</span>
+                  </>
+                )}
+              </button>
+
+              <div className="h-3 w-px bg-zinc-800" />
+
+              {/* Sort order */}
+              <button
+                onClick={() => {
+                  const modes: ("updated" | "created" | "title")[] = ["updated", "created", "title"];
+                  const nextIndex = (modes.indexOf(sortMode) + 1) % modes.length;
+                  setSortMode(modes[nextIndex]);
+                }}
+                className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60 hover:text-muted-foreground transition-colors bg-transparent border-none cursor-pointer p-0"
+              >
+                <ArrowDownUpIcon size={14} className="w-3.5 h-3.5" />
+                <span className="w-[52px] text-left">
+                  {sortMode === "updated" ? "Updated" : sortMode === "created" ? "Created" : "Title"}
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* Notes list */}
@@ -431,14 +617,58 @@ export function HistorySheet({
                   {searchQuery ? "No notes found" : "No notes yet"}
                 </span>
               </div>
+            ) : layoutMode === "grid" ? (
+              <div className="px-4 pb-4">
+                <Masonry
+                  breakpointCols={2}
+                  className="my-masonry-grid"
+                  columnClassName="my-masonry-grid_column"
+                >
+                  {filteredNotes.map(renderNote)}
+                </Masonry>
+              </div>
             ) : (
-              <Masonry
-                breakpointCols={2}
-                className="my-masonry-grid"
-                columnClassName="my-masonry-grid_column"
-              >
-                {filteredNotes.map(renderNote)}
-              </Masonry>
+              /* Grouped List View with Background but No Border */
+              <div className="flex flex-col gap-5 px-4 pb-4">
+                {groupNotesByDate(filteredNotes).map((group) => {
+                  const isAll = tagFilter === "All";
+                  const tagColor = !isAll ? getTagMeta(tagFilter).color : null;
+                  const groupCardStyle = !isAll ? {
+                    '--tag-bg-light': `rgba(${tagColor}, 0.08)`,
+                    '--tag-bg-dark': `rgba(${tagColor}, 0.045)`,
+                  } as React.CSSProperties : {};
+
+                  return (
+                    <div key={group.title} className="flex flex-col gap-2 text-left">
+                      {/* Group Title */}
+                      <h3 className="text-[10px] font-bold text-muted-foreground/80 dark:text-muted-foreground/60 pl-2.5 tracking-wider uppercase">
+                        {group.title}
+                      </h3>
+                      
+                      {/* Group Card Container (With soft bg, rounded-2xl, no border) */}
+                      <div 
+                        className={`flex flex-col rounded-2xl overflow-hidden ${
+                          isAll 
+                            ? "bg-zinc-100/90 dark:bg-zinc-900/45" 
+                            : "bg-[var(--tag-bg-light)] dark:bg-[var(--tag-bg-dark)]"
+                        }`}
+                        style={groupCardStyle}
+                      >
+                        {group.notes.map((note, index) => (
+                          <div key={note.id} className="w-full flex flex-col items-center">
+                            {renderListNote(note)}
+                            {index < group.notes.length - 1 && (
+                              <div 
+                                className="w-full h-px shrink-0 bg-gradient-to-r from-transparent via-zinc-300/85 dark:via-zinc-800/60 to-transparent" 
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>

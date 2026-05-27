@@ -148,15 +148,15 @@ export function App() {
           try {
             const res = await fetch(blobURL);
             const htmlBlob = await res.blob();
-            
+
             const clipId = crypto.randomUUID();
             const noteId = crypto.randomUUID();
-            
+
             const win = await browser.windows.getLastFocused({ windowTypes: ["normal"] });
             const [tab] = win?.id ? await browser.tabs.query({ active: true, windowId: win.id }) : [];
             const url = tab?.url || "https://github.com/gildas-lormeau/SingleFile";
             const title = filename ? filename.replace(/\.html$/, "") : (tab?.title || "Web Clip");
-            
+
             await db.web_clips.add({
               id: clipId,
               noteId,
@@ -165,7 +165,7 @@ export function App() {
               htmlBlob,
               createdAt: Date.now()
             });
-            
+
             const now = Date.now();
             const doc = {
               type: "doc",
@@ -206,7 +206,7 @@ export function App() {
             const htmlBlob = new Blob([content], { type: "text/html" });
             const clipId = crypto.randomUUID();
             const noteId = crypto.randomUUID();
-            
+
             await db.web_clips.add({
               id: clipId,
               noteId,
@@ -215,7 +215,7 @@ export function App() {
               htmlBlob,
               createdAt: Date.now()
             });
-            
+
             const now = Date.now();
             const doc = {
               type: "doc",
@@ -526,7 +526,7 @@ export function App() {
     const sendPromise = (async () => {
       // Small artificial delay to allow bottom sheet to slide down smoothly
       await new Promise(resolve => setTimeout(resolve, 300));
-      
+
       const response = await fetch(SUPPORT_WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -540,7 +540,7 @@ export function App() {
 
       const text = await response.text();
       let isSuccess = false;
-      
+
       try {
         const data = JSON.parse(text);
         if (data.status === "success") isSuccess = true;
@@ -595,7 +595,7 @@ export function App() {
   useEffect(() => {
     if (recErrorInfo) {
       const { info, retryMode, editor } = recErrorInfo;
-      
+
       // 1. Close all active bottom sheets & side panels first
       setActivePanel(null);
       setShowClipper(false);
@@ -745,7 +745,7 @@ export function App() {
 
   useEffect(() => {
     const handlePanelClosed = () => setActivePanel(null);
-    
+
     const syncPanelState = (panel: "history" | "clipper" | "account" | "note-chat" | "settings" | "support") => {
       setActivePanel(panel);
       setShowHistory(panel === "history");
@@ -818,7 +818,7 @@ export function App() {
   const isPopoutInstance = useRef(
     new URLSearchParams(window.location.search).get("popout") === "1"
   );
-  
+
   const sourceWindowId = useRef(
     new URLSearchParams(window.location.search).get("sourceWindowId")
   );
@@ -849,7 +849,7 @@ export function App() {
       if (changes.blacknote_popout_active) {
         const isActive = !!changes.blacknote_popout_active.newValue;
         setPopoutActive(isActive);
-        
+
         // If the side panel detects the popout just became active,
         // we can close the side panel to completely switch to the popout
         if (isActive && !isPopoutInstance.current) {
@@ -889,14 +889,14 @@ export function App() {
       const container = document.getElementById("blacknote-app-container");
       const width = container?.clientWidth || 420;
       const height = container?.clientHeight || 650;
-      
+
       const currentWin = await chrome.windows.getCurrent();
 
       // Calculate position relative to the main browser window (assuming side panel is on the right)
       const left = currentWin.left !== undefined && currentWin.width !== undefined
         ? currentWin.left + currentWin.width - width
         : undefined;
-      
+
       // Use the same top coordinate as the browser window
       const top = currentWin.top !== undefined ? currentWin.top : undefined;
 
@@ -924,12 +924,12 @@ export function App() {
     const handleOpenMediaSheet = async (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (!detail) return;
-      
+
       const { mediaId, noteId, fileName, type, duration, onDeleteNode } = detail;
-      
+
       // 1. Check if recording is already transcribed
       const isAnalyzed = await hasTranscript(mediaId, noteId);
-      
+
       // 2. Define callback to transcribe media
       const onAnalyze = async () => {
         if (!user) {
@@ -975,7 +975,7 @@ export function App() {
         const label = featureLabels[featureId] || "AI Insights";
         const toastId = `media-feature-toast-${Date.now()}`;
         showAILoaderToast(toastId, label, "Structuring insights and formatting results...");
-        
+
         try {
           const data = await summarizeMedia(mediaId, noteId, featureId as SummarizeStyle, type);
           window.dispatchEvent(new CustomEvent("insert-media-ai-result", {
@@ -991,8 +991,8 @@ export function App() {
       // 4. Define callback to delete the recording
       const onDelete = async () => {
         onDeleteNode();
-        db.media_files.delete(mediaId).catch(() => {});
-        db.media_transcripts.delete(mediaId).catch(() => {});
+        db.media_files.delete(mediaId).catch(() => { });
+        db.media_transcripts.delete(mediaId).catch(() => { });
         try {
           const note = await db.notes.get(noteId);
           if (note && note.mediaTranscripts) {
@@ -1174,7 +1174,7 @@ export function App() {
     const removeEditorNode = (editor: any, nodeType: string, mediaId: string) => {
       let targetPos: number | null = null;
       let targetSize: number | null = null;
-      
+
       editor.state.doc.descendants((node: any, pos: number) => {
         if (node.type.name === nodeType && node.attrs.mediaId === mediaId) {
           targetPos = pos;
@@ -1186,13 +1186,13 @@ export function App() {
       if (targetPos !== null && targetSize !== null) {
         editor.chain().focus().command(({ tr, dispatch }: { tr: any, dispatch: any }) => {
           let deleteTo = targetPos! + targetSize!;
-          
+
           // Remove the trailing empty paragraph if it exists to prevent whitespace buildup
           const nodeAfter = tr.doc.nodeAt(deleteTo);
           if (nodeAfter && nodeAfter.type.name === "paragraph" && nodeAfter.nodeSize === 2) {
             deleteTo += nodeAfter.nodeSize;
           }
-          
+
           if (dispatch) {
             tr.delete(targetPos!, deleteTo);
           }
@@ -1337,13 +1337,13 @@ export function App() {
         editor.chain().focus()
           .command(({ tr, dispatch }: { tr: any, dispatch: any }) => {
             let deleteTo = targetPos! + targetSize!;
-            
+
             // Remove the trailing empty paragraph if it exists to prevent whitespace buildup
             const nodeAfter = tr.doc.nodeAt(deleteTo);
             if (nodeAfter && nodeAfter.type.name === "paragraph" && nodeAfter.nodeSize === 2) {
               deleteTo += nodeAfter.nodeSize;
             }
-            
+
             if (dispatch) {
               tr.delete(targetPos!, deleteTo);
             }
@@ -1502,7 +1502,7 @@ export function App() {
     };
   }, [triggerAIErrorToast]);
 
-  
+
   // Listen for Ask Note
   useEffect(() => {
     const handleOpenSparkAI = async (e: Event) => {
@@ -1828,10 +1828,10 @@ export function App() {
       ) : null}
 
       {/* ─── Main Content ─── */}
-      <motion.div 
+      <motion.div
         id="blacknote-root"
-        animate={{ 
-          borderTopRightRadius: showRightToolbar ? 16 : 0, 
+        animate={{
+          borderTopRightRadius: showRightToolbar ? 16 : 0,
           borderBottomRightRadius: showRightToolbar ? 16 : 0,
         }}
         className={`flex-1 flex flex-col min-w-0 h-full bg-background transition-all z-10 overflow-hidden relative `}
@@ -1846,7 +1846,7 @@ export function App() {
               onMouseEnter={handleMouseEnterMenu}
               onMouseLeave={handleMouseLeaveMenu}
             >
-              <div 
+              <div
                 className="flex items-center justify-center w-9 h-9 rounded-md text-muted-foreground opacity-80 dark:opacity-75 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
               >
                 <Menu size={20} strokeWidth={1.25} />
@@ -1928,7 +1928,7 @@ export function App() {
                     onShowToolbar={() => {
                       setShowRightToolbar(true);
                       handleCloseMenuImmediately();
-                      chrome.storage.local.set({ blacknote_show_right_toolbar: true }).catch(() => {});
+                      chrome.storage.local.set({ blacknote_show_right_toolbar: true }).catch(() => { });
                     }}
                     onAccountClick={() => {
                       setShowAccountMenu(true);
@@ -1952,173 +1952,173 @@ export function App() {
           onUpdateNote={(id, updates) => updateNote(id, updates)}
           toggleTheme={toggleTheme}
         />
-      
+
 
         {/* -- SHEETS MOVED HERE TO NOT OVERLAP RIGHT SIDEBAR -- */}
 
-      {/* ─── Web Clipper Bottom Sheet ─── */}
-      <AnimatePresence>
-        {showClipper && (
-          <>
-            <motion.div
-              className="history-sheet-backdrop"
-              onClick={() => { setActivePanel(null); setShowClipper(false); }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+        {/* ─── Web Clipper Bottom Sheet ─── */}
+        <AnimatePresence>
+          {showClipper && (
+            <>
+              <motion.div
+                className="history-sheet-backdrop"
+                onClick={() => { setActivePanel(null); setShowClipper(false); }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              />
+              <motion.div
+                className="clipper-sheet mx-auto max-w-[800px]"
+                initial={{ bottom: "-100%" }}
+                animate={{ bottom: 0 }}
+                exit={{ bottom: "-100%" }}
+                transition={{ type: "spring", damping: 30, stiffness: 350, mass: 0.8 }}
+              >
+                <div className="history-sheet-handle" onClick={() => { setActivePanel(null); setShowClipper(false); }}>
+                  <div className="history-sheet-handle-bar" />
+                </div>
+                <div className="clipper-sheet-content">
+                  <WebClipper
+                    onSaveAsNote={handleClipSaveAsNote}
+                    onSaveWebClip={handleSaveWebClip}
+                    onClose={() => { setActivePanel(null); setShowClipper(false); }}
+                  />
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {capturedImage && (
+            <>
+              <motion.div
+                className="history-sheet-backdrop"
+                onClick={() => setCapturedImage(null)}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              />
+              <motion.div
+                className="clipper-sheet"
+                initial={{ bottom: "-100%" }}
+                animate={{ bottom: 0 }}
+                exit={{ bottom: "-100%" }}
+                transition={{ type: "spring", damping: 30, stiffness: 350, mass: 0.8 }}
+              >
+                <div className="history-sheet-handle" onClick={() => setCapturedImage(null)}>
+                  <div className="history-sheet-handle-bar" />
+                </div>
+                <div className="clipper-sheet-content">
+                  <ImageClipper
+                    dataUrl={capturedImage}
+                    onSaveAsNote={handleClipSaveAsNote}
+                    onClose={() => setCapturedImage(null)}
+                  />
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* ─── History Bottom Sheet ─── */}
+        <AnimatePresence>
+          {showHistory && (
+            <HistorySheet
+              notes={notes}
+              activeNoteId={activeNoteId ?? ""}
+              loading={notesLoading}
+              onSelectNote={handleSelectNote}
+              onCreateNote={handleCreateNote}
+              onDeleteNote={deleteNote}
+              onTogglePin={(id) => {
+                const note = notes.find((n) => n.id === id);
+                if (note) updateNote(id, { isPinned: !note.isPinned });
+              }}
+              onClose={() => {
+                cleanupEmptyNotes();
+                setActivePanel(null); setShowHistory(false);
+              }}
             />
-            <motion.div
-              className="clipper-sheet mx-auto max-w-[800px]"
-              initial={{ bottom: "-100%" }}
-              animate={{ bottom: 0 }}
-              exit={{ bottom: "-100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 350, mass: 0.8 }}
-            >
-              <div className="history-sheet-handle" onClick={() => { setActivePanel(null); setShowClipper(false); }}>
-                <div className="history-sheet-handle-bar" />
-              </div>
-              <div className="clipper-sheet-content">
-                <WebClipper
-                  onSaveAsNote={handleClipSaveAsNote}
-                  onSaveWebClip={handleSaveWebClip}
-                  onClose={() => { setActivePanel(null); setShowClipper(false); }}
-                />
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
 
-      <AnimatePresence>
-        {capturedImage && (
-          <>
-            <motion.div
-              className="history-sheet-backdrop"
-              onClick={() => setCapturedImage(null)}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+        {/* ─── Premium Upgrade Modal ─── */}
+        <UpgradeModal
+          open={isUpgradeModalOpen}
+          onOpenChange={setIsUpgradeModalOpen}
+          userEmail={user?.email || ""}
+          userId={user?.id || ""}
+        />
+
+        <AnimatePresence>
+          {showSupportSheet && (
+            <SupportActionSheet
+              onClose={() => { setActivePanel(null); setShowSupportSheet(false); }}
+              onSubmit={handleSupportSubmit}
             />
-            <motion.div
-              className="clipper-sheet"
-              initial={{ bottom: "-100%" }}
-              animate={{ bottom: 0 }}
-              exit={{ bottom: "-100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 350, mass: 0.8 }}
-            >
-              <div className="history-sheet-handle" onClick={() => setCapturedImage(null)}>
-                <div className="history-sheet-handle-bar" />
-              </div>
-              <div className="clipper-sheet-content">
-                <ImageClipper
-                  dataUrl={capturedImage}
-                  onSaveAsNote={handleClipSaveAsNote}
-                  onClose={() => setCapturedImage(null)}
-                />
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
 
-      {/* ─── History Bottom Sheet ─── */}
-      <AnimatePresence>
-        {showHistory && (
-          <HistorySheet
-            notes={notes}
-            activeNoteId={activeNoteId ?? ""}
-            loading={notesLoading}
-            onSelectNote={handleSelectNote}
-            onCreateNote={handleCreateNote}
-            onDeleteNote={deleteNote}
-            onTogglePin={(id) => {
-              const note = notes.find((n) => n.id === id);
-              if (note) updateNote(id, { isPinned: !note.isPinned });
-            }}
-            onClose={() => {
-              cleanupEmptyNotes();
-              setActivePanel(null); setShowHistory(false);
-            }}
-          />
-        )}
-      </AnimatePresence>
+        <GooeyToaster
+          position="top-left"
+          duration={4000}
+          theme={theme === "dark" ? "dark" : "light"}
+          showProgress={false}
+          expand={false}
+          visibleToasts={3}
+          gap={8}
+        />
 
-      {/* ─── Premium Upgrade Modal ─── */}
-      <UpgradeModal
-        open={isUpgradeModalOpen}
-        onOpenChange={setIsUpgradeModalOpen}
-        userEmail={user?.email || ""}
-        userId={user?.id || ""}
-      />
+        <AnimatePresence>
+          {mediaSheetConfig && (
+            <MediaActionSheet
+              {...mediaSheetConfig}
+              onClose={() => setMediaSheetConfig(null)}
+              onInsertToNote={(text) => {
+                window.dispatchEvent(
+                  new CustomEvent("insert-media-ai-result", { detail: { text, mediaId: mediaSheetConfig.mediaId } })
+                );
+              }}
+            />
+          )}
+        </AnimatePresence>
 
-      <AnimatePresence>
-        {showSupportSheet && (
-          <SupportActionSheet 
-            onClose={() => { setActivePanel(null); setShowSupportSheet(false); }} 
-            onSubmit={handleSupportSubmit}
-          />
-        )}
-      </AnimatePresence>
+        <AnimatePresence>
+          {mediaResultConfig && (
+            <AIMediaResultSheet
+              title={mediaResultConfig.title}
+              result={{ text: mediaResultConfig.text }}
+              loading={false}
+              error={null}
+              onClose={() => setMediaResultConfig(null)}
+              onInsertToNote={(text) => {
+                window.dispatchEvent(
+                  new CustomEvent("insert-media-ai-result", {
+                    detail: { text, mediaId: mediaResultConfig.mediaId },
+                  })
+                );
+                setMediaResultConfig(null);
+              }}
+            />
+          )}
+        </AnimatePresence>
 
-      <GooeyToaster 
-        position="top-left" 
-        duration={4000} 
-        theme={theme === "dark" ? "dark" : "light"} 
-        showProgress={false} 
-        expand={false} 
-        visibleToasts={3} 
-        gap={8} 
-      />
-
-      <AnimatePresence>
-        {mediaSheetConfig && (
-          <MediaActionSheet
-            {...mediaSheetConfig}
-            onClose={() => setMediaSheetConfig(null)}
-            onInsertToNote={(text) => {
-              window.dispatchEvent(
-                new CustomEvent("insert-media-ai-result", { detail: { text, mediaId: mediaSheetConfig.mediaId } })
-              );
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {mediaResultConfig && (
-          <AIMediaResultSheet
-            title={mediaResultConfig.title}
-            result={{ text: mediaResultConfig.text }}
-            loading={false}
-            error={null}
-            onClose={() => setMediaResultConfig(null)}
-            onInsertToNote={(text) => {
-              window.dispatchEvent(
-                new CustomEvent("insert-media-ai-result", {
-                  detail: { text, mediaId: mediaResultConfig.mediaId },
-                })
-              );
-              setMediaResultConfig(null);
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {activeWebClipId && (
-          <WebClipActionSheet
-            clipId={activeWebClipId}
-            onClose={() => setActiveWebClipId(null)}
-          />
-        )}
-      </AnimatePresence>
+        <AnimatePresence>
+          {activeWebClipId && (
+            <WebClipActionSheet
+              clipId={activeWebClipId}
+              onClose={() => setActiveWebClipId(null)}
+            />
+          )}
+        </AnimatePresence>
 
 
 
 
 
-      
+
       </motion.div>
 
       {/* ─── Vertical Right Toolbar ─── */}
@@ -2139,12 +2139,12 @@ export function App() {
                 className="flex items-center justify-center w-9 h-9 rounded-[10px] transition-all group text-muted-foreground opacity-85 dark:opacity-75 hover:opacity-100 hover:text-foreground hover:bg-sidebar-hover cursor-pointer"
                 onClick={() => {
                   setShowRightToolbar(false);
-                  chrome.storage.local.set({ blacknote_show_right_toolbar: false }).catch(() => {});
+                  chrome.storage.local.set({ blacknote_show_right_toolbar: false }).catch(() => { });
                 }}
                 data-tooltip="Close menu"
                 data-placement="left"
               >
-                <ChevronFirstIcon size={20} className="w-5 h-5 rotate-180" />
+                <ChevronFirstIcon size={17} className="w-[17px] h-[17px] rotate-180" />
               </button>
 
               <button
@@ -2162,26 +2162,24 @@ export function App() {
                   </span>
                 )}
               </button>
-              
+
               <button
                 className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
                 onClick={() => handleTogglePanel("note-chat")}
                 data-tooltip={isWide ? undefined : "AI Chat"}
                 data-placement="left"
               >
-                <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
-                  activePanel === "note-chat"
+                <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${activePanel === "note-chat"
                     ? "bg-sidebar-active text-foreground opacity-100 font-semibold"
                     : "opacity-90 text-zinc-500 dark:text-zinc-400 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
-                }`}>
+                  }`}>
                   <MessageSquareMoreIcon className="w-5 h-5" size={20} />
                 </div>
                 {isWide && (
-                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
-                    activePanel === "note-chat"
+                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${activePanel === "note-chat"
                       ? "text-foreground opacity-100 font-semibold"
                       : "text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:text-foreground"
-                  }`}>
+                    }`}>
                     AI Chat
                   </span>
                 )}
@@ -2193,19 +2191,17 @@ export function App() {
                 data-tooltip={isWide ? undefined : "My Notes"}
                 data-placement="left"
               >
-                <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
-                  activePanel === "history"
+                <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${activePanel === "history"
                     ? "bg-sidebar-active text-foreground opacity-100 font-semibold"
                     : "opacity-90 text-zinc-500 dark:text-zinc-400 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
-                }`}>
+                  }`}>
                   <LayoutListIcon size={20} />
                 </div>
                 {isWide && (
-                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
-                    activePanel === "history"
+                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${activePanel === "history"
                       ? "text-foreground opacity-100 font-semibold"
                       : "text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:text-foreground"
-                  }`}>
+                    }`}>
                     Notes
                   </span>
                 )}
@@ -2217,19 +2213,17 @@ export function App() {
                 data-tooltip={isWide ? undefined : "Clip page"}
                 data-placement="left"
               >
-                <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
-                  activePanel === "clipper"
+                <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${activePanel === "clipper"
                     ? "bg-sidebar-active text-foreground opacity-100 font-semibold"
                     : "opacity-90 text-zinc-500 dark:text-zinc-400 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
-                }`}>
+                  }`}>
                   <ScanLineIcon size={20} />
                 </div>
                 {isWide && (
-                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
-                    activePanel === "clipper"
+                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${activePanel === "clipper"
                       ? "text-foreground opacity-100 font-semibold"
                       : "text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:text-foreground"
-                  }`}>
+                    }`}>
                     Clip
                   </span>
                 )}
@@ -2287,18 +2281,16 @@ export function App() {
                   data-tooltip={showMorePopover || isWide ? undefined : "More options"}
                   data-placement="left"
                 >
-                  <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
-                    showMorePopover
+                  <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${showMorePopover
                       ? "bg-sidebar-active text-foreground opacity-100 shadow-sm"
                       : "opacity-90 text-zinc-500 dark:text-zinc-400 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
-                  }`}>
+                    }`}>
                     <MoreHorizontal className="w-5 h-5" />
                   </div>
-                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
-                    showMorePopover
+                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${showMorePopover
                       ? "text-foreground opacity-100 font-semibold"
                       : "text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:text-foreground"
-                  }`}>
+                    }`}>
                     More
                   </span>
                 </button>
@@ -2312,90 +2304,63 @@ export function App() {
 
               {/* Always on Top — Pop-out Window */}
               <button
-                className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
+                className="flex w-9 h-9 justify-center items-center group cursor-pointer text-muted-foreground"
                 onClick={handleTogglePiP}
                 data-tooltip={
-                  isWide
-                    ? undefined
-                    : isPopoutInstance.current
+                  isPopoutInstance.current
                     ? "Back to side panel"
                     : isPinnedToTop
-                    ? "Close pop-out"
-                    : "Pop out window"
+                      ? "Close pop-out"
+                      : "Pop out window"
                 }
                 data-placement="left"
               >
                 <div className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground">
                   {isPinnedToTop || isPopoutInstance.current ? (
-                    <PanelRight className="w-5 h-5" />
+                    <PanelRight size={17} className="w-[17px] h-[17px]" />
                   ) : (
-                    <AppWindow className="w-5 h-5" />
+                    <AppWindow size={17} className="w-[17px] h-[17px]" />
                   )}
                 </div>
-                {isWide && (
-                  <span className="text-[10px] font-medium leading-normal mt-0 text-center truncate w-full text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:text-foreground">
-                    Popout
-                  </span>
-                )}
               </button>
 
               <button
-                className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[48px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
+                className="flex w-9 h-9 justify-center items-center group cursor-pointer text-muted-foreground"
                 onClick={() => handleTogglePanel("settings")}
-                data-tooltip={isWide ? undefined : "Settings"}
+                data-tooltip="Settings"
                 data-placement="left"
               >
-                <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
-                  activePanel === "settings"
+                <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${activePanel === "settings"
                     ? "bg-sidebar-active text-foreground opacity-100 font-semibold"
                     : "opacity-90 text-zinc-500 dark:text-zinc-400 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
-                }`}>
-                  <SettingsIcon size={20} />
-                </div>
-                {isWide && (
-                  <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
-                    activePanel === "settings"
-                      ? "text-foreground opacity-100 font-semibold"
-                      : "text-zinc-500 dark:text-zinc-400 opacity-90 group-hover:opacity-100 group-hover:text-foreground"
                   }`}>
-                    Settings
-                  </span>
-                )}
+                  <SettingsIcon size={17} className="w-[17px] h-[17px]" />
+                </div>
               </button>
 
               <Popover.Root open={showAccountMenu} onOpenChange={setShowAccountMenu}>
                 <Popover.Trigger asChild>
                   <button
-                    className={`flex ${isWide ? "flex-col gap-0.5 w-full min-h-[52px] py-1" : "w-9 h-9"} justify-center items-center group cursor-pointer text-muted-foreground`}
-                    data-tooltip={isWide ? undefined : (!user ? "Sign in / Account" : "Account")}
+                    className="flex w-9 h-9 justify-center items-center group cursor-pointer text-muted-foreground"
+                    data-tooltip={!user ? "Sign in / Account" : "Account"}
                     data-placement="left"
                   >
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                      showAccountMenu
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${showAccountMenu
                         ? "bg-sidebar-active text-foreground opacity-100"
                         : !user
                           ? "opacity-90 group-hover:opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
                           : "opacity-100 group-hover:bg-sidebar-hover group-hover:text-foreground"
-                    }`}>
+                      }`}>
                       {!user ? (
                         <GuestAvatarIcon />
                       ) : getUserAvatar(user) ? (
-                        <img src={getUserAvatar(user)!} alt="" className="w-[30px] h-[30px] rounded-full object-cover border border-border/20 shadow-sm" />
+                        <img src={getUserAvatar(user)!} alt="" className="w-[28px] h-[28px] rounded-full object-cover border border-border/20 shadow-sm" />
                       ) : (
-                        <div className="w-[30px] h-[30px] rounded-full bg-muted flex items-center justify-center text-[12px] font-bold border border-border/20 shadow-sm">
+                        <div className="w-[28px] h-[28px] rounded-full bg-muted flex items-center justify-center text-[10px] font-bold border border-border/20 shadow-sm">
                           {(user.displayName || user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
                         </div>
                       )}
                     </div>
-                    {isWide && (
-                      <span className={`text-[10px] font-medium leading-normal mt-0 text-center truncate w-full transition-all ${
-                        showAccountMenu
-                          ? "text-foreground opacity-100 font-semibold"
-                          : "opacity-75 group-hover:opacity-100 group-hover:text-foreground"
-                      }`}>
-                        Account
-                      </span>
-                    )}
                   </button>
                 </Popover.Trigger>
                 <Popover.Portal>
