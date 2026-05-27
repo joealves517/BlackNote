@@ -21,7 +21,7 @@ export async function runFrontendAgentWithTools(
   });
 
   const { text, toolCalls } = await generateText({
-    model: google("gemini-3.1-flash-lite"),
+    model: google("gemini-2.0-flash-lite-preview-02-05"),
     system: `You are an AI assistant acting directly on a document.
 You have been provided with the current document content. The document is divided into blocks, each marked with an ID like «b0», «b1», etc.
 Your task is to fulfill the user's request by calling the appropriate tools to modify the document.
@@ -29,8 +29,8 @@ Your task is to fulfill the user's request by calling the appropriate tools to m
 - To delete a block, use deleteBlock.
 - To insert new content, use insertContent.
 - To change the title, use updateTitle.
-Do not output raw block markers (like «b0») in your text. Only use the tools to modify the document.
-You can call multiple tools if necessary. If no tools are needed, just reply normally.
+CRITICAL INSTRUCTION: If the user asks to modify, rewrite, or append to the document, you MUST use the provided tools (e.g. replaceBlock, insertContent) to apply the changes. DO NOT return the revised text in a normal chat message.
+You can call multiple tools if necessary. If no tools are needed (e.g. general questions), just reply normally.
 
 Current Document:
 ${contextMarkdown}
@@ -65,6 +65,8 @@ ${contextMarkdown}
     },
     maxSteps: 1, // Only allow one step for now to keep it fast
   });
+
+  console.log("[Agent Tool Calling] Raw response:", { text, toolCalls });
 
   const results: AgentToolResult[] = [];
 
