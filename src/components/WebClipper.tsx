@@ -87,7 +87,7 @@ export function WebClipper({ onSaveAsNote, onSaveWebClip, onClose }: WebClipperP
     if (!content || !onSaveWebClip) return;
 
     const toastId = `html-clip-toast-${Date.now()}`;
-    showAILoaderToast(toastId, "HTML Web Clip", "Saving full page offline...");
+    showAILoaderToast(toastId, "HTML Snapshot", "Saving full page snapshot...");
 
     try {
       const noteId = crypto.randomUUID();
@@ -95,14 +95,14 @@ export function WebClipper({ onSaveAsNote, onSaveWebClip, onClose }: WebClipperP
 
       if (clipId) {
         onSaveWebClip(content.title, content.url, clipId, noteId);
-        updateAISuccessToast(toastId, "HTML Web Clip", "Page saved offline successfully!");
+        updateAISuccessToast(toastId, "HTML Snapshot", "Page snapshot saved successfully!");
         handleClose(); // Close clipper only after success
       } else {
-        updateAIErrorToast(toastId, "HTML Web Clip", "Failed to save page offline.");
+        updateAIErrorToast(toastId, "HTML Snapshot", "Failed to save page snapshot.");
       }
     } catch (err) {
-      console.error("[WebClipper] Save HTML offline error:", err);
-      updateAIErrorToast(toastId, "HTML Web Clip", "Failed to save page offline.");
+      console.error("[WebClipper] Save HTML snapshot error:", err);
+      updateAIErrorToast(toastId, "HTML Snapshot", "Failed to save page snapshot.");
     }
   };
 
@@ -257,10 +257,10 @@ export function WebClipper({ onSaveAsNote, onSaveWebClip, onClose }: WebClipperP
                   </div>
                   <div>
                     <p className="text-[13px] font-medium">
-                      {htmlStatus === "clipping" ? "Saving Offline..." : "Save HTML Offline"}
+                      {htmlStatus === "clipping" ? "Saving Snapshot..." : "Save HTML Snapshot"}
                     </p>
                     <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                      Preserve full page layout and images offline
+                      Preserve full page layout and images in a snapshot
                     </p>
                   </div>
                 </button>
