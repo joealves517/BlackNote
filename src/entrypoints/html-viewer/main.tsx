@@ -98,50 +98,7 @@ function HTMLViewer() {
   return (
     <div className="flex flex-col w-full h-full bg-zinc-950 font-sans">
       {/* Premium Glassmorphic Top Bar */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-zinc-800/80 bg-zinc-900/60 backdrop-blur-md z-10">
-        <div className="flex items-center gap-4 min-w-0 flex-1">
-          <button
-            onClick={() => window.close()}
-            className="p-2 rounded-xl text-zinc-400 hover:text-foreground hover:bg-zinc-800 transition-colors border border-zinc-800/50"
-            title="Go back / Close"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          
-          <div className="min-w-0 flex-1">
-            <h1 className="text-[14px] font-semibold text-foreground truncate max-w-[500px]">
-              {title}
-            </h1>
-            <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5 truncate">
-              <Globe className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">{hostname}</span>
-              <span>·</span>
-              <span className="text-[9px] bg-emerald-500/10 text-emerald-400 font-semibold px-1.5 py-0.5 rounded-[6px] border border-emerald-500/15">OFFLINE SNAPSHOT</span>
-            </p>
-          </div>
-        </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-3 ml-6 flex-shrink-0">
-          <button
-            onClick={handleOpenOriginal}
-            className="flex items-center gap-2 px-3.5 py-1.8 rounded-xl text-[12px] font-medium text-zinc-400 hover:text-foreground hover:bg-zinc-800 border border-zinc-800/80 transition-all duration-150 cursor-pointer"
-            title="Open original webpage in new tab"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span>Original Site</span>
-          </button>
-
-          <button
-            onClick={handleDownload}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-semibold text-primary-foreground bg-primary hover:bg-primary/95 shadow-lg shadow-primary/15 transition-all duration-150 cursor-pointer"
-            title="Export page as static HTML file"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export HTML</span>
-          </button>
-        </div>
-      </header>
 
       {/* Sandboxed Secure HTML Iframe */}
       <main className="flex-1 w-full overflow-hidden bg-white relative">
