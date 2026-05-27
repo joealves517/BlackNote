@@ -191,17 +191,12 @@ function ContentSwapBridge({ noteId, content }: { noteId: string; content: strin
 /**
  * Bridge for AssistantChat inside EditorContent so it has useEditor() access.
  */
-function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
+function ChatSheetBridge({ note, noteTitle }: {
   note: Note | null;
   noteTitle: string;
-  onUpdateNote: (noteId: string, updates: Partial<Note>) => void;
 }) {
   const [show, setShow] = useState(false);
   const { editor } = useEditor();
-
-  // Stabilize onUpdateNote reference to prevent infinite re-render loops
-  const onUpdateNoteRef = useRef(onUpdateNote);
-  onUpdateNoteRef.current = onUpdateNote;
 
   useEffect(() => {
     const handler = () => setShow(true);
@@ -233,13 +228,6 @@ function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
     return note.content;
   }, [note?.id, editor]);
 
-  // Stable callback that won't change reference across renders
-  const handleUpdateChatHistory = useCallback((chatHistory: any[]) => {
-    if (note) {
-      onUpdateNoteRef.current(note.id, { chatHistory });
-    }
-  }, [note?.id]);
-
   const handleClose = useCallback(() => {
     setShow(false);
     window.dispatchEvent(new CustomEvent("panel-closed"));
@@ -255,7 +243,6 @@ function ChatSheetBridge({ note, noteTitle, onUpdateNote }: {
         noteId={note.id}
         noteTitle={noteTitle || "Untitled"}
         noteContent={markdownContent}
-        onUpdateChatHistory={handleUpdateChatHistory}
         onClose={handleClose}
       />
     </AnimatePresence>,
@@ -917,7 +904,7 @@ export function NoteEditor({
             <AIImproverBridge />
             <AIContentInsertBridge />
             <ContentSwapBridge noteId={note.id} content={note.content} />
-            <ChatSheetBridge note={note} noteTitle={titleValue} onUpdateNote={onUpdateNote} />
+            <ChatSheetBridge note={note} noteTitle={titleValue} />
             <ImportExportSheetBridge 
               noteId={note.id} 
               noteTitle={titleValue} 
