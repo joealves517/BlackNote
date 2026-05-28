@@ -1207,13 +1207,14 @@ body {
 }
 
 /* Fix image resizer container aesthetics to match the 12px rounded image corners */
+/* Fix image resizer container aesthetics to match the 12px rounded image corners */
 .novel-editor .tiptap div > div:has(> img) {
   border-radius: 12px !important;
   padding: 0 !important;
   margin: 0 !important;
   overflow: visible !important;
-  border: 1.5px dashed transparent !important;
-  transition: border-color 0.15s ease !important;
+  border: none !important; /* Bỏ hoàn toàn border nét đứt để triệt tiêu 100% lỗi nhảy hình ảnh */
+  outline: none !important;
 }
 
 /* Block wrapper ngoài cùng của resizer (elements.wrapper) nhận margin giãn dòng đồng nhất */
@@ -1221,9 +1222,10 @@ body {
   margin: 16px 0 !important;
 }
 
-/* Customize the dashed border shown when selected/focused */
+/* Triệt tiêu hoàn toàn viền nét đứt được chèn bởi thư viện để ảnh đứng im tuyệt đối */
 .novel-editor .tiptap div > div:has(> img)[style*="dashed"] {
-  border-color: hsl(var(--primary) / 0.6) !important;
+  border: none !important;
+  outline: none !important;
 }
 
 /* Hide the 3 resize handles on the top-left, top-right, and bottom-left to keep a minimal UI */
@@ -1231,24 +1233,31 @@ body {
   display: none !important;
 }
 
-/* Customize the single remaining dot at the bottom-right corner to look modern and premium */
+/* Customize the bottom-right resize handle as a subtle diagonal grip (textarea style) inside the image corner */
 [data-resize-image-ui="resize-handle"]:last-child {
-  width: 12px !important;
-  height: 12px !important;
-  background-color: hsl(var(--background)) !important;
-  border: 2px solid hsl(var(--primary)) !important;
-  border-radius: 50% !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  width: 14px !important;
+  height: 14px !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   z-index: 50 !important;
-  bottom: -4px !important;
-  right: -4px !important;
+  bottom: 8px !important; /* Nằm gọn tinh tế bên trong góc bo cong 12px của ảnh */
+  right: 8px !important;
   cursor: nwse-resize !important;
-  transition: transform 0.15s ease, background-color 0.15s ease !important;
+  opacity: 0.75;
+  transition: opacity 0.2s ease, transform 0.2s ease !important;
+  /* Vẽ 3 vạch chéo kinh điển của textarea bằng SVG màu trắng kèm bóng đổ */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M10,0 L0,10 M10,3 L3,10 M10,6 L6,10' stroke='white' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.5)) !important;
 }
 
 [data-resize-image-ui="resize-handle"]:last-child:hover {
-  transform: scale(1.3) !important;
-  background-color: hsl(var(--primary)) !important;
+  opacity: 1;
+  transform: scale(1.1) !important;
 }
 
 /* Drag Handle */
