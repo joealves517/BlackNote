@@ -220,7 +220,14 @@ function VideoNodeView({ node, deleteNode }: NodeViewProps) {
               className="video-node-fullscreen-btn"
               onClick={(e) => {
                 e.stopPropagation();
-                chrome.runtime.sendMessage({ type: "OPEN_URL", url: chrome.runtime.getURL(`viewer.html?id=${mediaId}`) });
+                const urlParams = new URLSearchParams();
+                if (mediaId) urlParams.set("id", mediaId);
+                if (src) urlParams.set("src", src);
+                if (fileName) urlParams.set("title", fileName);
+                chrome.runtime.sendMessage({
+                  type: "OPEN_URL",
+                  url: chrome.runtime.getURL(`viewer.html?${urlParams.toString()}`)
+                });
               }}
               title="Open Fullscreen in New Tab"
               type="button"

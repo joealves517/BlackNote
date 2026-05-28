@@ -12,11 +12,24 @@ function Viewer() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get("id");
+    const src = params.get("src");
+    const title = params.get("title");
+
+    // If an external or direct URL is provided, play it directly
+    if (src && (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("blob:"))) {
+      const displayTitle = title || "Video Recording";
+      setFileName(displayTitle);
+      document.title = displayTitle;
+      setVideoUrl(src);
+      return;
+    }
 
     if (!id) {
       setError("No media ID provided.");
       return;
     }
+
+    let createdUrl: string | null = null;
 
     db.media_files.get(id)
       .then((file) => {
@@ -24,9 +37,11 @@ function Viewer() {
           setError("Media not found or has been deleted.");
           return;
         }
-        setFileName(file.fileName || "Video Recording");
-        document.title = file.fileName || "Video Recording";
-        setVideoUrl(URL.createObjectURL(file.blob));
+        const displayTitle = file.fileName || "Video Recording";
+        setFileName(displayTitle);
+        document.title = displayTitle;
+        createdUrl = URL.createObjectURL(file.blob);
+        setVideoUrl(createdUrl);
       })
       .catch((err) => {
         console.error("Failed to load media:", err);
@@ -34,8 +49,8 @@ function Viewer() {
       });
 
     return () => {
-      if (videoUrl) {
-        URL.revokeObjectURL(videoUrl);
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl);
       }
     };
   }, []);
