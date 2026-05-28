@@ -48,7 +48,7 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
     }
   }, [isOpen, activeTab]);
 
-  // Infinite Scroll Observer (Factor 9: Self-Healing)
+  // Infinite Scroll Observer
   useEffect(() => {
     if (!isOpen || results.length === 0 || loading) return;
 
@@ -187,36 +187,35 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
 
           {/* Bottom Sheet Container */}
           <motion.div
-            className="history-sheet ai-shadow"
+            className="history-sheet ai-shadow animate-sheet-in"
             style={{
               display: "flex",
               flexDirection: "column",
               maxWidth: 480,
               margin: "0 auto",
-              height: "calc(100% - 170px)", // Lowered sheet height to reveal more behind it
+              height: "calc(100% - 170px)",
               zIndex: 101,
               overflow: "hidden",
               backdropFilter: "none",
               WebkitBackdropFilter: "none",
-              backgroundColor: "hsl(var(--background))", // Force 100% solid background
+              backgroundColor: "hsl(var(--background))",
               opacity: 1
             }}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 220 }} // Clean elastic bounce animation
-            drag="y" // Enable dragging
+            transition={{ type: "spring", damping: 25, stiffness: 220 }}
+            drag="y"
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.85 }}
             onDragEnd={(_, info) => {
-              // Drag down to close threshold (80px)
               if (info.offset.y > 80) {
                 setIsOpen(false);
                 window.dispatchEvent(new CustomEvent("panel-closed"));
               }
             }}
           >
-            {/* Drag Handle Bar (used exclusively for closing & dragging) */}
+            {/* Drag Handle Bar */}
             <div className="history-sheet-handle cursor-grab active:cursor-grabbing w-full flex justify-center py-3 select-none">
               <div className="history-sheet-handle-bar" />
             </div>
@@ -225,7 +224,7 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
             <div className="absolute top-0 right-0 w-64 h-32 bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.06),transparent_60%)] pointer-events-none" />
             <div className="absolute top-0 left-0 w-64 h-32 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.04),transparent_60%)] pointer-events-none" />
 
-            {/* Smart Expandable Tab Navigation */}
+            {/* Smart Segmented Controls with Premium Sliding morph indicator */}
             <div className="flex items-center justify-between px-6 py-2.5 bg-muted/10 relative z-10 select-none">
               {[
                 { id: "photos", label: "Photos", icon: <ImageIcon size={14} /> },
@@ -238,34 +237,47 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center justify-center gap-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                      isActive
-                        ? "bg-foreground text-background px-4 py-2 shadow-sm"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted p-2"
-                    }`}
-                    data-tooltip={isActive ? undefined : tab.label}
-                    data-placement="top"
+                    className="relative flex items-center justify-center rounded-full transition-all duration-300 cursor-pointer p-2.5 hover:bg-muted/30"
+                    style={{ WebkitTapHighlightColor: "transparent" }}
                   >
-                    {tab.icon}
-                    <AnimatePresence initial={false}>
-                      {isActive && (
-                        <motion.span
-                          initial={{ width: 0, opacity: 0 }}
-                          animate={{ width: "auto", opacity: 1 }}
-                          exit={{ width: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden whitespace-nowrap text-[11px] font-black uppercase tracking-wider pl-1.5"
-                        >
-                          {tab.label}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
+                    {/* Shared Layout Active Indicator - morphs and slides horizontally like apple UI */}
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeMediaTabIndicator"
+                        className="absolute inset-0 rounded-full bg-purple-500/10 dark:bg-purple-400/15"
+                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      />
+                    )}
+
+                    {/* Content container - shifts color to gentle purple on active state */}
+                    <div
+                      className={`relative z-10 flex items-center justify-center gap-1.5 transition-colors duration-200 ${
+                        isActive
+                          ? "text-purple-600 dark:text-purple-400 font-bold px-1"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {tab.icon}
+                      <AnimatePresence initial={false}>
+                        {isActive && (
+                          <motion.span
+                            initial={{ width: 0, opacity: 0 }}
+                            animate={{ width: "auto", opacity: 1 }}
+                            exit={{ width: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden whitespace-nowrap text-[11px] font-black uppercase tracking-wider pl-1.5"
+                          >
+                            {tab.label}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </button>
                 );
               })}
             </div>
 
-            {/* Tab Contents - Padding reduced from pt-5 to pt-1 to shift search bar up */}
+            {/* Tab Contents */}
             <div className="flex-1 overflow-hidden flex flex-col px-5 pb-5 pt-1 relative z-10">
               {(activeTab === "photos" || activeTab === "videos") && (
                 <div className="flex-1 flex flex-col overflow-hidden gap-3.5">
@@ -342,7 +354,7 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
                       </div>
                     )}
 
-                    {/* Infinite Scroll Loader Target (No Load More button per request) */}
+                    {/* Infinite Scroll Loader Target */}
                     {results.length > 0 && (
                       <div ref={loaderRef} className="flex justify-center py-4.5 shrink-0">
                         {loading && <Loader2 className="animate-spin text-muted-foreground/80" size={16} />}
@@ -364,15 +376,15 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
                   />
                   <label
                     htmlFor="media-file-input"
-                    className="w-full max-w-[320px] aspect-[4/3] rounded-3xl border border-dashed border-border/80 hover:border-foreground/45 flex flex-col items-center justify-center gap-3.5 bg-muted/20 hover:bg-muted/40 transition-all cursor-pointer group"
+                    className="w-full max-w-[320px] aspect-[4/3] rounded-3xl border border-dashed border-border/80 hover:border-purple-500/40 dark:hover:border-purple-400/40 flex flex-col items-center justify-center gap-3.5 bg-muted/20 hover:bg-purple-500/5 dark:hover:bg-purple-400/5 transition-all cursor-pointer group"
                   >
                     {isUploading ? (
                       <Loader2 className="animate-spin text-muted-foreground" size={26} />
                     ) : (
-                      <UploadCloud className="text-muted-foreground group-hover:text-foreground group-hover:scale-105 transition-all duration-300" size={32} />
+                      <UploadCloud className="text-muted-foreground group-hover:text-purple-500 dark:group-hover:text-purple-400 group-hover:scale-105 transition-all duration-300" size={32} />
                     )}
                     <div className="flex flex-col items-center text-center">
-                      <span className="text-xs font-bold">
+                      <span className="text-xs font-bold group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
                         {isUploading ? "Uploading file to S3..." : "Click or drag file to upload"}
                       </span>
                       <span className="text-[10px] font-semibold text-muted-foreground mt-1">
@@ -395,14 +407,15 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
                         value={embedUrl}
                         onChange={(e) => setEmbedUrl(e.target.value)}
                         placeholder="Paste direct URL to image or video..."
-                        className="w-full h-10 px-4 text-xs font-semibold bg-muted/60 border border-border/70 focus:border-foreground/40 rounded-xl outline-none focus:bg-background transition-all placeholder:text-muted-foreground/60"
+                        className="w-full h-10 px-4 text-xs font-semibold bg-muted/60 border border-border/70 focus:border-foreground/45 focus:border-purple-500/30 rounded-xl outline-none focus:bg-background transition-all placeholder:text-muted-foreground/60"
                         required
                       />
                     </div>
 
+                    {/* Gentler, modern purple-tinted active button replacing harsh solid black/white */}
                     <button
                       type="submit"
-                      className="w-full h-10 bg-foreground text-background hover:opacity-90 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm border-none"
+                      className="w-full h-10 bg-purple-500/10 dark:bg-purple-400/15 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-purple-500/20 dark:border-purple-400/20 active:scale-[0.99]"
                     >
                       <Plus size={14} strokeWidth={2.5} />
                       Insert Link
