@@ -1169,7 +1169,7 @@ body {
 .novel-image,
 .novel-editor .tiptap img {
   max-width: 100%;
-  border-radius: 12px;
+  border-radius: 6px;
   margin: 8px 0;
   box-shadow: 0 4px 12px hsl(var(--foreground) / 0.05);
   transition: border-radius 0.2s ease, box-shadow 0.2s ease;
@@ -1191,7 +1191,7 @@ body {
   display: block !important;
   width: 100% !important;
   height: auto !important;
-  border-radius: 12px !important;
+  border-radius: 6px !important;
   box-shadow: 0 4px 12px hsl(var(--foreground) / 0.05);
   transition: border-radius 0.2s ease, box-shadow 0.2s ease;
 }
@@ -1209,7 +1209,7 @@ body {
 /* Fix image resizer container aesthetics to match the 12px rounded image corners */
 /* Fix image resizer container aesthetics to match the 12px rounded image corners */
 .novel-editor .tiptap div > div:has(> img) {
-  border-radius: 12px !important;
+  border-radius: 6px !important;
   padding: 0 !important;
   margin: 0 !important;
   overflow: visible !important;
