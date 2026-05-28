@@ -1167,8 +1167,7 @@ body {
 
 /* Images */
 .novel-image,
-.novel-editor .tiptap img,
-.novel-editor .tiptap [data-type="image"] img {
+.novel-editor .tiptap img {
   max-width: 100%;
   border-radius: 12px;
   margin: 8px 0;
@@ -1177,7 +1176,22 @@ body {
 }
 
 .novel-image:hover,
-.novel-editor .tiptap img:hover,
+.novel-editor .tiptap img:hover {
+  box-shadow: 0 6px 16px hsl(var(--foreground) / 0.08);
+}
+
+/* Thẻ img bên trong khối image node (có resizer) phải ôm khít container, loại bỏ margin/padding dư thừa */
+.novel-editor .tiptap [data-type="image"] img {
+  margin: 0 !important;
+  padding: 0 !important;
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px hsl(var(--foreground) / 0.05);
+  transition: border-radius 0.2s ease, box-shadow 0.2s ease;
+}
+
 .novel-editor .tiptap [data-type="image"] img:hover {
   box-shadow: 0 6px 16px hsl(var(--foreground) / 0.08);
 }
@@ -1192,10 +1206,13 @@ body {
 .novel-editor .tiptap [data-type="image"] {
   border-radius: 12px;
   overflow: visible;
+  margin: 12px 0;
 }
 
 .novel-editor .tiptap [data-type="image"] > div {
   border-radius: 12px !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 /* Customize the dashed border shown when selected/focused */
