@@ -785,7 +785,21 @@ export function NoteEditor({
             extensions={extensions}
             editorProps={{
               handleDOMEvents: {
-                keydown: (_view, event) => handleCommandNavigation(event),
+                keydown: (view, event) => {
+                  const isCommandHandled = handleCommandNavigation(event);
+                  if (isCommandHandled) return true;
+
+                  if (event.key === "Backspace" || event.key === "Delete") {
+                    const { selection } = view.state;
+                    if (selection && "node" in selection && (selection as any).node?.type?.name === "image") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      view.dispatch(view.state.tr.deleteSelection());
+                      return true;
+                    }
+                  }
+                  return false;
+                },
               },
               handlePaste: (view, event) => {
                 // Intercept raw image data from clipboard (e.g. screenshots)
