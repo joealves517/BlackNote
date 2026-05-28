@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
-import { Search, Loader2, Image as ImageIcon, Video, UploadCloud, Link as LinkIcon, X, Plus } from "lucide-react";
+import { Search, Loader2, Image as ImageIcon, Video, UploadCloud, Link as LinkIcon, Plus } from "lucide-react";
 import { AI_API_BASE } from "@/lib/constants";
 import { getAuthToken } from "@/lib/auth-client";
 
@@ -24,9 +24,6 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
   const [isUploading, setIsUploading] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
-
-  // Suggested category tags for quick searching
-  const quickTags = ["Minimalist", "Workspace", "Nature", "Abstract", "City", "Wallpapers"];
 
   useEffect(() => {
     const handleOpen = (e: Event) => {
@@ -164,7 +161,7 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
 
           {/* Bottom Sheet Container */}
           <motion.div
-            className="history-sheet ai-shadow"
+            className="history-sheet ai-shadow animate-sheet-in"
             style={{
               display: "flex",
               flexDirection: "column",
@@ -179,7 +176,7 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
             exit={{ y: "100%" }}
             transition={{ type: "tween", duration: 0.25, ease: "easeOut" }}
           >
-            {/* Drag Handle Bar */}
+            {/* Drag Handle Bar (used exclusively for closing, no headers per request) */}
             <div
               className="history-sheet-handle"
               onClick={() => { setIsOpen(false); window.dispatchEvent(new CustomEvent("panel-closed")); }}
@@ -188,49 +185,53 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
             </div>
 
             {/* Header Ambient Glow */}
-            <div className="absolute top-0 right-0 w-64 h-32 bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.08),transparent_60%)] pointer-events-none" />
-            <div className="absolute top-0 left-0 w-64 h-32 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.05),transparent_60%)] pointer-events-none" />
+            <div className="absolute top-0 right-0 w-64 h-32 bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.06),transparent_60%)] pointer-events-none" />
+            <div className="absolute top-0 left-0 w-64 h-32 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.04),transparent_60%)] pointer-events-none" />
 
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 pt-3 pb-3.5 border-b border-border/40 relative z-10">
-              <span className="text-sm font-bold tracking-tight text-foreground">
-                Insert Media
-              </span>
-              <button
-                onClick={() => { setIsOpen(false); window.dispatchEvent(new CustomEvent("panel-closed")); }}
-                className="p-1 rounded-full hover:bg-muted/70 transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                <X size={15} />
-              </button>
-            </div>
-
-            {/* Tab Navigation */}
-            <div className="flex items-center gap-1.5 px-5 py-2 bg-muted/20 border-b border-border/20 relative z-10 overflow-x-auto no-scrollbar">
+            {/* Smart Expandable Tab Navigation */}
+            <div className="flex items-center justify-between px-6 py-2.5 bg-muted/10 border-b border-border/20 relative z-10">
               {[
-                { id: "photos", label: "Stock Photos", icon: <ImageIcon size={13} /> },
-                { id: "videos", label: "Stock Videos", icon: <Video size={13} /> },
-                { id: "upload", label: "Upload", icon: <UploadCloud size={13} /> },
-                { id: "embed", label: "Embed Link", icon: <LinkIcon size={13} /> },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-1.5 px-2.8 py-1.2 rounded-full text-[11px] font-bold tracking-wide transition-all shrink-0 cursor-pointer ${
-                    activeTab === tab.id
-                      ? "bg-foreground text-background shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  {tab.icon}
-                  {tab.label}
-                </button>
-              ))}
+                { id: "photos", label: "Photos", icon: <ImageIcon size={14} /> },
+                { id: "videos", label: "Videos", icon: <Video size={14} /> },
+                { id: "upload", label: "Upload", icon: <UploadCloud size={14} /> },
+                { id: "embed", label: "Embed", icon: <LinkIcon size={14} /> },
+              ].map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex items-center justify-center gap-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                      isActive
+                        ? "bg-foreground text-background px-4 py-2 shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted p-2"
+                    }`}
+                    data-tooltip={isActive ? undefined : tab.label}
+                    data-placement="top"
+                  >
+                    {tab.icon}
+                    <AnimatePresence initial={false}>
+                      {isActive && (
+                        <motion.span
+                          initial={{ width: 0, opacity: 0 }}
+                          animate={{ width: "auto", opacity: 1 }}
+                          exit={{ width: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden whitespace-nowrap text-[11px] font-black uppercase tracking-wider pl-1.5"
+                        >
+                          {tab.label}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Tab Contents */}
             <div className="flex-1 overflow-hidden flex flex-col p-5 relative z-10">
               {(activeTab === "photos" || activeTab === "videos") && (
-                <div className="flex-1 flex flex-col overflow-hidden gap-3.5">
+                <div className="flex-1 flex flex-col overflow-hidden gap-4">
                   {/* Search Bar */}
                   <form
                     onSubmit={(e) => {
@@ -245,36 +246,20 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder={`Search Pexels stock ${activeTab}...`}
-                      className="w-full h-9.5 pl-9 pr-4 text-xs font-semibold bg-muted/65 focus:bg-background border border-border/60 focus:border-foreground/45 rounded-full outline-none transition-all placeholder:text-muted-foreground/60"
+                      className="w-full h-10 pl-10 pr-4 text-xs font-semibold bg-muted/65 focus:bg-background border border-border/60 focus:border-foreground/45 rounded-full outline-none transition-all placeholder:text-muted-foreground/60"
                     />
-                    <Search className="absolute left-3 top-3 h-3.5 w-3.5 text-muted-foreground/60" />
+                    <Search className="absolute left-3.5 top-3.5 h-3.5 w-3.5 text-muted-foreground/60" />
                   </form>
-
-                  {/* Quick suggested chips */}
-                  <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                    {quickTags.map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => {
-                          setSearchQuery(tag);
-                          handleSearch(tag, true);
-                        }}
-                        className="px-2.5 py-1 text-[10px] font-bold bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/20 rounded-full transition-all cursor-pointer"
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
 
                   {/* Search Results Grid */}
                   <div className="flex-1 overflow-y-auto no-scrollbar pr-0.5">
                     {loading && results.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-2 py-10">
+                      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-2 py-12">
                         <Loader2 className="animate-spin text-muted-foreground/80" size={18} />
                         <span className="text-xs font-medium">Searching stock library...</span>
                       </div>
                     ) : results.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-10">
+                      <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-12">
                         <span className="text-xs font-medium">No media found. Try another query!</span>
                       </div>
                     ) : (
