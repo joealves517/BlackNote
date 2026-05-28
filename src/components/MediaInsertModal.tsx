@@ -36,9 +36,34 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
       setResults([]);
       setActiveTab("photos");
       setEmbedUrl("");
+
+      // Dispatch close events for other active panels when opening media sheet
+      window.dispatchEvent(new CustomEvent("panel-closed")); // Closes history / clipper
+      window.dispatchEvent(new CustomEvent("close-note-chat")); // Closes chat
+      window.dispatchEvent(new CustomEvent("close-import-export-sheet")); // Closes settings
     };
+
+    const handleForceClose = () => {
+      setIsOpen(false);
+    };
+
     window.addEventListener("open-media-insert-modal", handleOpen);
-    return () => window.removeEventListener("open-media-insert-modal", handleOpen);
+    
+    // Auto-close when other sheets/panels are opened (Inter-panel synchronization)
+    window.addEventListener("open-import-export-sheet", handleForceClose);
+    window.addEventListener("open-note-chat", handleForceClose);
+    window.addEventListener("open-web-clipper", handleForceClose);
+    window.addEventListener("open-support-sheet", handleForceClose);
+    window.addEventListener("close-media-insert-sheet", handleForceClose);
+
+    return () => {
+      window.removeEventListener("open-media-insert-modal", handleOpen);
+      window.removeEventListener("open-import-export-sheet", handleForceClose);
+      window.removeEventListener("open-note-chat", handleForceClose);
+      window.removeEventListener("open-web-clipper", handleForceClose);
+      window.removeEventListener("open-support-sheet", handleForceClose);
+      window.removeEventListener("close-media-insert-sheet", handleForceClose);
+    };
   }, []);
 
   // Run initial search when opening
@@ -193,12 +218,12 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
               flexDirection: "column",
               maxWidth: 480,
               margin: "0 auto",
-              height: "calc(100% - 170px)",
+              height: "calc(100% - 175px)", // Lowered slightly per request (was -170px)
               zIndex: 101,
               overflow: "hidden",
               backdropFilter: "none",
               WebkitBackdropFilter: "none",
-              backgroundColor: "hsl(var(--background))",
+              backgroundColor: "hsl(var(--background))", // Explicit solid background
               opacity: 1
             }}
             initial={{ y: "100%" }}
@@ -220,11 +245,11 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
               <div className="history-sheet-handle-bar" />
             </div>
 
-            {/* Header Ambient Glow */}
-            <div className="absolute top-0 right-0 w-64 h-32 bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.06),transparent_60%)] pointer-events-none" />
-            <div className="absolute top-0 left-0 w-64 h-32 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.04),transparent_60%)] pointer-events-none" />
+            {/* Header Ambient Glow (Reduced opacity to keep it extremely subtle and modern) */}
+            <div className="absolute top-0 right-0 w-64 h-32 bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.05),transparent_60%)] pointer-events-none" />
+            <div className="absolute top-0 left-0 w-64 h-32 bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.03),transparent_60%)] pointer-events-none" />
 
-            {/* Smart Segmented Controls with Premium Sliding morph indicator */}
+            {/* Smart Segmented Controls with Premium Sliding morph indicator in default Neutral Gray */}
             <div className="flex items-center justify-between px-6 py-2.5 bg-muted/10 relative z-10 select-none">
               {[
                 { id: "photos", label: "Photos", icon: <ImageIcon size={14} /> },
@@ -240,20 +265,20 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
                     className="relative flex items-center justify-center rounded-full transition-all duration-300 cursor-pointer p-2.5 hover:bg-muted/30"
                     style={{ WebkitTapHighlightColor: "transparent" }}
                   >
-                    {/* Shared Layout Active Indicator - morphs and slides horizontally like apple UI */}
+                    {/* Shared Layout Active Indicator - morphs and slides horizontally in default Neutral Gray */}
                     {isActive && (
                       <motion.div
                         layoutId="activeMediaTabIndicator"
-                        className="absolute inset-0 rounded-full bg-purple-500/10 dark:bg-purple-400/15"
+                        className="absolute inset-0 rounded-full bg-zinc-200/85 dark:bg-zinc-800/90 shadow-sm"
                         transition={{ type: "spring", stiffness: 380, damping: 30 }}
                       />
                     )}
 
-                    {/* Content container - shifts color to gentle purple on active state */}
+                    {/* Content container - shifts color to gentle default gray/foreground on active state */}
                     <div
                       className={`relative z-10 flex items-center justify-center gap-1.5 transition-colors duration-200 ${
                         isActive
-                          ? "text-purple-600 dark:text-purple-400 font-bold px-1"
+                          ? "text-zinc-900 dark:text-zinc-100 font-bold px-1"
                           : "text-muted-foreground"
                       }`}
                     >
@@ -277,17 +302,17 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
               })}
             </div>
 
-            {/* Tab Contents */}
-            <div className="flex-1 overflow-hidden flex flex-col px-5 pb-5 pt-1 relative z-10">
+            {/* Tab Contents - Left/Right padding removed here so scrollbars are aligned perfectly with the sheet edge */}
+            <div className="flex-1 overflow-hidden flex flex-col pt-1 relative z-10 px-0 pb-0">
               {(activeTab === "photos" || activeTab === "videos") && (
                 <div className="flex-1 flex flex-col overflow-hidden gap-3.5">
-                  {/* Search Bar */}
+                  {/* Search Bar - Horizontally padded with px-5 to preserve side margins */}
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
                       if (searchQuery.trim()) handleSearch(searchQuery.trim(), true);
                     }}
-                    className="relative w-full shrink-0 mt-2"
+                    className="relative w-full shrink-0 mt-2 px-5"
                   >
                     <input
                       ref={searchInputRef}
@@ -297,11 +322,11 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
                       placeholder={`Search Pexels stock ${activeTab}...`}
                       className="w-full h-10 pl-10 pr-4 text-xs font-semibold bg-muted/65 focus:bg-background border border-border/60 focus:border-foreground/45 rounded-full outline-none transition-all placeholder:text-muted-foreground/60"
                     />
-                    <Search className="absolute left-3.5 top-3.5 h-3.5 w-3.5 text-muted-foreground/60" />
+                    <Search className="absolute left-8.5 top-3.5 h-3.5 w-3.5 text-muted-foreground/60" />
                   </form>
 
-                  {/* Search Results Grid */}
-                  <div className="flex-1 overflow-y-auto no-scrollbar pr-0.5">
+                  {/* Search Results Grid - Padded horizontally and bottom internally, scrollbar sits at the very edge */}
+                  <div className="flex-1 overflow-y-auto pr-0.5 px-5 pb-5">
                     {loading && results.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-2 py-12">
                         <Loader2 className="animate-spin text-muted-foreground/80" size={18} />
@@ -365,7 +390,7 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
               )}
 
               {activeTab === "upload" && (
-                <div className="flex-1 flex flex-col items-center justify-center">
+                <div className="flex-1 flex flex-col items-center justify-center px-5 pb-5">
                   <input
                     type="file"
                     accept="image/*"
@@ -376,15 +401,15 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
                   />
                   <label
                     htmlFor="media-file-input"
-                    className="w-full max-w-[320px] aspect-[4/3] rounded-3xl border border-dashed border-border/80 hover:border-purple-500/40 dark:hover:border-purple-400/40 flex flex-col items-center justify-center gap-3.5 bg-muted/20 hover:bg-purple-500/5 dark:hover:bg-purple-400/5 transition-all cursor-pointer group"
+                    className="w-full max-w-[320px] aspect-[4/3] rounded-3xl border border-dashed border-border/80 hover:border-zinc-500/40 dark:hover:border-zinc-400/40 flex flex-col items-center justify-center gap-3.5 bg-muted/20 hover:bg-muted/40 transition-all cursor-pointer group"
                   >
                     {isUploading ? (
                       <Loader2 className="animate-spin text-muted-foreground" size={26} />
                     ) : (
-                      <UploadCloud className="text-muted-foreground group-hover:text-purple-500 dark:group-hover:text-purple-400 group-hover:scale-105 transition-all duration-300" size={32} />
+                      <UploadCloud className="text-muted-foreground group-hover:text-foreground group-hover:scale-105 transition-all duration-300" size={32} />
                     )}
                     <div className="flex flex-col items-center text-center">
-                      <span className="text-xs font-bold group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                      <span className="text-xs font-bold group-hover:text-foreground transition-colors">
                         {isUploading ? "Uploading file to S3..." : "Click or drag file to upload"}
                       </span>
                       <span className="text-[10px] font-semibold text-muted-foreground mt-1">
@@ -396,7 +421,7 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
               )}
 
               {activeTab === "embed" && (
-                <div className="flex-1 flex flex-col items-center justify-center p-4">
+                <div className="flex-1 flex flex-col items-center justify-center p-4 px-5 pb-5">
                   <form onSubmit={handleEmbedSubmit} className="w-full max-w-[360px] flex flex-col gap-4">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-bold text-muted-foreground">
@@ -407,15 +432,15 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
                         value={embedUrl}
                         onChange={(e) => setEmbedUrl(e.target.value)}
                         placeholder="Paste direct URL to image or video..."
-                        className="w-full h-10 px-4 text-xs font-semibold bg-muted/60 border border-border/70 focus:border-foreground/45 focus:border-purple-500/30 rounded-xl outline-none focus:bg-background transition-all placeholder:text-muted-foreground/60"
+                        className="w-full h-10 px-4 text-xs font-semibold bg-muted/60 border border-border/70 focus:border-foreground/45 rounded-xl outline-none focus:bg-background transition-all placeholder:text-muted-foreground/60"
                         required
                       />
                     </div>
 
-                    {/* Gentler, modern purple-tinted active button replacing harsh solid black/white */}
+                    {/* Gentler, modern Neutral Gray active button replacing harsh solid black/white */}
                     <button
                       type="submit"
-                      className="w-full h-10 bg-purple-500/10 dark:bg-purple-400/15 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-purple-500/20 dark:border-purple-400/20 active:scale-[0.99]"
+                      className="w-full h-10 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-foreground border border-border/80 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.99]"
                     >
                       <Plus size={14} strokeWidth={2.5} />
                       Insert Link
