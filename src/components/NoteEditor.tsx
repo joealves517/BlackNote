@@ -21,7 +21,7 @@ import { PlusIcon } from "@/components/icons/plus";
 import { SparklesIcon } from "@/components/icons/sparkles";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 import { AnimatePresence } from "framer-motion";
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
 import {
   EditorRoot,
@@ -71,7 +71,7 @@ import { AIImproverBridge } from "@/components/generative/AIImproverBridge";
 import { ColorSelector } from "@/components/generative/ColorSelector";
 import { AssistantChat } from "@/components/generative/AssistantChat";
 import { AgentInput } from "@/components/generative/AgentInput";
-import { MediaInsertModal } from "@/components/MediaInsertModal";
+const MediaInsertModal = lazy(() => import("@/components/MediaInsertModal").then(m => ({ default: m.MediaInsertModal })));
 import TurndownService from "turndown";
 import { getAuthToken } from "@/lib/auth-client";
 import { AI_API_BASE } from "@/lib/constants";
@@ -928,7 +928,9 @@ export function NoteEditor({
                 else onTitleChange(id, val);
               }}
             />
-            <MediaInsertModal uploadFn={uploadFn} />
+            <Suspense fallback={null}>
+              <MediaInsertModal uploadFn={uploadFn} />
+            </Suspense>
           </EditorContent>
         </EditorRoot>
       </div>

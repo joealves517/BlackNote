@@ -24,6 +24,7 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
   const [isUploading, setIsUploading] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const loaderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleOpen = (e: Event) => {
@@ -47,6 +48,31 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
     }
   }, [isOpen, activeTab]);
 
+  // Infinite Scroll Observer (Factor 9: Self-Healing)
+  useEffect(() => {
+    if (!isOpen || results.length === 0 || loading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading) {
+          handleSearch(searchQuery || "Minimalist", false);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentLoader = loaderRef.current;
+    if (currentLoader) {
+      observer.observe(currentLoader);
+    }
+
+    return () => {
+      if (currentLoader) {
+        observer.unobserve(currentLoader);
+      }
+    };
+  }, [isOpen, results.length, loading, searchQuery, activeTab]);
+
   const handleSearch = async (queryStr: string, isNewSearch = true) => {
     setLoading(true);
     const nextPage = isNewSearch ? 1 : page + 1;
@@ -66,7 +92,7 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
       if (response.ok) {
         data = await response.json();
       } else {
-        // 2. Direct frontend API key fallback if backend is offline/unreachable (Factor 9: Self-Healing)
+        // 2. Direct frontend API key fallback if backend is offline/unreachable
         console.warn("[Pexels Proxy] Backend unreachable or failed. Falling back to direct client-side search.");
         const pexelsUrl = activeTab === "videos"
           ? `https://api.pexels.com/videos/search?query=${encodeURIComponent(queryStr)}&page=${nextPage}&per_page=16`
@@ -161,28 +187,37 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
 
           {/* Bottom Sheet Container */}
           <motion.div
-            className="history-sheet ai-shadow animate-sheet-in"
+            className="history-sheet ai-shadow"
             style={{
               display: "flex",
               flexDirection: "column",
               maxWidth: 480,
               margin: "0 auto",
-              height: "calc(100% - 100px)",
+              height: "calc(100% - 170px)", // Lowered sheet height to reveal more behind it
               zIndex: 101,
               overflow: "hidden",
               backdropFilter: "none",
-              WebkitBackdropFilter: "none"
+              WebkitBackdropFilter: "none",
+              backgroundColor: "hsl(var(--background))", // Force 100% solid background
+              opacity: 1
             }}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            transition={{ type: "tween", duration: 0.25, ease: "easeOut" }}
+            transition={{ type: "spring", damping: 25, stiffness: 220 }} // Clean elastic bounce animation
+            drag="y" // Enable dragging
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.85 }}
+            onDragEnd={(_, info) => {
+              // Drag down to close threshold (80px)
+              if (info.offset.y > 80) {
+                setIsOpen(false);
+                window.dispatchEvent(new CustomEvent("panel-closed"));
+              }
+            }}
           >
-            {/* Drag Handle Bar (used exclusively for closing, no headers per request) */}
-            <div
-              className="history-sheet-handle"
-              onClick={() => { setIsOpen(false); window.dispatchEvent(new CustomEvent("panel-closed")); }}
-            >
+            {/* Drag Handle Bar (used exclusively for closing & dragging) */}
+            <div className="history-sheet-handle cursor-grab active:cursor-grabbing w-full flex justify-center py-3 select-none">
               <div className="history-sheet-handle-bar" />
             </div>
 
@@ -190,8 +225,8 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
             <div className="absolute top-0 right-0 w-64 h-32 bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.06),transparent_60%)] pointer-events-none" />
             <div className="absolute top-0 left-0 w-64 h-32 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.04),transparent_60%)] pointer-events-none" />
 
-            {/* Smart Expandable Tab Navigation - Line/Border removed per request */}
-            <div className="flex items-center justify-between px-6 py-2.5 bg-muted/10 relative z-10">
+            {/* Smart Expandable Tab Navigation */}
+            <div className="flex items-center justify-between px-6 py-2.5 bg-muted/10 relative z-10 select-none">
               {[
                 { id: "photos", label: "Photos", icon: <ImageIcon size={14} /> },
                 { id: "videos", label: "Videos", icon: <Video size={14} /> },
@@ -230,17 +265,17 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
               })}
             </div>
 
-            {/* Tab Contents */}
-            <div className="flex-1 overflow-hidden flex flex-col p-5 relative z-10">
+            {/* Tab Contents - Padding reduced from pt-5 to pt-1 to shift search bar up */}
+            <div className="flex-1 overflow-hidden flex flex-col px-5 pb-5 pt-1 relative z-10">
               {(activeTab === "photos" || activeTab === "videos") && (
-                <div className="flex-1 flex flex-col overflow-hidden gap-4">
+                <div className="flex-1 flex flex-col overflow-hidden gap-3.5">
                   {/* Search Bar */}
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
                       if (searchQuery.trim()) handleSearch(searchQuery.trim(), true);
                     }}
-                    className="relative w-full shrink-0"
+                    className="relative w-full shrink-0 mt-2"
                   >
                     <input
                       ref={searchInputRef}
@@ -265,7 +300,7 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
                         <span className="text-xs font-medium">No media found. Try another query!</span>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-3.5 pb-4">
+                      <div className="grid grid-cols-2 gap-3.5 pb-2">
                         {results.map((item) => {
                           const isVid = activeTab === "videos";
                           const mediaUrl = isVid
@@ -307,17 +342,10 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
                       </div>
                     )}
 
-                    {/* Load More Button */}
+                    {/* Infinite Scroll Loader Target (No Load More button per request) */}
                     {results.length > 0 && (
-                      <div className="flex justify-center pt-2 pb-5">
-                        <button
-                          onClick={() => handleSearch(searchQuery || "Minimalist", false)}
-                          disabled={loading}
-                          className="px-5 py-2 text-xs font-bold text-muted-foreground hover:text-foreground bg-muted/40 hover:bg-muted/70 rounded-full border border-border/20 flex items-center gap-1.5 disabled:opacity-50 transition-all cursor-pointer"
-                        >
-                          {loading && <Loader2 className="animate-spin" size={12} />}
-                          Load More
-                        </button>
+                      <div ref={loaderRef} className="flex justify-center py-4.5 shrink-0">
+                        {loading && <Loader2 className="animate-spin text-muted-foreground/80" size={16} />}
                       </div>
                     )}
                   </div>
