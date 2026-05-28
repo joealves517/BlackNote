@@ -155,6 +155,53 @@ function AIContentInsertBridge() {
     };
   }, [editor]);
 
+  useEffect(() => {
+    if (!editor) return;
+
+    const handleGlobalKeydown = (event: KeyboardEvent) => {
+      if (event.key === "Backspace" || event.key === "Delete") {
+        const { selection } = editor.state;
+
+        // 1. Is there an active node selection on image?
+        let isImageSelected = 
+          (selection && "node" in selection && (selection as any).node?.type?.name === "image") ||
+          editor.isActive("image");
+
+        // 2. Fallback check: look at DOM class `ProseMirror-selectednode` to see if an image is highlighted/selected
+        if (!isImageSelected) {
+          const selectedEl = document.querySelector(".ProseMirror-selectednode");
+          if (selectedEl) {
+            isImageSelected = 
+              selectedEl.tagName === "IMG" || 
+              selectedEl.querySelector("img") !== null ||
+              selectedEl.getAttribute("data-type") === "image";
+          }
+        }
+
+        if (isImageSelected) {
+          // If the active element is an input, textarea, or another editable container, do not intercept!
+          const activeEl = document.activeElement;
+          if (activeEl && (
+            activeEl.tagName === "INPUT" || 
+            activeEl.tagName === "TEXTAREA" || 
+            (activeEl.hasAttribute("contenteditable") && activeEl !== editor.view.dom)
+          )) {
+            return;
+          }
+
+          event.preventDefault();
+          event.stopPropagation();
+          editor.commands.deleteSelection();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeydown, true); // Intercept in capturing phase!
+    return () => {
+      window.removeEventListener("keydown", handleGlobalKeydown, true);
+    };
+  }, [editor]);
+
   return null;
 }
 
