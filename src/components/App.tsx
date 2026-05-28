@@ -752,7 +752,13 @@ export function App() {
   const [globalAiMessages, setGlobalAiMessages] = useState<string[]>(["Thinking"]);
 
   useEffect(() => {
-    const handlePanelClosed = () => setActivePanel(null);
+    const handlePanelClosed = () => {
+      setActivePanel(null);
+      setShowHistory(false);
+      setShowClipper(false);
+      setShowAccountMenu(false);
+      setShowSupportSheet(false);
+    };
 
     const syncPanelState = (panel: "history" | "clipper" | "account" | "note-chat" | "settings" | "support") => {
       setActivePanel(panel);
@@ -762,6 +768,7 @@ export function App() {
       setShowSupportSheet(panel === "support");
       if (panel !== "note-chat") window.dispatchEvent(new CustomEvent("close-note-chat"));
       if (panel !== "settings") window.dispatchEvent(new CustomEvent("close-import-export-sheet"));
+      window.dispatchEvent(new CustomEvent("close-media-insert-sheet"));
     };
 
     const onOpenNoteChat = () => syncPanelState("note-chat");
@@ -769,6 +776,15 @@ export function App() {
     const onOpenClipper = () => syncPanelState("clipper");
     const onOpenHistory = () => syncPanelState("history");
     const onOpenSupport = () => syncPanelState("support");
+    
+    // Close other active panels when the media sheet is opened
+    const onOpenMediaInsert = () => {
+      setActivePanel(null);
+      setShowHistory(false);
+      setShowClipper(false);
+      setShowAccountMenu(false);
+      setShowSupportSheet(false);
+    };
 
     window.addEventListener("panel-closed", handlePanelClosed);
     window.addEventListener("open-note-chat", onOpenNoteChat);
@@ -776,6 +792,7 @@ export function App() {
     window.addEventListener("open-web-clipper", onOpenClipper);
     window.addEventListener("trigger-clipper", onOpenClipper);
     window.addEventListener("open-support-sheet", onOpenSupport);
+    window.addEventListener("open-media-insert-modal", onOpenMediaInsert);
 
     return () => {
       window.removeEventListener("panel-closed", handlePanelClosed);
@@ -784,6 +801,7 @@ export function App() {
       window.removeEventListener("open-web-clipper", onOpenClipper);
       window.removeEventListener("trigger-clipper", onOpenClipper);
       window.removeEventListener("open-support-sheet", onOpenSupport);
+      window.removeEventListener("open-media-insert-modal", onOpenMediaInsert);
     };
   }, []);
 
@@ -815,6 +833,10 @@ export function App() {
       window.dispatchEvent(new CustomEvent("open-import-export-sheet"));
     } else {
       window.dispatchEvent(new CustomEvent("close-import-export-sheet"));
+    }
+
+    if (next) {
+      window.dispatchEvent(new CustomEvent("close-media-insert-sheet"));
     }
   }, [activePanel]);
 

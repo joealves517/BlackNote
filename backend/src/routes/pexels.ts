@@ -16,7 +16,6 @@ const router = Router();
  */
 router.get(
   "/search",
-  requireAuth,
   async (req: Request, res: Response): Promise<void> => {
     const { query, type = "photos", page = "1", perPage = "15" } = req.query as {
       query: string;

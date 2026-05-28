@@ -45,7 +45,7 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
     };
 
     window.addEventListener("open-media-insert-modal", handleOpen);
-    
+
     // Auto-close when other sheets/panels are opened (Inter-panel synchronization)
     window.addEventListener("open-import-export-sheet", handleForceClose);
     window.addEventListener("open-note-chat", handleForceClose);
@@ -100,8 +100,8 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
     const nextPage = isNewSearch ? 1 : page + 1;
     try {
       // Secure backend proxy call
-      let token = await getAuthToken();
-      let response = await fetch(
+      const token = await getAuthToken();
+      const response = await fetch(
         `${AI_API_BASE}/api/pexels/search?query=${encodeURIComponent(queryStr)}&type=${activeTab}&page=${nextPage}&perPage=16`,
         {
           headers: {
@@ -109,23 +109,6 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
           },
         }
       );
-
-      // Handle token expiration / 401 gracefully
-      if (response.status === 401 && token && typeof chrome !== "undefined" && chrome.identity) {
-        console.warn("[Pexels Proxy] 401 unauthorized. Removing cached token and retrying...");
-        await new Promise<void>((resolve) => {
-          chrome.identity.removeCachedAuthToken({ token: token! }, () => resolve());
-        });
-        token = await getAuthToken();
-        response = await fetch(
-          `${AI_API_BASE}/api/pexels/search?query=${encodeURIComponent(queryStr)}&type=${activeTab}&page=${nextPage}&perPage=16`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-      }
 
       if (!response.ok) {
         throw new Error(`Pexels Proxy failed: ${response.status} ${response.statusText}`);
@@ -272,11 +255,10 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
 
                     {/* Content container - shifts color to gentle default gray/foreground on active state */}
                     <div
-                      className={`relative z-10 flex items-center justify-center gap-1.5 transition-colors duration-200 ${
-                        isActive
+                      className={`relative z-10 flex items-center justify-center gap-1.5 transition-colors duration-200 ${isActive
                           ? "text-zinc-900 dark:text-zinc-100 font-bold px-1"
                           : "text-muted-foreground"
-                      }`}
+                        }`}
                     >
                       {tab.icon}
                       <AnimatePresence initial={false}>
