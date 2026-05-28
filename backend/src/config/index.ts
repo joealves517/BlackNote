@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 const requiredVars = [
   "GCP_PROJECT_ID",
   "AWS_REGION",
@@ -37,6 +39,9 @@ function loadEnv() {
     },
     groq: {
       apiKey: process.env.GROQ_API_KEY || "",
+    },
+    pexels: {
+      apiKey: process.env.PEXELS_API_KEY || "",
     },
   } as const;
 }

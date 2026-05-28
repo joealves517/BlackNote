@@ -71,6 +71,7 @@ import { AIImproverBridge } from "@/components/generative/AIImproverBridge";
 import { ColorSelector } from "@/components/generative/ColorSelector";
 import { AssistantChat } from "@/components/generative/AssistantChat";
 import { AgentInput } from "@/components/generative/AgentInput";
+import { MediaInsertModal } from "@/components/MediaInsertModal";
 import TurndownService from "turndown";
 import { getAuthToken } from "@/lib/auth-client";
 import { AI_API_BASE } from "@/lib/constants";
@@ -367,22 +368,26 @@ const suggestionItems = createSuggestionItems([
   },
   {
     title: "Image",
-    description: "Upload an image from your computer.",
-    searchTerms: ["image", "picture", "photo"],
+    description: "Upload, search stock or embed an image.",
+    searchTerms: ["image", "picture", "photo", "pexels", "stock"],
     icon: <FrameIcon className="w-[18px] h-[18px]" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).run();
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-      input.onchange = async () => {
-        if (input.files?.length) {
-          const file = input.files[0];
-          const url = await uploadFn(file);
-          editor.chain().focus().setImage({ src: url }).run();
-        }
-      };
-      input.click();
+      window.dispatchEvent(new CustomEvent("open-media-insert-modal", {
+        detail: { editor }
+      }));
+    },
+  },
+  {
+    title: "Video",
+    description: "Search stock or embed a video.",
+    searchTerms: ["video", "clip", "movie", "pexels", "stock"],
+    icon: <VideoIcon className="w-[18px] h-[18px]" />,
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).run();
+      window.dispatchEvent(new CustomEvent("open-media-insert-modal", {
+        detail: { editor }
+      }));
     },
   },
   {
@@ -923,6 +928,7 @@ export function NoteEditor({
                 else onTitleChange(id, val);
               }}
             />
+            <MediaInsertModal uploadFn={uploadFn} />
           </EditorContent>
         </EditorRoot>
       </div>

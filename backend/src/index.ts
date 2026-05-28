@@ -12,6 +12,7 @@ import webhookRouter from "./routes/webhook.js";
 import notesRouter from "./routes/notes.js";
 import uploadRouter from "./routes/upload.js";
 import agentRouter from "./routes/agent.js";
+import pexelsRouter from "./routes/pexels.js";
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use("/api/ai/free", rateLimit);
 app.use("/api/ai/agent", rateLimit);
 app.use("/api/ai", rateLimit);
 app.use("/api/chat", rateLimit);
+app.use("/api/pexels", rateLimit);
 
 // ─── Routes ─────────────────────────────────────────────────────
 app.use("/api/media", mediaAiRouter);
@@ -69,6 +71,7 @@ app.use("/api/chat", chatRouter);
 app.use("/api/user", userRouter);
 app.use("/api/notes", notesRouter);
 app.use("/api/upload", uploadRouter);
+app.use("/api/pexels", pexelsRouter);
 
 // ─── Health Check ───────────────────────────────────────────────────
 app.get("/health", (_req, res) => {
