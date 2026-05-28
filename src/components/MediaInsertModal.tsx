@@ -169,7 +169,9 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
               margin: "0 auto",
               height: "calc(100% - 100px)",
               zIndex: 101,
-              overflow: "hidden"
+              overflow: "hidden",
+              backdropFilter: "none",
+              WebkitBackdropFilter: "none"
             }}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
@@ -188,8 +190,8 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
             <div className="absolute top-0 right-0 w-64 h-32 bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.06),transparent_60%)] pointer-events-none" />
             <div className="absolute top-0 left-0 w-64 h-32 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.04),transparent_60%)] pointer-events-none" />
 
-            {/* Smart Expandable Tab Navigation */}
-            <div className="flex items-center justify-between px-6 py-2.5 bg-muted/10 border-b border-border/20 relative z-10">
+            {/* Smart Expandable Tab Navigation - Line/Border removed per request */}
+            <div className="flex items-center justify-between px-6 py-2.5 bg-muted/10 relative z-10">
               {[
                 { id: "photos", label: "Photos", icon: <ImageIcon size={14} /> },
                 { id: "videos", label: "Videos", icon: <Video size={14} /> },
