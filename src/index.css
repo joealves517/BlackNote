@@ -2547,9 +2547,9 @@ body {
 .video-node-label {
   flex: 1;
   font-weight: 500;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .video-node-duration {
