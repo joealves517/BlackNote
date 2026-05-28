@@ -126,11 +126,11 @@ export function useNotes() {
                       type: "paragraph",
                       content: [
                         { type: "text", marks: [{ type: "bold" }], text: "Audio & Video AI: " },
-                        { type: "text", text: "Click the " },
-                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#fbbf24" } }, { type: "bold" }], text: "Audio or Video icons" },
-                        { type: "text", text: " in the " },
-                        { type: "text", marks: [{ type: "bold" }], text: "Right Toolbar" },
-                        { type: "text", text: " to record media directly into your note. Then, click the media block to transcribe, summarize, and even " },
+                        { type: "text", text: "Hover over the " },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#fbbf24" } }, { type: "bold" }], text: "menu button (three lines)" },
+                        { type: "text", text: " in the top-right to reveal the floating toolbar, then click the " },
+                        { type: "text", marks: [{ type: "bold" }], text: "Audio or Video icons" },
+                        { type: "text", text: " to record media directly. Click any media block to transcribe, summarize, or " },
                         { type: "text", marks: [{ type: "textStyle", attrs: { color: "#a855f7" } }, { type: "bold" }], text: "Chat with Video/Audio" },
                         { type: "text", text: " to extract key points." }
                       ]
@@ -144,9 +144,11 @@ export function useNotes() {
                       type: "paragraph",
                       content: [
                         { type: "text", marks: [{ type: "bold" }], text: "Autonomous AI Agent: " },
-                        { type: "text", text: "Use the " },
+                        { type: "text", text: "Enable it under settings, then press " },
+                        { type: "text", marks: [{ type: "bold" }], text: "⌘J (Mac) or Ctrl+J" },
+                        { type: "text", text: " to open the " },
                         { type: "text", marks: [{ type: "bold" }], text: "Agent input box" },
-                        { type: "text", text: " at the bottom of the editor to command the AI to autonomously write, edit, format, or translate content. Watch it work and " },
+                        { type: "text", text: " at the bottom of the editor to command the AI to write, edit, format, or translate. Watch it work and " },
                         { type: "text", marks: [{ type: "bold" }], text: "review changes inline" },
                         { type: "text", text: " block-by-block!" }
                       ]
@@ -160,11 +162,11 @@ export function useNotes() {
                       type: "paragraph",
                       content: [
                         { type: "text", marks: [{ type: "bold" }], text: "Chat with Note: " },
-                        { type: "text", text: "Click the " },
-                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#3b82f6" } }, { type: "bold" }], text: "Message Square icon" },
-                        { type: "text", text: " in the " },
-                        { type: "text", marks: [{ type: "bold" }], text: "Right Toolbar" },
-                        { type: "text", text: " to open the chat panel and talk directly with your document. Ask questions, extract insights, and get instant answers." }
+                        { type: "text", text: "Hover over the " },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#3b82f6" } }, { type: "bold" }], text: "menu button (three lines)" },
+                        { type: "text", text: " in the top-right and click the " },
+                        { type: "text", marks: [{ type: "bold" }], text: "Message Square icon" },
+                        { type: "text", text: " to open the chat panel to talk directly with your document, ask questions, or extract insights." }
                       ]
                     }
                   ]
@@ -190,11 +192,11 @@ export function useNotes() {
                       type: "paragraph",
                       content: [
                         { type: "text", marks: [{ type: "bold" }], text: "Web Clipper: " },
-                        { type: "text", text: "Click the " },
-                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#3b82f6" } }, { type: "bold" }], text: "Scan Line icon" },
-                        { type: "text", text: " in the " },
-                        { type: "text", marks: [{ type: "bold" }], text: "Right Toolbar" },
-                        { type: "text", text: " to instantly capture web pages and save them directly into your notes." }
+                        { type: "text", text: "Hover over the " },
+                        { type: "text", marks: [{ type: "textStyle", attrs: { color: "#3b82f6" } }, { type: "bold" }], text: "menu button (three lines)" },
+                        { type: "text", text: " in the top-right and click the " },
+                        { type: "text", marks: [{ type: "bold" }], text: "Scan Line icon" },
+                        { type: "text", text: " to capture web pages and save them directly into your notes." }
                       ]
                     }
                   ]
@@ -252,7 +254,7 @@ export function useNotes() {
             await db.media_transcripts.put({
               mediaId: "welcome-audio",
               segments: [],
-              transcript: "Welcome to BlackNote, your intelligent workspace! Here are some powerful features to get you started. Click the Audio or Video icons in the Right Toolbar to record media directly into your note. Then, click the media block to transcribe, summarize, and even chat with your media to extract key points. With our new Autonomous AI Agent, use the Agent input box at the bottom of the editor to command the AI to autonomously write, edit, format, or translate content. Watch it work and review changes inline! You can also chat directly with your document by clicking the Message Square icon in the Right Toolbar. Ask questions, extract insights, and get instant answers. Type a slash anywhere to quickly insert text formatting. The Web Clipper lets you instantly capture web pages by clicking the Scan Line icon in the Right Toolbar, saving them directly to your notes. And with seamless sync, simply connect your Google account to keep all your ideas securely across your devices. Ready to elevate your productivity? Happy writing!",
+              transcript: "Welcome to BlackNote, your intelligent workspace! Here are some powerful features to get you started. Hover over the menu button in the top-right to reveal the floating toolbar, then click the Audio or Video icons to record media directly. Click any media block to transcribe, summarize, or chat with your media to extract key points. With our Autonomous AI Agent, once enabled under settings, you can press Command J or Control J to open the Agent input box to command the AI to write, edit, format, or translate, and review changes inline. You can also chat directly with your document by clicking the Message Square icon in the top-right menu to ask questions and get instant answers. Type a slash anywhere to quickly insert text formatting. The Web Clipper lets you instantly capture web pages by clicking the Scan Line icon in the top-right menu. And with seamless sync, simply connect your Google account to keep all your ideas securely across your devices. Ready to elevate your productivity? Happy writing!",
               language: "en",
               analyzedAt: now,
             });

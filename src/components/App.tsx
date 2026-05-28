@@ -319,7 +319,7 @@ export function App() {
 
   const [activePanel, setActivePanel] = useState<"history" | "clipper" | "account" | "note-chat" | "settings" | "support" | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [showRightToolbar, setShowRightToolbar] = useState(true);
+  const [showRightToolbar, setShowRightToolbar] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [isWide, setIsWide] = useState(false);
   const [isMenuHovered, setIsMenuHovered] = useState(false);
@@ -1860,12 +1860,12 @@ export function App() {
                     handleTogglePanel("note-chat");
                   }
                 }}
-                className="flex items-center justify-center w-9 h-9 rounded-md text-muted-foreground opacity-80 dark:opacity-75 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                className="flex items-center justify-center w-9 h-9 rounded-md text-zinc-600 dark:text-zinc-300 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
               >
                 {activePanel === "note-chat" ? (
                   <MenuIcon size={20} className="w-5 h-5 flex items-center justify-center" />
                 ) : (
-                  <Menu size={20} strokeWidth={1.25} />
+                  <Menu size={20} strokeWidth={1.75} />
                 )}
               </div>
 

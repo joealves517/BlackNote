@@ -347,7 +347,7 @@ export function AgentInput({
   const [hasPendingModifications, setHasPendingModifications] = useState(false);
   const [changeCount, setChangeCount] = useState<number>(0);
   const [loadingDots, setLoadingDots] = useState("");
-  const [isHidden, setIsHidden] = useState(() => localStorage.getItem("blacknote_hide_agent") === "true");
+  const [isHidden, setIsHidden] = useState(() => localStorage.getItem("blacknote_hide_agent") !== "false");
   const [clarifications, setClarifications] = useState<string[]>([]);
 
   const snapshotRef = useRef<any>(null);

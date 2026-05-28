@@ -702,8 +702,8 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 16px 16px;
-  padding: 8px 14px;
+  margin: 0 16px 10px;
+  padding: 7px 14px;
   background-color: hsl(var(--foreground) / 0.06);
   border-radius: 9999px;
   flex-shrink: 0;
@@ -741,7 +741,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 8px 0 0;
+  padding: 0;
 }
 
 .history-sheet-list {

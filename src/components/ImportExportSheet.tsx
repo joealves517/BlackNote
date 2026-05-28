@@ -44,7 +44,7 @@ export function ImportExportSheet({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { editor } = useEditor();
 
-  const [hideAgent, setHideAgent] = useState(() => localStorage.getItem("blacknote_hide_agent") === "true");
+  const [hideAgent, setHideAgent] = useState(() => localStorage.getItem("blacknote_hide_agent") !== "false");
 
   const isMac = typeof window !== "undefined" && navigator.userAgent.toLowerCase().includes("mac");
   const shortcutText = isMac ? "⌘J" : "Ctrl+J";

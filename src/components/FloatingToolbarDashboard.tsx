@@ -125,7 +125,8 @@ export function FloatingToolbarDashboard({
         <button
           onClick={onShowToolbar}
           className="p-1 rounded-lg text-zinc-400 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-100 hover:bg-sidebar-hover transition-all cursor-pointer flex items-center justify-center"
-          title="Ghim thanh công cụ"
+          data-tooltip="Pin toolbar"
+          data-placement="left"
         >
           <ChevronFirstIcon size={15} className="rotate-180" />
         </button>
@@ -172,14 +173,16 @@ export function FloatingToolbarDashboard({
           <button
             onClick={onTogglePiP}
             className="p-1 rounded-lg text-zinc-400 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-100 hover:bg-sidebar-hover transition-all cursor-pointer flex items-center justify-center"
-            title="Mở dạng cửa sổ nổi"
+            data-tooltip="Pop out window"
+            data-placement="top"
           >
             <AppWindow size={15} />
           </button>
           <button
             onClick={() => onTogglePanel("settings")}
             className="p-1 rounded-lg text-zinc-400 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-100 hover:bg-sidebar-hover transition-all cursor-pointer flex items-center justify-center"
-            title="Cài đặt"
+            data-tooltip="Settings"
+            data-placement="top"
           >
             <Settings size={15} />
           </button>
@@ -193,7 +196,8 @@ export function FloatingToolbarDashboard({
           <button
             onClick={onAccountClick}
             className="w-7 h-7 rounded-full flex items-center justify-center overflow-hidden border border-zinc-200/50 dark:border-zinc-800/50 hover:scale-105 transition-transform duration-200 cursor-pointer"
-            title="Tài khoản"
+            data-tooltip="Account"
+            data-placement="top"
           >
             {!user ? (
               <div className="w-full h-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center">
