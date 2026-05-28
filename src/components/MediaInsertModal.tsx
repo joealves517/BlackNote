@@ -33,11 +33,6 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
       setResults([]);
       setActiveTab("photos");
       setEmbedUrl("");
-
-      // Dispatch close events for other active panels when opening media sheet
-      window.dispatchEvent(new CustomEvent("panel-closed")); // Closes history / clipper
-      window.dispatchEvent(new CustomEvent("close-note-chat")); // Closes chat
-      window.dispatchEvent(new CustomEvent("close-import-export-sheet")); // Closes settings
     };
 
     const handleForceClose = () => {
@@ -45,20 +40,10 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
     };
 
     window.addEventListener("open-media-insert-modal", handleOpen);
-
-    // Auto-close when other sheets/panels are opened (Inter-panel synchronization)
-    window.addEventListener("open-import-export-sheet", handleForceClose);
-    window.addEventListener("open-note-chat", handleForceClose);
-    window.addEventListener("open-web-clipper", handleForceClose);
-    window.addEventListener("open-support-sheet", handleForceClose);
     window.addEventListener("close-media-insert-sheet", handleForceClose);
 
     return () => {
       window.removeEventListener("open-media-insert-modal", handleOpen);
-      window.removeEventListener("open-import-export-sheet", handleForceClose);
-      window.removeEventListener("open-note-chat", handleForceClose);
-      window.removeEventListener("open-web-clipper", handleForceClose);
-      window.removeEventListener("open-support-sheet", handleForceClose);
       window.removeEventListener("close-media-insert-sheet", handleForceClose);
     };
   }, []);
