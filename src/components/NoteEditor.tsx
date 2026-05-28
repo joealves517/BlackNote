@@ -529,7 +529,33 @@ const extensions = [
       render: renderItems,
     },
   }),
-  ImageResize.extend({ name: "image" }).configure({
+  ImageResize.extend({
+    name: "image",
+    addKeyboardShortcuts() {
+      return {
+        Backspace: () => {
+          const { selection } = this.editor.state;
+          if ("node" in selection && (selection as any).node.type.name === "image") {
+            return this.editor.commands.deleteSelection();
+          }
+          if (this.editor.isActive("image")) {
+            return this.editor.commands.deleteSelection();
+          }
+          return false;
+        },
+        Delete: () => {
+          const { selection } = this.editor.state;
+          if ("node" in selection && (selection as any).node.type.name === "image") {
+            return this.editor.commands.deleteSelection();
+          }
+          if (this.editor.isActive("image")) {
+            return this.editor.commands.deleteSelection();
+          }
+          return false;
+        },
+      };
+    },
+  }).configure({
     HTMLAttributes: {
       class: "rounded-lg border max-w-full my-4",
     },
