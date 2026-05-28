@@ -100,8 +100,8 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
     const nextPage = isNewSearch ? 1 : page + 1;
     try {
       // Secure backend proxy call
-      const token = await getAuthToken();
-      const response = await fetch(
+      let token = await getAuthToken();
+      let response = await fetch(
         `${AI_API_BASE}/api/pexels/search?query=${encodeURIComponent(queryStr)}&type=${activeTab}&page=${nextPage}&perPage=16`,
         {
           headers: {
@@ -109,6 +109,23 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
           },
         }
       );
+
+      // Handle token expiration / 401 gracefully
+      if (response.status === 401 && token && typeof chrome !== "undefined" && chrome.identity) {
+        console.warn("[Pexels Proxy] 401 unauthorized. Removing cached token and retrying...");
+        await new Promise<void>((resolve) => {
+          chrome.identity.removeCachedAuthToken({ token: token! }, () => resolve());
+        });
+        token = await getAuthToken();
+        response = await fetch(
+          `${AI_API_BASE}/api/pexels/search?query=${encodeURIComponent(queryStr)}&type=${activeTab}&page=${nextPage}&perPage=16`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      }
 
       if (!response.ok) {
         throw new Error(`Pexels Proxy failed: ${response.status} ${response.statusText}`);
