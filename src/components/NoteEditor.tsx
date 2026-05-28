@@ -279,7 +279,7 @@ const SLASH_ICON_COLORS: Record<string, string> = {
   "To-do List": "16, 185, 129",
   "Quote": "168, 85, 247",
   "Code Block": "99, 102, 241",
-  "Image": "236, 72, 153",
+  "Media": "236, 72, 153",
   "Divider": "148, 163, 184",
 };
 
@@ -367,22 +367,10 @@ const suggestionItems = createSuggestionItems([
       editor.chain().focus().deleteRange(range).toggleCodeBlock().run(),
   },
   {
-    title: "Image",
-    description: "Upload, search stock or embed an image.",
-    searchTerms: ["image", "picture", "photo", "pexels", "stock"],
+    title: "Media",
+    description: "Add image, stock media or embed link.",
+    searchTerms: ["media", "image", "video", "picture", "photo", "pexels", "stock"],
     icon: <FrameIcon className="w-[18px] h-[18px]" />,
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).run();
-      window.dispatchEvent(new CustomEvent("open-media-insert-modal", {
-        detail: { editor }
-      }));
-    },
-  },
-  {
-    title: "Video",
-    description: "Search stock or embed a video.",
-    searchTerms: ["video", "clip", "movie", "pexels", "stock"],
-    icon: <VideoIcon className="w-[18px] h-[18px]" />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).run();
       window.dispatchEvent(new CustomEvent("open-media-insert-modal", {
