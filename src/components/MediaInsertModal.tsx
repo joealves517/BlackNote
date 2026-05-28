@@ -245,12 +245,8 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
               <div className="history-sheet-handle-bar" />
             </div>
 
-            {/* Header Ambient Glow (Reduced opacity to keep it extremely subtle and modern) */}
-            <div className="absolute top-0 right-0 w-64 h-32 bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.05),transparent_60%)] pointer-events-none" />
-            <div className="absolute top-0 left-0 w-64 h-32 bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.03),transparent_60%)] pointer-events-none" />
-
             {/* Smart Segmented Controls with Premium Sliding morph indicator in default Neutral Gray */}
-            <div className="flex items-center justify-between px-6 py-2.5 bg-muted/10 relative z-10 select-none">
+            <div className="flex items-center justify-between px-6 py-2.5 bg-transparent relative z-10 select-none">
               {[
                 { id: "photos", label: "Photos", icon: <ImageIcon size={14} /> },
                 { id: "videos", label: "Videos", icon: <Video size={14} /> },
@@ -269,7 +265,7 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
                     {isActive && (
                       <motion.div
                         layoutId="activeMediaTabIndicator"
-                        className="absolute inset-0 rounded-full bg-zinc-200/85 dark:bg-zinc-800/90 shadow-sm"
+                        className="absolute inset-0 rounded-full bg-zinc-200 dark:bg-zinc-800 shadow-sm"
                         transition={{ type: "spring", stiffness: 380, damping: 30 }}
                       />
                     )}
