@@ -9,9 +9,6 @@ interface MediaInsertModalProps {
   uploadFn: (file: File) => Promise<string>;
 }
 
-// Obfuscated key to bypass automated scrapers while enabling direct client-side fallback testing
-const PEXELS_INTERNAL_KEY = ["qLRDcgXCYpPRQTPlSyG", "0ND8Gzytqt1y8s0XnWrig26SQTY", "fOFS7NkU1r"].join("");
-
 export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [editor, setEditor] = useState<any>(null);
@@ -102,9 +99,9 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
     setLoading(true);
     const nextPage = isNewSearch ? 1 : page + 1;
     try {
-      // 1. Try calling the secure backend proxy first
+      // Secure backend proxy call
       const token = await getAuthToken();
-      let response = await fetch(
+      const response = await fetch(
         `${AI_API_BASE}/api/pexels/search?query=${encodeURIComponent(queryStr)}&type=${activeTab}&page=${nextPage}&perPage=16`,
         {
           headers: {
@@ -113,25 +110,11 @@ export function MediaInsertModal({ uploadFn }: MediaInsertModalProps) {
         }
       );
 
-      let data;
-      if (response.ok) {
-        data = await response.json();
-      } else {
-        // 2. Direct frontend API key fallback if backend is offline/unreachable
-        console.warn("[Pexels Proxy] Backend unreachable or failed. Falling back to direct client-side search.");
-        const pexelsUrl = activeTab === "videos"
-          ? `https://api.pexels.com/videos/search?query=${encodeURIComponent(queryStr)}&page=${nextPage}&per_page=16`
-          : `https://api.pexels.com/v1/search?query=${encodeURIComponent(queryStr)}&page=${nextPage}&per_page=16`;
-
-        const directRes = await fetch(pexelsUrl, {
-          headers: {
-            Authorization: PEXELS_INTERNAL_KEY,
-          },
-        });
-        if (!directRes.ok) throw new Error("Pexels Direct fallback failed");
-        data = await directRes.json();
+      if (!response.ok) {
+        throw new Error(`Pexels Proxy failed: ${response.status} ${response.statusText}`);
       }
 
+      const data = await response.json();
       const newItems = activeTab === "videos" ? (data.videos || []) : (data.photos || []);
 
       if (isNewSearch) {
