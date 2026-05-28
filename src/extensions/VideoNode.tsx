@@ -9,11 +9,12 @@ import fixWebmDurationMod from "webm-duration-fix";
 // ─── React Component ──────────────────────────────────────────────
 
 function VideoNodeView({ node, deleteNode }: NodeViewProps) {
-  const { mediaId, status, duration, fileName } = node.attrs as {
+  const { mediaId, status, duration, fileName, src } = node.attrs as {
     mediaId: string;
     status: "recording" | "saved";
     duration: number;
     fileName: string;
+    src?: string;
   };
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -25,7 +26,15 @@ function VideoNodeView({ node, deleteNode }: NodeViewProps) {
 
   // Load blob from IndexedDB when status is 'saved'
   useEffect(() => {
-    if (status !== "saved" || !mediaId) return;
+    if (status !== "saved") return;
+
+    // If there is an external source URL, use it directly!
+    if (src && (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("blob:"))) {
+      setVideoUrl(src);
+      return;
+    }
+
+    if (!mediaId) return;
 
     let revoked = false;
     db.media_files
@@ -76,7 +85,7 @@ function VideoNodeView({ node, deleteNode }: NodeViewProps) {
     return () => {
       revoked = true;
     };
-  }, [mediaId, status]);
+  }, [mediaId, status, src]);
 
   // Listen for background auto-transcription progress
   useEffect(() => {
@@ -308,6 +317,7 @@ export const VideoNode = Node.create({
       status: { default: "recording" },
       duration: { default: 0 },
       fileName: { default: "Screen Recording" },
+      src: { default: null },
     };
   },
 
