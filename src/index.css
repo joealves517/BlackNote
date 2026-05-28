@@ -1180,8 +1180,12 @@ body {
   box-shadow: 0 6px 16px hsl(var(--foreground) / 0.08);
 }
 
-/* Thẻ img bên trong khối image node (có resizer) phải ôm khít container, loại bỏ margin/padding dư thừa */
-.novel-editor .tiptap div:has(> [data-resize-image-ui="resize-handle"]) img {
+/* 
+  Sửa triệt để lỗi hình ảnh bị nhảy (layout shift) khi click chọn bằng cách
+  đồng nhất CSS cho cấu trúc DOM của image resizer ở cả 2 trạng thái (chưa chọn và đã chọn).
+  Bằng cách target qua selector div > div > img đặc trưng của cấu trúc resizer.
+*/
+.novel-editor .tiptap div > div > img {
   margin: 0 !important;
   padding: 0 !important;
   display: block !important;
@@ -1192,7 +1196,7 @@ body {
   transition: border-radius 0.2s ease, box-shadow 0.2s ease;
 }
 
-.novel-editor .tiptap div:has(> [data-resize-image-ui="resize-handle"]) img:hover {
+.novel-editor .tiptap div > div > img:hover {
   box-shadow: 0 6px 16px hsl(var(--foreground) / 0.08);
 }
 
@@ -1202,33 +1206,23 @@ body {
   display: none !important;
 }
 
-/* 
-  Sửa triệt để lỗi khoảng trống trên/dưới của tool resize bằng CSS :has() hiện đại.
-  Khi ảnh nằm trong container của tool resizer (nhận diện qua việc có chứa resize-handle),
-  ta bắt buộc thẻ img và div bọc sát nó phải có margin/padding bằng 0 để ôm khít tuyệt đối.
-*/
-.novel-editor .tiptap div:has(> [data-resize-image-ui="resize-handle"]) {
+/* Fix image resizer container aesthetics to match the 12px rounded image corners */
+.novel-editor .tiptap div > div:has(> img) {
   border-radius: 12px !important;
   padding: 0 !important;
   margin: 0 !important;
   overflow: visible !important;
+  transition: border 0.15s ease !important;
 }
 
-/* Block wrapper ngoài cùng của resizer (div cha của container) nhận margin giãn dòng */
-.novel-editor .tiptap div:has(> div > [data-resize-image-ui="resize-handle"]) {
+/* Block wrapper ngoài cùng của resizer (elements.wrapper) nhận margin giãn dòng đồng nhất */
+.novel-editor .tiptap div:has(> div > img) {
   margin: 16px 0 !important;
 }
 
-.novel-editor .tiptap div:has(> [data-resize-image-ui="resize-handle"]) > div {
-  border-radius: 12px !important;
-  padding: 0 !important;
-  margin: 0 !important;
-}
-
 /* Customize the dashed border shown when selected/focused */
-.novel-editor .tiptap div:has(> [data-resize-image-ui="resize-handle"])[style*="dashed"] {
+.novel-editor .tiptap div > div:has(> img)[style*="dashed"] {
   border: 1.5px dashed hsl(var(--primary) / 0.6) !important;
-  border-radius: 12px !important;
 }
 
 /* Customize the corner dots (resize handles) to look modern and premium */
@@ -2497,10 +2491,11 @@ body {
 
 .video-node-player {
   width: 100%;
+  max-height: 480px;
   display: block;
   border-radius: 12px 12px 0 0;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
+  aspect-ratio: auto;
+  object-fit: contain;
   background: black;
 }
 
