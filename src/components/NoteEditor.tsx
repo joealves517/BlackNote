@@ -368,7 +368,7 @@ const suggestionItems = createSuggestionItems([
   },
   {
     title: "Media",
-    description: "Add image, stock media or embed link.",
+    description: "Add image or embed link.",
     searchTerms: ["media", "image", "video", "picture", "photo", "pexels", "stock"],
     icon: <FrameIcon className="w-[18px] h-[18px]" />,
     command: ({ editor, range }) => {
