@@ -8,7 +8,7 @@ import { Request, Response, NextFunction } from "express";
 const requestCounts = new Map<string, { count: number; resetAt: number }>();
 
 const WINDOW_MS = 60_000; // 1 minute
-const MAX_REQUESTS = 30; // per window per IP
+const MAX_REQUESTS = 150; // per window per IP (increased for developer testing)
 
 export function rateLimit(
   req: Request,

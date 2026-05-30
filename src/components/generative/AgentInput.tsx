@@ -9,7 +9,7 @@ import { markdownToProsemirror } from "@/lib/markdown-to-prosemirror";
 import { DOMSerializer } from "prosemirror-model";
 import TurndownService from "turndown";
 import { agentDecorationKey } from "@/extensions/AgentDecoration";
-import { fetchWithRetry, readStreamWithTimeout, validateAgentResponse } from "@/lib/agent-guard";
+import { fetchWithRetry } from "@/lib/agent-guard";
 import { ThreeDot } from "react-loading-indicators";
 import BorderGlow from "@/components/ui/BorderGlow";
 import ShinyText from "@/components/ui/ShinyText";
@@ -86,36 +86,7 @@ function serializeWithBlockIds(editor: ReturnType<typeof useEditor>["editor"]): 
   return { markdown: lines.join("\n\n"), blockMap };
 }
 
-/**
- * Parse AI response text into structured block changes.
- * Handles multi-line blocks (lists, tables, etc.)
- */
-function parseAgentResponse(text: string): AgentChange[] {
-  const changes: AgentChange[] = [];
-  const lines = text.split("\n");
-  let current: { id: string; lines: string[] } | null = null;
 
-  // Strip stray guillemet characters that AI may hallucinate
-  const cleanLine = (s: string) => s.replace(/[«»]/g, "");
-
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    const match = trimmedLine.match(/^«(b\d+|new|replace_all|title)»\s*(.*)/i);
-    if (match) {
-      if (current) {
-        changes.push({ blockId: current.id, content: current.lines.join("\n").trim() });
-      }
-      current = { id: match[1], lines: match[2] ? [cleanLine(match[2])] : [] };
-    } else if (current) {
-      current.lines.push(cleanLine(line));
-    }
-  }
-  if (current) {
-    changes.push({ blockId: current.id, content: current.lines.join("\n").trim() });
-  }
-
-  return changes;
-}
 
 
 
@@ -251,37 +222,70 @@ function applyChanges(
   const newContent: any[] = [];
   let outputIdx = 0;
 
-  // Rebuild document: replace changed blocks, keep unchanged ones, but mark deleted ones for styling
+  // 1. Prepend block nodes at the very beginning of the document
+  const prependChanges = changes.filter((c) => c.blockId === "prepend");
+  for (const change of prependChanges) {
+    const parsedNodes = parseMarkdownToNodes(change.content);
+    for (const pNode of parsedNodes) {
+      newContent.push(pNode);
+      modifiedIndices.add(outputIdx);
+      outputIdx++;
+    }
+  }
+
+  // 2. Rebuild document: handle before/after insertions, replace blocks, and keep unchanged ones
   docJson.content.forEach((node, idx) => {
     const blockId = `b${idx}`;
-    const change = changeMap.get(blockId);
 
-    if (change) {
-      if (/\[DELETE\]/i.test(change.content.replace(/[*_`~]/g, "").trim())) {
-        // KEEP the block node in newContent during Review Mode so it can be decorated
-        newContent.push(node);
-        deletedIndices.add(outputIdx);
-        outputIdx++;
-        return;
-      }
-      // Replace with AI-generated content
+    // Handle insertions requested before this block index
+    const beforeChanges = changes.filter((c) => c.blockId === `insert_before:${blockId}`);
+    for (const change of beforeChanges) {
       const parsedNodes = parseMarkdownToNodes(change.content);
       for (const pNode of parsedNodes) {
         newContent.push(pNode);
         modifiedIndices.add(outputIdx);
         outputIdx++;
       }
+    }
+
+    const change = changeMap.get(blockId);
+    if (change) {
+      if (/\[DELETE\]/i.test(change.content.replace(/[*_`~]/g, "").trim())) {
+        // Keep block node in newContent during Review Mode so it can be decorated
+        newContent.push(node);
+        deletedIndices.add(outputIdx);
+        outputIdx++;
+      } else {
+        // Replace block with AI-generated content
+        const parsedNodes = parseMarkdownToNodes(change.content);
+        for (const pNode of parsedNodes) {
+          newContent.push(pNode);
+          modifiedIndices.add(outputIdx);
+          outputIdx++;
+        }
+      }
     } else {
-      // Unchanged — keep original
+      // Keep original unchanged block node
       newContent.push(node);
       outputIdx++;
     }
+
+    // Handle insertions requested after this block index
+    const afterChanges = changes.filter((c) => c.blockId === `insert_after:${blockId}`);
+    for (const change of afterChanges) {
+      const parsedNodes = parseMarkdownToNodes(change.content);
+      for (const pNode of parsedNodes) {
+        newContent.push(pNode);
+        modifiedIndices.add(outputIdx);
+        outputIdx++;
+      }
+    }
   });
 
-  // Append new blocks
-  const newBlocks = changes.filter((c) => c.blockId === "new");
-  for (const block of newBlocks) {
-    const parsedNodes = parseMarkdownToNodes(block.content);
+  // 3. Append new block nodes at the end
+  const appendChanges = changes.filter((c) => c.blockId === "new" || c.blockId === "append");
+  for (const change of appendChanges) {
+    const parsedNodes = parseMarkdownToNodes(change.content);
     for (const pNode of parsedNodes) {
       newContent.push(pNode);
       modifiedIndices.add(outputIdx);
@@ -367,7 +371,13 @@ export function AgentInput({
   useEffect(() => {
     const handleVisibility = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      setIsHidden(!detail);
+      const isConfiguredHidden = localStorage.getItem("blacknote_hide_agent") !== "false";
+      
+      if (isConfiguredHidden) {
+        setIsHidden(true);
+      } else {
+        setIsHidden(!detail);
+      }
     };
     window.addEventListener("blacknote_agent_visibility", handleVisibility);
     return () => window.removeEventListener("blacknote_agent_visibility", handleVisibility);
@@ -517,67 +527,58 @@ export function AgentInput({
         throw new Error(`HTTP ${response.status}`);
       }
 
-      // Read with timeout protection (Factor 9: Self-Healing)
-      const fullText = await readStreamWithTimeout(response, 30000);
+      // Parse structured JSON response from ADK backend
+      const data = await response.json();
 
-      // Validate before applying (Factor 7: Compact Errors into Context)
-      const validation = validateAgentResponse(fullText, blockMap.size);
-      if (validation.issues.length > 0) {
-        console.warn("[Agent Guard] Issues:", validation.issues);
-      }
-
-      // Handle clarification request (Factor 11: Human-in-the-Loop)
-      if (fullText.startsWith("«clarify»")) {
-        try {
-          const payload = JSON.parse(fullText.slice("«clarify»".length));
-          setAgentMessage(payload.reason || "Could you clarify your instruction?");
-          setClarifications(payload.suggestions || []);
-        } catch {
-          setAgentMessage(fullText.slice("«clarify»".length));
-        }
+      // Handle error responses
+      if (data.error) {
+        setAgentMessage(data.error);
         snapshotRef.current = null;
         setIsProcessing(false);
         return;
       }
-      setClarifications([]); // Clear any previous clarifications
 
-      // Strip out any <think> tags and their contents
-      const cleanText = fullText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+      // Handle clarification request (Pre-LLM gate)
+      if (data.clarification) {
+        setAgentMessage(data.clarification.reason || "Could you clarify your instruction?");
+        setClarifications(data.clarification.suggestions || []);
+        snapshotRef.current = null;
+        setIsProcessing(false);
+        return;
+      }
+      setClarifications([]);
 
-      // Check if the response contains a generated image URL
-      const imageUrl = extractImageUrl(cleanText);
-
-      if (imageUrl && ed) {
-        // Handle image generation: auto-insert image directly at cursor position
-        try {
-          // Check if image is already present in editor to avoid duplicates
-          const currentHtml = ed.getHTML();
-          if (!currentHtml.includes(imageUrl)) {
-            ed.chain().focus().setImage({ src: imageUrl }).run();
-            console.log(`[Agent] Auto-inserted generated image at cursor: ${imageUrl}`);
+      // Handle structured document changes from ADK agents
+      if (data.changes && Array.isArray(data.changes) && data.changes.length > 0) {
+        // Check for image generation result
+        if (data.imageUrl && ed) {
+          try {
+            const currentHtml = ed.getHTML();
+            if (!currentHtml.includes(data.imageUrl)) {
+              ed.chain().focus().setImage({ src: data.imageUrl }).run();
+              console.log(`[Agent] Auto-inserted generated image at cursor: ${data.imageUrl}`);
+            }
+          } catch (err) {
+            console.error("[Agent] Failed to auto-insert image:", err);
           }
-        } catch (err) {
-          console.error("[Agent] Failed to auto-insert image:", err);
-        }
 
-        // Set the agent message to the formatted image tag so preview UI renders it
-        setAgentMessage(`<image>${imageUrl}</image>`);
-        setHasPendingModifications(false);
+          setAgentMessage(`<image>${data.imageUrl}</image>`);
+          setHasPendingModifications(false);
+          snapshotRef.current = null;
+        } else {
+          // Apply document changes with Review Mode (Visual Diffing)
+          pendingChangesRef.current = data.changes;
+          applyChanges(ed, blockMap, data.changes, noteId, onTitleChange);
+          setHasPendingModifications(true);
+          setChangeCount(data.changes.length);
+        }
+      } else if (data.text) {
+        // QAAgent returned conversational text
+        setAgentMessage(data.text);
         snapshotRef.current = null;
       } else {
-        // Normal text or block-based document changes
-        const changes = parseAgentResponse(cleanText);
-
-        if (changes.length > 0) {
-          pendingChangesRef.current = changes;
-          applyChanges(ed, blockMap, changes, noteId, onTitleChange);
-          setHasPendingModifications(true);
-          setChangeCount(changes.length);
-        } else {
-          // No block markers → AI answered a general question
-          setAgentMessage(cleanText || validation.suggestion || null);
-          snapshotRef.current = null;
-        }
+        setAgentMessage("No response from agent. Please try again.");
+        snapshotRef.current = null;
       }
     } catch (err) {
       console.error("[Agent] Error:", err);

@@ -82,6 +82,29 @@ export async function requireAuth(
 
   const token = authHeader.slice(7);
 
+  // Bypass Google token verification in development mode for easier API testing
+  if (process.env.NODE_ENV === "development" && token === "dev-token") {
+    const authReq = req as AuthenticatedRequest;
+    authReq.userId = "dev-user-id-999";
+    authReq.userEmail = "alvesoscar517@gmail.com";
+    authReq.userName = "Developer Test User";
+    authReq.userPicture = "";
+    
+    // Log User Action
+    if (!req.path.startsWith("/api/notes")) {
+      logUsage({
+        userId: "dev-user-id-999",
+        app: "blacknote",
+        action: req.path,
+        method: req.method,
+        model: "action_log_dev",
+        creditsUsed: 0,
+        timestamp: new Date()
+      }).catch((e) => console.error("[Action Log Error]", e));
+    }
+    return next();
+  }
+
   const googleInfo = await verifyGoogleToken(token);
   if (googleInfo) {
     // Fetch full profile for display name and picture

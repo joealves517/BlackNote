@@ -15,6 +15,7 @@ import agentRouter from "./routes/agent.js";
 import pexelsRouter from "./routes/pexels.js";
 
 const app = express();
+app.set("trust proxy", true);
 
 // ─── Security ───────────────────────────────────────────────────────
 app.use(helmet());

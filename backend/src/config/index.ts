@@ -15,7 +15,7 @@ function loadEnv() {
 
   return {
     port: parseInt(process.env.PORT || "8080", 10),
-    nodeEnv: process.env.NODE_ENV || "development",
+    nodeEnv: process.env.NODE_ENV || "production",
     gcp: {
       projectId: process.env.GCP_PROJECT_ID || "ask-this-page",
       region: process.env.GCP_REGION || "us-central1",
