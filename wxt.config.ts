@@ -7,7 +7,7 @@ export default defineConfig({
   srcDir: 'src',
   publicDir: 'src/public',
   manifest: {
-    name: 'BlackNote - AI Workspace & Meeting Notes',
+    name: 'BlackNote - AI Note Sidebar',
     key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7nj+WgQ/eySyQuei+75xvlYKJNytg9XT9U/m3QoaTHQ3LUB8GRIV52xtKeWMMquLM7fNw1hiyQBeCeDx6NEbZqcYQnGHAltkXLLEa0kKs8XzDMGSMgY5VJLmjU/lzj7PIu3ilGqaYL0xa61zp0IdLKOFZN4z2IEDDFX2A3E/YQ/XPREEy1U0qy6qB13YcnkV2h/RWMcZjSmZNS7mWLhiEHgtBOlCu8COOrekxvh1nOh4pFFZoGw9GWrjIBJ3EmuTPhePtQ4PH9jpRk0LAlIEOSR6pdHvV5nmUsjxtIiPM2atxJvESsqVtYMsy+U2QtrUDA1MoravkkZFhasK8726owIDAQAB',
     description: 'AI-powered note-taking, web clipper, voice recorder & meeting transcription. Your premium productivity workspace in a side panel.',
     host_permissions: ['<all_urls>'],
